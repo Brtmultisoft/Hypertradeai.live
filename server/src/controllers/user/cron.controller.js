@@ -1379,7 +1379,7 @@ const _processDailyTradingProfit = async () => {
 
         try {
           // Add profit to user's wallet
-          const walletUpdate = await userDbHandler.updateById(investment.user_id, {
+          const walletUpdate = await userDbHandler.updateOneByQuery({_id : investment.user_id}, {
             $inc: {
               wallet: +dailyProfit,
               "extra.dailyProfit": dailyProfit
