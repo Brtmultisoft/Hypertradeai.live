@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 // Create the context
@@ -8,11 +8,14 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start with loading false
   const [error, setError] = useState(null);
 
+  // Use a ref to track if we've already tried to load the user
+  const hasTriedToLoadUser = useRef(false);
+
   // Set up axios defaults
-  axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/';
+  axios.defaults.baseURL = import.meta.env.VITE_API_URL
 
   // Add token to axios headers if it exists
   useEffect(() => {
@@ -25,12 +28,18 @@ export const AuthProvider = ({ children }) => {
 
   // Load user data if token exists
   const loadUser = useCallback(async () => {
-    if (!token) {
+    // Double-check token existence both in state and localStorage
+    const storedToken = localStorage.getItem('token');
+
+    // Don't proceed if we don't have a token in either state or localStorage
+    if (!token || !storedToken) {
+      console.log('No valid token found, aborting profile load');
       setLoading(false);
       return;
     }
 
     try {
+      console.log('Loading user profile with token:', token);
       setLoading(true);
       const res = await axios.get('/user/profile');
       console.log('Profile response:', res.data);
@@ -42,21 +51,59 @@ export const AuthProvider = ({ children }) => {
       } else {
         console.error('Unexpected profile response structure:', res.data);
         setError('Failed to load user data');
-        logout();
+        // Don't call logout here to prevent loops
+        // Just clear the token
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
       }
     } catch (err) {
       console.error('Error loading user:', err);
       setError('Failed to load user data');
-      logout();
+
+      // Only clear token on auth errors (401)
+      if (err.response && err.response.status === 401) {
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
   }, [token]);
 
-  // Load user on mount and when token changes
+  // Load user only once on mount if token exists
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    // Check if token exists in localStorage
+    const storedToken = localStorage.getItem('token');
+
+    // If there's no token in localStorage, make sure our state reflects that
+    if (!storedToken && token) {
+      console.log('Token in state but not in localStorage, clearing state');
+      setToken(null);
+      setUser(null);
+      setLoading(false);
+      hasTriedToLoadUser.current = true;
+      return;
+    }
+
+    // Only try to load user data if:
+    // 1. We haven't tried before
+    // 2. We have a token
+    // 3. We're not already loading
+    if (!hasTriedToLoadUser.current && token && !loading) {
+      console.log('Initial load of user data with token:', token);
+      hasTriedToLoadUser.current = true; // Mark that we've tried
+      loadUser();
+    } else if (!token) {
+      // If no token, just mark loading as false and don't try to load user
+      console.log('No token found, skipping user data load');
+      setLoading(false);
+      hasTriedToLoadUser.current = true;
+    }
+
+    // This effect should only run once on mount
+  }, []); // Empty dependency array = only run on mount
 
   // Login function
   const login = async (credentials) => {
@@ -132,17 +179,44 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout function
+  // Logout function - completely clears all auth state
   const logout = () => {
-    // Remove token from localStorage
-    localStorage.removeItem('token');
+    console.log('Logout function called - clearing all auth state');
 
-    // Update state
+    // 1. Clear all localStorage items related to authentication
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
+    // 2. Clear all sessionStorage items
+    sessionStorage.clear();
+
+    // 3. Set a flag to prevent redirect loops
+    sessionStorage.setItem('clean_logout', 'true');
+
+    // 4. Reset all state variables
     setToken(null);
     setUser(null);
+    setError(null);
+    setLoading(false);
 
-    // Clear axios headers
+    // 5. Reset all refs
+    hasTriedToLoadUser.current = true;
+
+    // 6. Clear all axios headers
     delete axios.defaults.headers.common['Authorization'];
+    axios.defaults.headers.common = {};
+
+    // 7. Clear any pending requests
+    // This helps prevent 401 errors from in-flight requests
+    if (window._axiosSource) {
+      window._axiosSource.cancel('Logout initiated');
+    }
+
+    console.log('User logged out successfully - all state cleared');
+
+    // 8. Force a complete page reload to clear any lingering state
+    // This is the most reliable way to clear everything
+    window.location.href = '/login';
   };
 
   // Forgot password function

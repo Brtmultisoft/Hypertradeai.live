@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -32,12 +32,21 @@ const Login = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // Track if this component has redirected
+  const hasRedirected = useRef(false);
+
   // Redirect to dashboard if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
+    // Only redirect if:
+    // 1. User is authenticated
+    // 2. We haven't already redirected
+    // 3. We're not in the middle of loading
+    if (isAuthenticated && !hasRedirected.current && !loading) {
+      console.log('User is authenticated, redirecting to dashboard');
+      hasRedirected.current = true;
       navigate('/dashboard');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, loading]);
 
   // Form validation rules
   const validationRules = {
@@ -71,16 +80,19 @@ const Login = () => {
     },
     validationRules,
     async (formValues) => {
+      console.log('Form submitted with values:', formValues);
+
       const result = await login(formValues);
       if (result.success) {
         // Show success notification
         setSuccessMessage(result.message || 'Login successful!');
         setShowSuccessAlert(true);
 
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1000); // 1 second delay to show the success message
+        // Redirect will be handled by the useEffect that watches isAuthenticated
+        console.log('Login successful, authentication state will trigger redirect');
+
+        // Reset the redirect flag to allow the useEffect to redirect
+        hasRedirected.current = false;
       }
     }
   );

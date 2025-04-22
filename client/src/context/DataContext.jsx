@@ -40,16 +40,28 @@ export const DataProvider = ({ children }) => {
 
   // Fetch dashboard data
   const fetchDashboardData = useCallback(async () => {
+    // Check if token exists before making API call
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token found, skipping dashboard data fetch');
+      setDashboardData(null);
+      setLoadingDashboard(false);
+      return;
+    }
+
     setLoadingDashboard(true);
     setDashboardError(null);
     try {
       const response = await DashboardService.getDashboardData();
-      console.log(response)
+      console.log('Dashboard data fetched successfully:', response);
       setDashboardData(response.result);
       setLastUpdate(Date.now());
     } catch (error) {
-      setDashboardError(error.message || 'Failed to fetch dashboard data');
-      console.error('Error fetching dashboard data:', error);
+      // Don't set error if it's a cancelled request
+      if (error.message !== 'No authentication token') {
+        setDashboardError(error.message || 'Failed to fetch dashboard data');
+        console.error('Error fetching dashboard data:', error);
+      }
     } finally {
       setLoadingDashboard(false);
     }
@@ -57,15 +69,28 @@ export const DataProvider = ({ children }) => {
 
   // Fetch user profile data
   const fetchUserData = useCallback(async () => {
+    // Check if token exists before making API call
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token found, skipping user profile fetch');
+      setUserData(null);
+      setLoadingUser(false);
+      return;
+    }
+
     setLoadingUser(true);
     setUserError(null);
     try {
       const response = await UserService.getUserProfile();
+      console.log('User profile fetched successfully');
       setUserData(response.data);
       setLastUpdate(Date.now());
     } catch (error) {
-      setUserError(error.message || 'Failed to fetch user data');
-      console.error('Error fetching user data:', error);
+      // Don't set error if it's a cancelled request
+      if (error.message !== 'No authentication token') {
+        setUserError(error.message || 'Failed to fetch user data');
+        console.error('Error fetching user data:', error);
+      }
     } finally {
       setLoadingUser(false);
     }
@@ -121,41 +146,56 @@ export const DataProvider = ({ children }) => {
 
   // Refresh all data
   const refreshAllData = useCallback(() => {
-    fetchDashboardData();
-    fetchUserData();
-    fetchTeamData();
-    fetchInvestmentData();
-    fetchIncomeData();
+    // Check if token exists before making API calls
+    const token = localStorage.getItem('token');
+
+    if (token) {
+      console.log('Token exists, refreshing all data');
+      fetchDashboardData();
+      fetchUserData();
+      fetchTeamData();
+      fetchInvestmentData();
+      fetchIncomeData();
+    } else {
+      console.log('No token found, skipping data refresh');
+    }
   }, [fetchDashboardData, fetchUserData, fetchTeamData, fetchInvestmentData, fetchIncomeData]);
 
   // Initialize data on component mount
   useEffect(() => {
-    fetchDashboardData();
-    fetchUserData();
-    
-    // Set up polling for automatic refresh (every 30 seconds)
-    const pollingInterval = setInterval(() => {
+    // Check if token exists before making API calls
+    const token = localStorage.getItem('token');
+
+    if (token) {
+      console.log('Token exists, fetching initial data');
       fetchDashboardData();
-    }, 30000);
-    
-    return () => clearInterval(pollingInterval);
+      fetchUserData();
+
+      // Set up polling for automatic refresh (every 30 seconds)
+      const pollingInterval = setInterval(() => {
+        // Check token again before each poll
+        if (localStorage.getItem('token')) {
+          fetchDashboardData();
+        } else {
+          // Clear interval if token is gone
+          clearInterval(pollingInterval);
+        }
+      }, 30000);
+
+      return () => clearInterval(pollingInterval);
+    } else {
+      console.log('No token found, skipping data fetch');
+    }
   }, [fetchDashboardData, fetchUserData]);
 
-  // Create a custom event for data updates
+  // Listen for data update events
   useEffect(() => {
-    // Create a custom event for data updates
-    const dataUpdateEvent = new Event('dataUpdate');
-    
-    // Function to dispatch the event
-    const dispatchUpdateEvent = () => {
-      document.dispatchEvent(dataUpdateEvent);
-    };
-    
+
     // Listen for investment-related actions
     document.addEventListener('investmentCreated', refreshAllData);
     document.addEventListener('investmentUpdated', refreshAllData);
     document.addEventListener('transferCompleted', refreshAllData);
-    
+
     // Clean up event listeners
     return () => {
       document.removeEventListener('investmentCreated', refreshAllData);
@@ -171,35 +211,35 @@ export const DataProvider = ({ children }) => {
     loadingDashboard,
     dashboardError,
     fetchDashboardData,
-    
+
     // User data
     userData,
     loadingUser,
     userError,
     fetchUserData,
-    
+
     // Team data
     teamData,
     loadingTeam,
     teamError,
     fetchTeamData,
-    
+
     // Investment data
     investmentData,
     loadingInvestment,
     investmentError,
     fetchInvestmentData,
-    
+
     // Income data
     incomeData,
     loadingIncome,
     incomeError,
     fetchIncomeData,
-    
+
     // General
     lastUpdate,
     refreshAllData,
-    
+
     // Helper function to trigger data update events
     triggerUpdate: (eventType) => {
       const event = new Event(eventType);
