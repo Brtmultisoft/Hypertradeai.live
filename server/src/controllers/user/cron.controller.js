@@ -568,7 +568,7 @@ const processTeamCommission = async (user_id, amount) => {
         try {
           // Add commission to user's wallet
           const auser = await userDbHandler.getById(currentUser._id);
-          const walletUpdate = await userDbHandler.updateByQuery({_id: currentUser._id}, {
+          const walletUpdate = await userDbHandler.updateOneByQuery({_id: currentUser._id}, {
             $inc: {
               wallet: commissionAmount,
               "extra.teamCommission": commissionAmount
