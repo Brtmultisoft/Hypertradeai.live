@@ -35,6 +35,12 @@ module.exports = {
             // Add type filter for daily profit
             reqObj.type = 'daily_profit';
             let getList = await incomeDbHandler.getAll(reqObj, user_id);
+
+            // Ensure we only return daily_profit type incomes
+            if (getList && getList.list) {
+                getList.list = getList.list.filter(income => income.type === 'daily_profit');
+            }
+
             responseData.msg = 'Data fetched successfully!';
             responseData.data = getList;
             return responseHelper.success(res, responseData);
@@ -55,6 +61,12 @@ module.exports = {
             // Add type filter for referral bonus
             reqObj.type = 'referral_bonus';
             let getList = await incomeDbHandler.getAll(reqObj, user_id);
+
+            // Ensure we only return referral_bonus type incomes
+            if (getList && getList.list) {
+                getList.list = getList.list.filter(income => income.type === 'referral_bonus');
+            }
+
             responseData.msg = 'Data fetched successfully!';
             responseData.data = getList;
             return responseHelper.success(res, responseData);
@@ -75,6 +87,12 @@ module.exports = {
             // Add type filter for level ROI income
             reqObj.type = 'level_roi_income';
             let getList = await incomeDbHandler.getAll(reqObj, user_id);
+
+            // Ensure we only return level_roi_income type incomes
+            if (getList && getList.list) {
+                getList.list = getList.list.filter(income => income.type === 'level_roi_income');
+            }
+
             responseData.msg = 'Data fetched successfully!';
             responseData.data = getList;
             return responseHelper.success(res, responseData);

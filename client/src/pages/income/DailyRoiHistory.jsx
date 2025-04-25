@@ -30,7 +30,7 @@ const DailyRoiHistory = () => {
   const [totalRows, setTotalRows] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
 
-  // Fetch income data
+  // Fetch income data with immediate=true to load data as soon as component mounts
   const {
     data,
     loading,
@@ -40,26 +40,28 @@ const DailyRoiHistory = () => {
     type: 'daily_profit',
     page: page + 1,
     limit: rowsPerPage,
-  }));
+  }), true); // Set immediate=true to fetch immediately
 
-  // Fetch income summary
+  // Fetch income summary with immediate=true
   const {
     data: summaryData,
     loading: summaryLoading,
     error: summaryError,
     execute: fetchSummary,
-  } = useApi(() => IncomeService.getIncomeSum({ type: 'daily_profit' }));
+  } = useApi(() => IncomeService.getIncomeSum({ type: 'daily_profit' }), true); // Set immediate=true
 
+  // Refetch data when page or rowsPerPage changes
   useEffect(() => {
-    fetchIncomeData();
-    fetchSummary();
-  }, [page, rowsPerPage]);
+    if (page > 0 || rowsPerPage !== 10) { // Only refetch if not on first page with default rows
+      fetchIncomeData();
+    }
+  }, [page, rowsPerPage, fetchIncomeData]);
 
   // Update income data when API response changes
   useEffect(() => {
     if (data?.result) {
       setIncomeData(data.result.list || []);
-      setTotalRows(data.result.list.length || 0);
+      setTotalRows(data.result.total || 0); // Use total from API for pagination
     }
   }, [data]);
 
@@ -95,7 +97,7 @@ const DailyRoiHistory = () => {
   return (
     <Box sx={{ p: 3 }}>
       <PageHeader title="Daily ROI History" />
-      
+
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={4}>
@@ -110,7 +112,7 @@ const DailyRoiHistory = () => {
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={4}>
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
@@ -123,7 +125,7 @@ const DailyRoiHistory = () => {
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={4}>
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
@@ -137,11 +139,11 @@ const DailyRoiHistory = () => {
           </Card>
         </Grid>
       </Grid>
-      
+
       {/* Income Table */}
-      <Paper 
+      <Paper
         elevation={0}
-        sx={{ 
+        sx={{
           borderRadius: 2,
           border: `1px solid ${theme.palette.divider}`,
           overflow: 'hidden'

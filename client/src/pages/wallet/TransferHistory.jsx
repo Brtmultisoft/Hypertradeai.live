@@ -43,7 +43,7 @@ const TransferHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
 
-  // Fetch transfer data
+  // Fetch transfer data with immediate=true to load data as soon as component mounts
   const {
     data,
     loading,
@@ -54,15 +54,15 @@ const TransferHistory = () => {
     limit: rowsPerPage,
     search: searchTerm || undefined,
     type: filterType !== 'all' ? filterType : undefined,
-  }));
+  }), true); // Set immediate=true to fetch immediately
 
-  // Fetch transfer summary
+  // Fetch transfer summary with immediate=true
   const {
     data: summaryData,
     loading: summaryLoading,
     error: summaryError,
     execute: fetchSummary,
-  } = useApi(() => WalletService.getFundTransferSum());
+  } = useApi(() => WalletService.getFundTransferSum(), true); // Set immediate=true to fetch immediately
 
   // Handle page change
   const handleChangePage = (event, newPage) => {
@@ -148,11 +148,12 @@ const TransferHistory = () => {
     }
   }, [summaryData]);
 
-  // Fetch data on component mount and when dependencies change
+  // Refetch data when page, rowsPerPage, or filterType changes
   useEffect(() => {
-    fetchTransferData();
-    fetchSummary();
-  }, [page, rowsPerPage, filterType]);
+    if (page > 0 || rowsPerPage !== 10 || filterType !== 'all') { // Only refetch if not on default settings
+      fetchTransferData();
+    }
+  }, [page, rowsPerPage, filterType, fetchTransferData]);
 
   return (
     <Box sx={{ p: 3 }}>

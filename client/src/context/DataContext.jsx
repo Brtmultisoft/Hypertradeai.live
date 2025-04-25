@@ -168,14 +168,19 @@ export const DataProvider = ({ children }) => {
 
     if (token) {
       console.log('Token exists, fetching initial data');
+      // Fetch all data immediately on mount
       fetchDashboardData();
       fetchUserData();
+      fetchTeamData();
+      fetchInvestmentData();
+      fetchIncomeData();
 
       // Set up polling for automatic refresh (every 30 seconds)
       const pollingInterval = setInterval(() => {
         // Check token again before each poll
         if (localStorage.getItem('token')) {
           fetchDashboardData();
+          fetchUserData(); // Also refresh user data to get updated invitation code/sponsor ID
         } else {
           // Clear interval if token is gone
           clearInterval(pollingInterval);
@@ -186,7 +191,7 @@ export const DataProvider = ({ children }) => {
     } else {
       console.log('No token found, skipping data fetch');
     }
-  }, [fetchDashboardData, fetchUserData]);
+  }, [fetchDashboardData, fetchUserData, fetchTeamData, fetchInvestmentData, fetchIncomeData]);
 
   // Listen for data update events
   useEffect(() => {

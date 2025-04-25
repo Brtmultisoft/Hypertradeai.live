@@ -49,7 +49,7 @@ const DirectTeam = () => {
     totalInvestment: 0,
   });
 
-  // Fetch direct team data
+  // Fetch direct team data with immediate=true to load data as soon as component mounts
   const {
     data,
     loading,
@@ -59,7 +59,7 @@ const DirectTeam = () => {
     page: page + 1,
     limit: rowsPerPage,
     search: searchTerm || undefined,
-  }));
+  }), true); // Set immediate=true to fetch immediately
 
   // Handle page change
   const handleChangePage = (event, newPage) => {
@@ -121,10 +121,12 @@ const DirectTeam = () => {
     }
   }, [data]);
 
-  // Fetch data on component mount and when dependencies change
+  // Refetch data when page or rowsPerPage changes
   useEffect(() => {
-    fetchTeamData();
-  }, [page, rowsPerPage]);
+    if (page > 0 || rowsPerPage !== 10) { // Only refetch if not on first page with default rows
+      fetchTeamData();
+    }
+  }, [page, rowsPerPage, fetchTeamData]);
 
   return (
     <Box sx={{ p: 3 }}>

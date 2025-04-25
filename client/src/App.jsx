@@ -30,7 +30,7 @@ import TransferHistory from './pages/wallet/TransferHistory';
 import Deposit from './pages/wallet/Deposit';
 import Withdraw from './pages/wallet/Withdraw';
 import LiveTrading from './pages/live_trading/LiveTrading';
-const TransactionHistory = () => <div>Transaction History Page</div>;
+import TransactionHistory from './pages/wallet/TransactionHistory';
 
 // Common Components
 

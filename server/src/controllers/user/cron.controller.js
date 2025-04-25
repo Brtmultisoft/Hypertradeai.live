@@ -459,7 +459,7 @@ const processTeamCommission = async (user_id, amount) => {
     console.log('\n======== PROCESSING LEVEL ROI INCOME ========');
     console.log(`Processing level ROI income for user ID: ${user_id}, amount: $${amount}`);
 
-    // Fixed percentages as per the plan
+    // Fixed percentages as per the plan - now extended to 10 levels
     const percentages = {
       level1: 25, // 25% of ROI income for level 1
       level2: 10, // 10% of ROI income for level 2
@@ -467,7 +467,10 @@ const processTeamCommission = async (user_id, amount) => {
       level4: 4,  // 4% of ROI income for level 4
       level5: 3,  // 3% of ROI income for level 5
       level6: 2,  // 2% of ROI income for level 6
-      level7: 1   // 1% of ROI income for level 7
+      level7: 1,  // 1% of ROI income for level 7
+      level8: 0.5,  // 1% of ROI income for level 8
+      level9: 0.5,  // 1% of ROI income for level 9
+      level10: 0.5  // 1% of ROI income for level 10
     };
 
     console.log(`Level ROI Income percentages:
@@ -477,7 +480,10 @@ const processTeamCommission = async (user_id, amount) => {
       Level 4: ${percentages.level4}%,
       Level 5: ${percentages.level5}%,
       Level 6: ${percentages.level6}%,
-      Level 7: ${percentages.level7}%`);
+      Level 7: ${percentages.level7}%,
+      Level 8: ${percentages.level8}%,
+      Level 9: ${percentages.level9}%,
+      Level 10: ${percentages.level10}%`);
 
     // Get the user who made the investment
     const investmentUser = await userDbHandler.getById(user_id);
@@ -492,8 +498,8 @@ const processTeamCommission = async (user_id, amount) => {
     let currentUser = await userDbHandler.getById(investmentUser.refer_id);
     let level = 1;
 
-    // Process up to 7 levels as per the plan
-    const maxLevel = 7;
+    // Process up to 10 levels as per the updated plan
+    const maxLevel = 10;
     console.log(`Processing up to ${maxLevel} levels of ROI income`);
 
     while (currentUser && level <= maxLevel) {
@@ -539,16 +545,17 @@ const processTeamCommission = async (user_id, amount) => {
         continue; // Skip to the next iteration
       }
 
-      // Check if the user has at least one direct referral (required for level ROI income)
+      // Check if the user has direct referrals (required for level ROI income)
       const directReferrals = await userDbHandler.getByQuery({ refer_id: currentUser._id });
       console.log(`Current upline user has ${directReferrals.length} direct referrals`);
 
-      // User needs at least 1 direct referral to qualify for level ROI income
-      const requiredDirects = 1;
-      console.log(`Level ROI income requires at least ${requiredDirects} direct referral`);
+      // NEW REQUIREMENT: User can only receive level ROI up to the level that matches their direct referral count
+      // For example, if user has 3 direct referrals, they can receive ROI from levels 1, 2, and 3 only
+      console.log(`Level ROI income level ${level} requires at least ${level} direct referrals`);
 
-      if (directReferrals.length >= requiredDirects && hasInvested) {
-        console.log(`User has enough direct referrals (${directReferrals.length} >= ${requiredDirects}) and has invested. Processing commission...`);
+      // Check if user has enough direct referrals for this level
+      if (directReferrals.length >= level && hasInvested) {
+        console.log(`User has enough direct referrals (${directReferrals.length} >= ${level}) and has invested. Processing commission...`);
 
         // Calculate daily profit from the investment amount using fixed 8% ROI
         const roiRate = 8; // Fixed 8% ROI as per requirements
@@ -599,8 +606,8 @@ const processTeamCommission = async (user_id, amount) => {
       } else {
         if (!hasInvested) {
           console.log(`User ${currentUser.username || currentUser.email} has not invested. Skipping commission.`);
-        } else if (directReferrals.length < requiredDirects) {
-          console.log(`User ${currentUser.username || currentUser.email} does not have enough direct referrals (${directReferrals.length} < ${requiredDirects}). Skipping commission.`);
+        } else if (directReferrals.length < level) {
+          console.log(`User ${currentUser.username || currentUser.email} does not have enough direct referrals (${directReferrals.length} < ${level}) for level ${level} ROI. Skipping commission.`);
         }
       }
 

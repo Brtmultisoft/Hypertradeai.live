@@ -57,7 +57,9 @@ const Dashboard = () => {
     dashboardData,
     loadingDashboard,
     dashboardError,
-    fetchDashboardData
+    fetchDashboardData,
+    userData,
+    loadingUser
   } = useData();
 
   // State for active tab
@@ -100,13 +102,6 @@ const Dashboard = () => {
   // Fetch crypto prices on component mount
   useEffect(() => {
     fetchCryptoPrices();
-
-    // Set up polling for automatic refresh (every 5 minutes)
-    const pollingInterval = setInterval(() => {
-      fetchCryptoPrices();
-    }, 5 * 60 * 1000); // 5 minutes in milliseconds
-
-    return () => clearInterval(pollingInterval);
   }, []);
 
   // Sample chart data (replace with actual data from API)
@@ -935,7 +930,7 @@ const Dashboard = () => {
                   cursor: 'pointer',
                 }}
                 onClick={() => {
-                  // Copy referral link to clipboard
+                  // Copy referral link to clipboard using userData which is always up-to-date
                   const referralLink = `${window.location.origin}/register?ref=${user?.sponsorID || ''}`;
                   navigator.clipboard.writeText(referralLink);
                   alert('Referral link copied to clipboard!');

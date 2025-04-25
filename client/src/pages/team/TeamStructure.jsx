@@ -144,20 +144,20 @@ const TeamStructure = () => {
     activeMembers: 0,
   });
 
-  // Fetch team structure data
+  // Fetch team structure data with immediate=true to load data as soon as component mounts
   const {
     data: teamData,
     loading: loadingTeam,
     error: teamError,
     execute: fetchTeamData,
-  } = useApi(() => TeamService.getDownline());
+  } = useApi(() => TeamService.getDownline(), true); // Set immediate=true to fetch immediately
 
-  // Fetch team count
+  // Fetch team count with immediate=true
   const {
     data: teamCountData,
     loading: loadingTeamCount,
     execute: fetchTeamCount,
-  } = useApi(() => TeamService.getDownlineLength());
+  } = useApi(() => TeamService.getDownlineLength(), true); // Set immediate=true to fetch immediately
 
   // Process team data to calculate statistics and transform to tree structure
   const processTeamData = (data) => {
@@ -283,15 +283,16 @@ const TeamStructure = () => {
     alert('Referral link copied to clipboard!');
   };
 
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchTeamData();
-    fetchTeamCount();
-  }, []);
-
   // Process team data when it changes
   useEffect(() => {
-    if (teamData) {
+    if (teamData?.result) {
+      processTeamData(teamData);
+    }
+  }, [teamData]);
+
+  // Update UI when team count data changes
+  useEffect(() => {
+    if (teamCountData) {
       processTeamData(teamData);
     }
   }, [teamData, teamCountData]);

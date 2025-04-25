@@ -31,7 +31,7 @@ const InvestmentHistory = () => {
   const [totalInvestment, setTotalInvestment] = useState(0);
   const [activeInvestments, setActiveInvestments] = useState(0);
 
-  // Fetch investment data
+  // Fetch investment data with immediate=true to load data as soon as component mounts
   const {
     data,
     loading,
@@ -40,20 +40,22 @@ const InvestmentHistory = () => {
   } = useApi(() => InvestmentService.getUserInvestments({
     page: page + 1,
     limit: rowsPerPage,
-  }));
+  }), true); // Set immediate=true to fetch immediately
 
-  // Fetch investment summary
+  // Fetch investment summary with immediate=true
   const {
     data: summaryData,
     loading: summaryLoading,
     error: summaryError,
     execute: fetchSummary,
-  } = useApi(() => InvestmentService.getInvestmentSum({ status: 'active' }));
+  } = useApi(() => InvestmentService.getInvestmentSum({ status: 'active' }), true); // Set immediate=true
 
+  // Refetch data when page or rowsPerPage changes
   useEffect(() => {
-    fetchInvestmentData();
-    fetchSummary();
-  }, [page, rowsPerPage]);
+    if (page > 0 || rowsPerPage !== 10) { // Only refetch if not on first page with default rows
+      fetchInvestmentData();
+    }
+  }, [page, rowsPerPage, fetchInvestmentData]);
 
   // Update investment data when API response changes
   useEffect(() => {
@@ -61,7 +63,7 @@ const InvestmentHistory = () => {
     if (data?.result) {
       setInvestmentData(data.result || []);
       setTotalRows(data.result.length || 0);
-      
+
     } else if (data?.data) {
       // Handle alternative response format
       if (data.data.docs) {

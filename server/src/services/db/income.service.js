@@ -141,63 +141,42 @@ class Income {
 		console.log('Income filter:', JSON.stringify(filter));
 		console.log('Income options:', JSON.stringify(options));
 
-		// Try a simpler query first to see if we have any data
-		const count = await incomeModel.countDocuments({}).exec();
-		console.log('Total incomes in database:', count);
+		// First, count documents with the specific filter to see if we have any matching data
+		const filteredCount = await incomeModel.countDocuments(filter).exec();
+		console.log('Incomes matching filter:', filteredCount);
 
-		// If we have incomes but our filter might be too restrictive, try a simpler query
-		if (count > 0) {
-			// Use a simpler filter if we have data but our filter might be too restrictive
-			const simpleFilter = {};
-			const simpleOptions = {
-				page: options.page || 1,
-				limit: 10,
-				sort: { created_at: -1 }
-			};
+		// Also get total count for pagination info
+		const totalCount = await incomeModel.countDocuments({}).exec();
+		console.log('Total incomes in database:', totalCount);
 
-			try {
-				const results = await incomeModel.paginate(filter, options);
-				console.log("Result of the filtered query:", results);
+		try {
+			// Always use the provided filter - don't fall back to showing all data
+			// This ensures we only show data of the requested type
+			const results = await incomeModel.paginate(filter, options);
+			console.log("Result of the filtered query:", results);
 
-				// If we got no results with our filter but we know there's data, try the simple query
-				if ((!results.list || results.list.length === 0) && count > 0) {
-					console.log('No results with filter, trying simple query');
-					const simpleResults = await incomeModel.find({}).limit(10).sort({ created_at: -1 }).exec();
-					console.log('Simple query results:', simpleResults.length);
-
-					// If we got results with the simple query, return them in the expected format
-					if (simpleResults && simpleResults.length > 0) {
-						return {
-							list: simpleResults,
-							page: 1,
-							limit: 10,
-							total: count,
-							totalPages: Math.ceil(count / 10)
-						};
-					}
-				}
-
+			// If we have results, return them
+			if (results && results.list) {
 				return results;
-			} catch (error) {
-				console.error('Error in paginate:', error);
-				// Fallback to a simple find query if paginate fails
-				const simpleResults = await incomeModel.find({}).limit(10).sort({ created_at: -1 }).exec();
-				return {
-					list: simpleResults,
-					page: 1,
-					limit: 10,
-					total: count,
-					totalPages: Math.ceil(count / 10)
-				};
 			}
-		} else {
-			// If there's no data, just return empty results
+
+			// If paginate fails or returns no results, return empty list with proper pagination info
 			return {
 				list: [],
-				page: 1,
-				limit: 10,
-				total: 0,
-				totalPages: 0
+				page: options.page || 1,
+				limit: options.limit || 10,
+				total: filteredCount, // Use filtered count for total
+				totalPages: Math.ceil(filteredCount / (options.limit || 10))
+			};
+		} catch (error) {
+			console.error('Error in paginate:', error);
+			// Return empty results with proper pagination info
+			return {
+				list: [],
+				page: options.page || 1,
+				limit: options.limit || 10,
+				total: filteredCount, // Use filtered count for total
+				totalPages: Math.ceil(filteredCount / (options.limit || 10))
 			};
 		}
 	}
