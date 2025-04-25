@@ -172,21 +172,41 @@ const Header = ({ onToggleSidebar }) => {
                 </Box>
                 Main Wallet
               </Button> */}
-
-              {/* Refresh */}
-              <IconButton color="inherit" size="small" sx={{ mr: 1 }}>
-                <RefreshIcon />
-              </IconButton>
-
-              {/* Theme Toggle */}
-              <ThemeToggle />
-
+                  {/* Theme Toggle */}
+                  <ThemeToggle />
+                  
               {/* Notifications */}
               <IconButton color="inherit" size="small" onClick={handleNotificationsMenuOpen}>
                 <Badge badgeContent={4} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem' } }}>
                   <NotificationsIcon fontSize="small" />
                 </Badge>
               </IconButton>
+                {/* Profile */}
+                <Box sx={{ ml: 1 }}>
+                <Tooltip title="Account settings">
+                  <IconButton
+                    onClick={handleProfileMenuOpen}
+                    size="small"
+                    edge="end"
+                    aria-label="account of current user"
+                    aria-haspopup="true"
+                    color="inherit"
+                  >
+                    {user?.avatar ? (
+                      <Avatar
+                        src={user.avatar}
+                        alt={user.name || 'User'}
+                        sx={{ width: 32, height: 32 }}
+                      />
+                    ) : (
+                      <AccountCircle />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </Box>
+
+          
+
             </Box>
           </Box>
         ) : (

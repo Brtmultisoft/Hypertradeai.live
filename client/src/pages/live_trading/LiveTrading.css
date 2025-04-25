@@ -1,0 +1,96 @@
+/* Trading View-like animations and effects */
+
+.trend-line {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: drawLine 2s ease forwards;
+}
+
+@keyframes drawLine {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.price-flash {
+    animation: priceFlash 0.5s ease;
+}
+
+@keyframes priceFlash {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.trading-grid {
+    position: relative;
+    background-size: 20px 20px;
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    animation: gridMove 20s linear infinite;
+}
+
+@keyframes gridMove {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: -20px -20px;
+    }
+}
+
+.volume-bar {
+    transition: height 0.3s ease, background-color 0.3s ease;
+}
+
+.trade-history-item {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.price-pulse {
+    animation: pricePulse 2s infinite;
+}
+
+@keyframes pricePulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(240, 185, 11, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(240, 185, 11, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(240, 185, 11, 0);
+    }
+}
+
+.trading-active {
+    animation: activeGlow 2s infinite;
+}
+
+@keyframes activeGlow {
+    0% {
+        box-shadow: 0 0 5px rgba(14, 203, 129, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(14, 203, 129, 0.8);
+    }
+    100% {
+        box-shadow: 0 0 5px rgba(14, 203, 129, 0.5);
+    }
+}
