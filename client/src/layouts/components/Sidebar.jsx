@@ -71,8 +71,9 @@ const Sidebar = ({ open, onClose }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          p: 2,
+          p: 2.5,
           backgroundColor: theme.palette.background.paper,
+          borderBottom: `1px solid ${theme.palette.divider}`,
         }}
       >
         <Box
@@ -83,21 +84,40 @@ const Sidebar = ({ open, onClose }) => {
         />
       </Box>
 
-      <Divider />
-
       {/* User Info */}
-      <Box sx={{ p: 2, textAlign: 'center' }}>
+      <Box
+        sx={{
+          p: 3,
+          textAlign: 'center',
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          background: `linear-gradient(to bottom, rgba(51, 117, 187, 0.05), transparent)`,
+        }}
+      >
         <Box
           sx={{
-            width: 64,
-            height: 64,
+            width: 80,
+            height: 80,
             borderRadius: '50%',
             backgroundColor: theme.palette.primary.main,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto',
-            mb: 1,
+            mb: 2,
+            border: `4px solid ${theme.palette.background.paper}`,
+            boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)',
+            position: 'relative',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              bottom: 0,
+              right: 0,
+              width: 20,
+              height: 20,
+              borderRadius: '50%',
+              backgroundColor: theme.palette.secondary.main,
+              border: `2px solid ${theme.palette.background.paper}`,
+            }
           }}
         >
           {user?.avatar ? (
@@ -105,16 +125,26 @@ const Sidebar = ({ open, onClose }) => {
               component="img"
               src={user.avatar}
               alt={user.name || 'User'}
-              sx={{ width: 64, height: 64, borderRadius: '50%' }}
+              sx={{ width: 72, height: 72, borderRadius: '50%' }}
             />
           ) : (
-            <PersonIcon sx={{ fontSize: 40, color: theme.palette.common.black }} />
+            <PersonIcon sx={{ fontSize: 40, color: 'white' }} />
           )}
         </Box>
-        <Box sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
+        <Box sx={{ fontWeight: 'bold', color: theme.palette.text.primary, fontSize: '1.1rem', mb: 0.5 }}>
           {user?.name || 'User'}
         </Box>
-        <Box sx={{ fontSize: '0.8rem', color: theme.palette.text.secondary }}>
+        <Box
+          sx={{
+            fontSize: '0.8rem',
+            color: theme.palette.text.secondary,
+            backgroundColor: 'rgba(51, 117, 187, 0.08)',
+            borderRadius: 4,
+            py: 0.5,
+            px: 1.5,
+            display: 'inline-block',
+          }}
+        >
           {user?.email || 'user@example.com'}
         </Box>
       </Box>
@@ -122,57 +152,247 @@ const Sidebar = ({ open, onClose }) => {
       <Divider />
 
       {/* Navigation Links */}
-      <List>
+      <List sx={{ px: 1, py: 1 }}>
         {/* Dashboard */}
-        <ListItem disablePadding>
+        <ListItem disablePadding sx={{ mb: 0.5 }}>
           <ListItemButton
             component={Link}
             to="/dashboard"
             selected={isActive('/dashboard')}
             onClick={handleItemClick}
+            sx={{
+              borderRadius: 2,
+              transition: 'all 0.2s ease',
+              '&.Mui-selected': {
+                backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                '&:hover': {
+                  backgroundColor: 'rgba(51, 117, 187, 0.12)',
+                },
+              },
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              },
+            }}
           >
-            <ListItemIcon>
-              <DashboardIcon color={isActive('/dashboard') ? 'primary' : 'inherit'} />
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '8px',
+                  backgroundColor: isActive('/dashboard') ? 'rgba(51, 117, 187, 0.12)' : 'transparent',
+                  color: isActive('/dashboard') ? theme.palette.primary.main : theme.palette.text.secondary,
+                }}
+              >
+                <DashboardIcon fontSize="small" />
+              </Box>
             </ListItemIcon>
-            <ListItemText primary="Dashboard" />
+            <ListItemText
+              primary="Dashboard"
+              sx={{
+                '& .MuiTypography-root': {
+                  fontWeight: isActive('/dashboard') ? 'bold' : 'medium',
+                  color: isActive('/dashboard') ? theme.palette.primary.main : theme.palette.text.primary,
+                }
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+
+        {/* Live Trading */}
+        <ListItem disablePadding sx={{ mb: 0.5 }}>
+          <ListItemButton
+            component={Link}
+            to="/live-trading"
+            selected={isActive('/live-trading')}
+            onClick={handleItemClick}
+            sx={{
+              borderRadius: 2,
+              transition: 'all 0.2s ease',
+              '&.Mui-selected': {
+                backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                '&:hover': {
+                  backgroundColor: 'rgba(51, 117, 187, 0.12)',
+                },
+              },
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '8px',
+                  backgroundColor: isActive('/live-trading') ? 'rgba(51, 117, 187, 0.12)' : 'transparent',
+                  color: isActive('/live-trading') ? theme.palette.primary.main : theme.palette.text.secondary,
+                }}
+              >
+                {/* Use a suitable icon for live trading, e.g., SwapHorizIcon */}
+                <SwapHorizIcon fontSize="small" />
+              </Box>
+            </ListItemIcon>
+            <ListItemText
+              primary="Live Trading"
+              sx={{
+                '& .MuiTypography-root': {
+                  fontWeight: isActive('/live-trading') ? 'bold' : 'medium',
+                  color: isActive('/live-trading') ? theme.palette.primary.main : theme.palette.text.primary,
+                }
+              }}
+            />
           </ListItemButton>
         </ListItem>
 
         {/* Team */}
-        <ListItem disablePadding>
-          <ListItemButton onClick={handleTeamClick}>
-            <ListItemIcon>
-              <PeopleIcon color={teamOpen ? 'primary' : 'inherit'} />
+        <ListItem disablePadding sx={{ mb: 0.5 }}>
+          <ListItemButton
+            onClick={handleTeamClick}
+            sx={{
+              borderRadius: 2,
+              transition: 'all 0.2s ease',
+              backgroundColor: teamOpen ? 'rgba(51, 117, 187, 0.08)' : 'transparent',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '8px',
+                  backgroundColor: teamOpen ? 'rgba(51, 117, 187, 0.12)' : 'transparent',
+                  color: teamOpen ? theme.palette.primary.main : theme.palette.text.secondary,
+                }}
+              >
+                <PeopleIcon fontSize="small" />
+              </Box>
             </ListItemIcon>
-            <ListItemText primary="Team" />
-            {teamOpen ? <ExpandLess /> : <ExpandMore />}
+            <ListItemText
+              primary="Team"
+              sx={{
+                '& .MuiTypography-root': {
+                  fontWeight: teamOpen ? 'bold' : 'medium',
+                  color: teamOpen ? theme.palette.primary.main : theme.palette.text.primary,
+                }
+              }}
+            />
+            {teamOpen ?
+              <ExpandLess sx={{ color: theme.palette.primary.main }} /> :
+              <ExpandMore />
+            }
           </ListItemButton>
         </ListItem>
         <Collapse in={teamOpen} timeout="auto" unmountOnExit>
-          <List component="div" disablePadding>
+          <List component="div" disablePadding sx={{ pl: 2, pr: 1 }}>
             <ListItemButton
               component={Link}
               to="/team"
               selected={isActive('/team')}
               onClick={handleItemClick}
-              sx={{ pl: 4 }}
+              sx={{
+                pl: 2,
+                borderRadius: 2,
+                mb: 0.5,
+                transition: 'all 0.2s ease',
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(51, 117, 187, 0.12)',
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                },
+              }}
             >
-              <ListItemIcon>
-                <PeopleIcon color={isActive('/team') ? 'primary' : 'inherit'} fontSize="small" />
+              <ListItemIcon sx={{ minWidth: 30 }}>
+                <Box
+                  sx={{
+                    width: 24,
+                    height: 24,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '6px',
+                    backgroundColor: isActive('/team') ? 'rgba(51, 117, 187, 0.12)' : 'transparent',
+                    color: isActive('/team') ? theme.palette.primary.main : theme.palette.text.secondary,
+                  }}
+                >
+                  <PeopleIcon sx={{ fontSize: 16 }} />
+                </Box>
               </ListItemIcon>
-              <ListItemText primary="Team Structure" />
+              <ListItemText
+                primary="Team Structure"
+                sx={{
+                  '& .MuiTypography-root': {
+                    fontSize: '0.9rem',
+                    fontWeight: isActive('/team') ? 'bold' : 'medium',
+                    color: isActive('/team') ? theme.palette.primary.main : theme.palette.text.primary,
+                  }
+                }}
+              />
             </ListItemButton>
             <ListItemButton
               component={Link}
               to="/direct-team"
               selected={isActive('/direct-team')}
               onClick={handleItemClick}
-              sx={{ pl: 4 }}
+              sx={{
+                pl: 2,
+                borderRadius: 2,
+                mb: 0.5,
+                transition: 'all 0.2s ease',
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(51, 117, 187, 0.12)',
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                },
+              }}
             >
-              <ListItemIcon>
-                <PersonIcon color={isActive('/direct-team') ? 'primary' : 'inherit'} fontSize="small" />
+              <ListItemIcon sx={{ minWidth: 30 }}>
+                <Box
+                  sx={{
+                    width: 24,
+                    height: 24,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '6px',
+                    backgroundColor: isActive('/direct-team') ? 'rgba(51, 117, 187, 0.12)' : 'transparent',
+                    color: isActive('/direct-team') ? theme.palette.primary.main : theme.palette.text.secondary,
+                  }}
+                >
+                  <PersonIcon sx={{ fontSize: 16 }} />
+                </Box>
               </ListItemIcon>
-              <ListItemText primary="Direct Team" />
+              <ListItemText
+                primary="Direct Team"
+                sx={{
+                  '& .MuiTypography-root': {
+                    fontSize: '0.9rem',
+                    fontWeight: isActive('/direct-team') ? 'bold' : 'medium',
+                    color: isActive('/direct-team') ? theme.palette.primary.main : theme.palette.text.primary,
+                  }
+                }}
+              />
             </ListItemButton>
           </List>
         </Collapse>
