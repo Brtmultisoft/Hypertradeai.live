@@ -11,18 +11,30 @@ import {
   Box,
   Avatar,
   Tooltip,
-  useTheme,
+  useMediaQuery,
+  Button,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
   AccountCircle,
   Settings as SettingsIcon,
+  QrCode as QrCodeIcon,
+  ArrowDropDown as ArrowDropDownIcon,
+  AccountBalanceWallet as WalletIcon,
+  Add as AddIcon,
+  Send as SendIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
+
 import useAuth from '../../hooks/useAuth';
+import ThemeToggle from '../../components/common/ThemeToggle';
+import { useTheme as useMuiTheme } from '@mui/material/styles';
+import { useTheme as useAppTheme } from '../../context/ThemeContext';
 
 const Header = ({ onToggleSidebar }) => {
-  const theme = useTheme();
+  const theme = useMuiTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
@@ -56,67 +68,230 @@ const Header = ({ onToggleSidebar }) => {
       sx={{
         backgroundColor: theme.palette.background.paper,
         borderBottom: `1px solid ${theme.palette.divider}`,
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+        transition: 'all 0.3s ease',
       }}
     >
-      <Toolbar>
-        {/* Menu Toggle Button */}
-        <IconButton
-          edge="start"
-          color="inherit"
-          aria-label="open drawer"
-          onClick={onToggleSidebar}
-          sx={{ mr: 2 }}
-        >
-          <MenuIcon />
-        </IconButton>
+      <Toolbar sx={{ minHeight: isMobile ? 64 : 'auto', px: isMobile ? 2 : 3 }}>
+        {/* Menu Toggle Button - Only show on desktop */}
+        {!isMobile && (
+          <IconButton
+            edge="start"
+            color="inherit"
+            aria-label="open drawer"
+            onClick={onToggleSidebar}
+            sx={{
+              mr: 2,
+              color: theme.palette.text.secondary,
+              '&:hover': {
+                color: theme.palette.primary.main,
+                backgroundColor: 'rgba(51, 117, 187, 0.08)',
+              },
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
+        )}
 
-        {/* Logo */}
-        <Typography
-          component={Link}
-          to="/dashboard"
-          variant="h6"
-          color="inherit"
-          noWrap
-          sx={{
-            flexGrow: 1,
-            textDecoration: 'none',
-            color: theme.palette.primary.main,
-            fontWeight: 'bold',
-          }}
-        >
-          HyperTrade MLM
-        </Typography>
-
-        {/* Notifications */}
-        <IconButton color="inherit" onClick={handleNotificationsMenuOpen}>
-          <Badge badgeContent={4} color="error">
-            <NotificationsIcon />
-          </Badge>
-        </IconButton>
-
-        {/* Profile */}
-        <Box sx={{ ml: 2 }}>
-          <Tooltip title="Account settings">
-            <IconButton
-              onClick={handleProfileMenuOpen}
-              size="small"
-              edge="end"
-              aria-label="account of current user"
-              aria-haspopup="true"
-              color="inherit"
+        {/* Logo and Wallet Selector for Mobile */}
+        {isMobile ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+            }}
+          >
+            {/* Left side - Logo */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+              }}
             >
-              {user?.avatar ? (
-                <Avatar
-                  src={user.avatar}
-                  alt={user.name || 'User'}
-                  sx={{ width: 32, height: 32 }}
-                />
-              ) : (
-                <AccountCircle />
-              )}
-            </IconButton>
-          </Tooltip>
-        </Box>
+              <Box
+                component="img"
+                src="/logo.png"
+                alt="HyperTrade"
+                sx={{ height: 32, mr: 1 }}
+              />
+              <Typography
+                component={Link}
+                to="/dashboard"
+                variant="h6"
+                color="inherit"
+                noWrap
+                sx={{
+                  textDecoration: 'none',
+                  color: theme.palette.primary.main,
+                  fontWeight: 'bold',
+                }}
+              >
+                HyperTrade
+              </Typography>
+            </Box>
+
+            {/* Right side - Actions */}
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {/* Wallet Selector */}
+              {/* <Button
+                variant="text"
+                color="inherit"
+                sx={{
+                  borderRadius: 4,
+                  textTransform: 'none',
+                  mr: 1,
+                  px: 1.5,
+                  py: 0.5,
+                  backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                  border: '1px solid rgba(51, 117, 187, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  '&:hover': {
+                    backgroundColor: 'rgba(51, 117, 187, 0.12)',
+                  },
+                  transition: 'all 0.2s ease',
+                }}
+                endIcon={<ArrowDropDownIcon />}
+              >
+                <Box
+                  sx={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    backgroundColor: theme.palette.primary.main,
+                    mr: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <WalletIcon sx={{ fontSize: 12, color: 'white' }} />
+                </Box>
+                Main Wallet
+              </Button> */}
+
+              {/* Refresh */}
+              <IconButton color="inherit" size="small" sx={{ mr: 1 }}>
+                <RefreshIcon />
+              </IconButton>
+
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
+              {/* Notifications */}
+              <IconButton color="inherit" size="small" onClick={handleNotificationsMenuOpen}>
+                <Badge badgeContent={4} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem' } }}>
+                  <NotificationsIcon fontSize="small" />
+                </Badge>
+              </IconButton>
+            </Box>
+          </Box>
+        ) : (
+          /* Desktop Header */
+          <>
+            {/* Logo */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                flexGrow: 1,
+              }}
+            >
+              <Typography
+                component={Link}
+                to="/dashboard"
+                variant="h6"
+                color="inherit"
+                noWrap
+                sx={{
+                  textDecoration: 'none',
+                  color: theme.palette.primary.main,
+                  fontWeight: 'bold',
+                }}
+              >
+                HyperTrade MLM
+              </Typography>
+            </Box>
+
+            {/* Desktop Actions */}
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {/* Wallet Selector */}
+              <Button
+                variant="text"
+                color="inherit"
+                sx={{
+                  borderRadius: 4,
+                  textTransform: 'none',
+                  mr: 2,
+                  px: 2,
+                  py: 0.75,
+                  backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                  border: '1px solid rgba(51, 117, 187, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  '&:hover': {
+                    backgroundColor: 'rgba(51, 117, 187, 0.12)',
+                  },
+                  transition: 'all 0.2s ease',
+                }}
+                endIcon={<ArrowDropDownIcon />}
+              >
+                <Box
+                  sx={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    backgroundColor: theme.palette.primary.main,
+                    mr: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <WalletIcon sx={{ fontSize: 16, color: 'white' }} />
+                </Box>
+                Main Wallet
+              </Button>
+
+              {/* Notifications */}
+              <IconButton color="inherit" onClick={handleNotificationsMenuOpen} sx={{ mr: 1 }}>
+                <Badge badgeContent={4} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
+              {/* Profile */}
+              <Box sx={{ ml: 1 }}>
+                <Tooltip title="Account settings">
+                  <IconButton
+                    onClick={handleProfileMenuOpen}
+                    size="small"
+                    edge="end"
+                    aria-label="account of current user"
+                    aria-haspopup="true"
+                    color="inherit"
+                  >
+                    {user?.avatar ? (
+                      <Avatar
+                        src={user.avatar}
+                        alt={user.name || 'User'}
+                        sx={{ width: 32, height: 32 }}
+                      />
+                    ) : (
+                      <AccountCircle />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
+          </>
+        )}
 
         {/* Profile Menu */}
         <Menu
@@ -126,6 +301,12 @@ const Header = ({ onToggleSidebar }) => {
           onClose={handleMenuClose}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+            }
+          }}
         >
           <MenuItem component={Link} to="/profile" onClick={handleMenuClose}>
             Profile
@@ -145,6 +326,13 @@ const Header = ({ onToggleSidebar }) => {
           onClose={handleNotificationsMenuClose}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+              maxWidth: 320,
+            }
+          }}
         >
           <MenuItem onClick={handleNotificationsMenuClose}>
             New deposit received

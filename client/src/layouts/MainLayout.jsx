@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Box, useMediaQuery, useTheme } from '@mui/material';
+import { Box, useMediaQuery, useTheme, Container } from '@mui/material';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import BottomNavigation from './components/BottomNavigation';
 
 const MainLayout = () => {
   const theme = useTheme();
@@ -16,8 +17,8 @@ const MainLayout = () => {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar */}
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* Sidebar - only visible on desktop */}
+      {!isMobile && <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
       {/* Main Content */}
       <Box
@@ -34,25 +35,41 @@ const MainLayout = () => {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
+          backgroundColor: theme.palette.background.default,
         }}
       >
         {/* Header */}
         <Header onToggleSidebar={handleToggleSidebar} />
 
         {/* Page Content */}
-        <Box
+        <Container
+          maxWidth={isMobile ? "xs" : "lg"}
+          disableGutters={isMobile}
           sx={{
             flexGrow: 1,
-            p: { xs: 2, md: 3 },
-            width: '100%',
-            backgroundColor: theme.palette.background.default,
+            display: 'flex',
+            flexDirection: 'column',
+            px: isMobile ? 0 : 2,
+            pb: isMobile ? 10 : 3, // Add padding at bottom for mobile to account for bottom navigation
           }}
         >
-          <Outlet />
-        </Box>
+          <Box
+            sx={{
+              flexGrow: 1,
+              width: '100%',
+              borderRadius: isMobile ? 0 : 2,
+              overflow: 'hidden',
+            }}
+          >
+            <Outlet />
+          </Box>
+        </Container>
 
-        {/* Footer */}
-        <Footer />
+        {/* Footer - only visible on desktop */}
+        {!isMobile && <Footer />}
+
+        {/* Bottom Navigation - only visible on mobile */}
+        {isMobile && <BottomNavigation />}
       </Box>
     </Box>
   );

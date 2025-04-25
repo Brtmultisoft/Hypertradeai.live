@@ -1,8 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import theme from './theme';
 import useAuth from './hooks/useAuth';
 import { DataProvider } from './context/DataContext';
+import ThemeProvider from './context/ThemeContext';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -28,8 +27,9 @@ import BuyPackage from './pages/investment/BuyPackage';
 import InvestmentHistory from './pages/investment/InvestmentHistory';
 import TransferFund from './pages/wallet/TransferFund';
 import TransferHistory from './pages/wallet/TransferHistory';
-const Deposit = () => <div>Deposit Page</div>;
-const Withdraw = () => <div>Withdraw Page</div>;
+import Deposit from './pages/wallet/Deposit';
+import Withdraw from './pages/wallet/Withdraw';
+import LiveTrading from './pages/live_trading/LiveTrading';
 const TransactionHistory = () => <div>Transaction History Page</div>;
 
 // Common Components
@@ -45,8 +45,7 @@ function App() {
   // }
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ThemeProvider>
       <ErrorBoundary fullPage>
         <DataProvider>
           <Router>
@@ -80,6 +79,9 @@ function App() {
               <Route path="/deposit" element={<Deposit />} />
               <Route path="/withdraw" element={<Withdraw />} />
               <Route path="/transaction-history" element={<TransactionHistory />} />
+
+              {/* Live Trading Route */}
+              <Route path="/live-trading" element={<LiveTrading />} />
             </Route>
 
             {/* Default Route */}

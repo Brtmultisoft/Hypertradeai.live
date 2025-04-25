@@ -7,51 +7,107 @@ import {
   Card,
   CardContent,
   Button,
-  useTheme,
   Tooltip,
   IconButton,
   CircularProgress,
   Alert,
+  Paper,
+  Tabs,
+  Tab,
+  InputBase,
+  Skeleton,
+  Divider,
 } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
   TrendingUp as TrendingUpIcon,
   People as PeopleIcon,
-  Payments as PaymentsIcon,
   ShoppingCart as ShoppingCartIcon,
   Refresh as RefreshIcon,
   AccountBalanceWallet as WalletIcon,
+  Explore as BrowserIcon,
+  Add as AddIcon,
+  Send as SendIcon,
+  SwapHoriz as SwapIcon,
+  ArrowForward as ArrowForwardIcon,
+  Search as SearchIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  ContentCopy as ContentCopyIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  CreditCard as CreditCardIcon,
+  Redeem as RedeemIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
-import StatCard from '../../components/dashboard/StatCard';
 import EarningsChart from '../../components/dashboard/EarningsChart';
 import TeamGrowthChart from '../../components/dashboard/TeamGrowthChart';
 import useAuth from '../../hooks/useAuth';
 import useData from '../../hooks/useData';
-import { formatCurrency, formatNumber } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
+import { useTheme as useMuiTheme } from '@mui/material/styles';
+import { useTheme as useAppTheme } from '../../context/ThemeContext';
+import CryptoService, { CRYPTO_ASSETS } from '../../services/crypto.service';
 
 const Dashboard = () => {
-  const theme = useTheme();
+  const theme = useMuiTheme();
+  const { mode } = useAppTheme();
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
     dashboardData,
     loadingDashboard,
     dashboardError,
-    fetchDashboardData,
-    lastUpdate
+    fetchDashboardData
   } = useData();
+
+  // State for active tab
+  const [activeTab, setActiveTab] = useState(0);
+
+  // State for crypto prices
+  const [cryptoPrices, setCryptoPrices] = useState([]);
+  const [loadingCrypto, setLoadingCrypto] = useState(false);
+  const [cryptoError, setCryptoError] = useState(null);
+
+  // Handle tab change
+  const handleTabChange = (_, newValue) => {
+    setActiveTab(newValue);
+  };
 
   // Handle manual refresh
   const handleRefresh = () => {
     fetchDashboardData();
+    // Clear the crypto cache before fetching new prices
+    CryptoService.clearCache();
+    fetchCryptoPrices();
   };
 
-  // Format last update time
-  const formatLastUpdate = () => {
-    if (!lastUpdate) return 'Never';
-    const date = new Date(lastUpdate);
-    return date.toLocaleTimeString();
+  // Fetch cryptocurrency prices
+  const fetchCryptoPrices = async () => {
+    setLoadingCrypto(true);
+    setCryptoError(null);
+    try {
+      const data = await CryptoService.getPrices();
+      setCryptoPrices(data);
+    } catch (error) {
+      console.error('Error fetching crypto prices:', error);
+      // Don't show error to user since we're using fallback data
+      // setCryptoError('Failed to load cryptocurrency prices');
+    } finally {
+      setLoadingCrypto(false);
+    }
   };
+
+  // Fetch crypto prices on component mount
+  useEffect(() => {
+    fetchCryptoPrices();
+
+    // Set up polling for automatic refresh (every 5 minutes)
+    const pollingInterval = setInterval(() => {
+      fetchCryptoPrices();
+    }, 5 * 60 * 1000); // 5 minutes in milliseconds
+
+    return () => clearInterval(pollingInterval);
+  }, []);
 
   // Sample chart data (replace with actual data from API)
   const earningsChartData = {
@@ -82,360 +138,1246 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Page Header */}
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
-            Dashboard
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Welcome back, {user?.name || 'User'}! Here's an overview of your account.
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Last updated: {formatLastUpdate()}
-          </Typography>
-        </div>
-        <Tooltip title="Refresh Dashboard Data">
-          <IconButton onClick={handleRefresh} color="primary">
-            {loadingDashboard ? <CircularProgress size={24} /> : <RefreshIcon />}
-          </IconButton>
-        </Tooltip>
-      </Box>
-
       {dashboardError && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {dashboardError}
         </Alert>
       )}
 
-      {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4, width: '100%' }}>
-        {/* Main Wallet Balance */}
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%',md : "42%", sm : "40%",xs : "100%" } }}>
-          <StatCard
-            title="Main Wallet Balance"
-            value={dashboardData?.wallet_balance || 0}
-            icon={<AccountBalanceIcon sx={{ fontSize: 40 }} />}
-            prefix="$"
-            onClick={() => navigate('/deposit')}
-            sx={{ height: '100%', boxShadow: 2, borderRadius: 2 }}
-          />
-        </Grid>
+      {/* Search Bar - Trust Wallet Style */}
+      <Box
+        sx={{
+          mb: 2,
+          px: { xs: 2, sm: 0 },
+          display: 'flex',
+          alignItems: 'center',
+          borderRadius: 8,
+          backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+          height: 48
+        }}
+      >
+        <SearchIcon sx={{ ml: 2, color: theme.palette.text.secondary }} />
+        <InputBase
+          placeholder="Search"
+          sx={{
+            ml: 1,
+            flex: 1,
+            color: theme.palette.text.primary,
+            '& .MuiInputBase-input': {
+              p: 1,
+            }
+          }}
+        />
+      </Box>
 
-        {/* Topup Wallet Balance */}
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%',md : "40%", sm : "43%",xs : "100%" } }}>
-          <StatCard
-            title="Topup Wallet Balance"
-            value={dashboardData?.topup_wallet_balance || 0}
-            icon={<WalletIcon sx={{ fontSize: 40 }} />}
-            prefix="$"
-            onClick={() => navigate('/transfer-fund')}
-            sx={{ height: '100%', boxShadow: 2, borderRadius: 2 }}
-          />
-        </Grid>
+      {/* Wallet Selector - Trust Wallet Style */}
+      <Box sx={{ mb: 2, px: { xs: 2, sm: 0 } }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            p: 1.5,
+            borderRadius: 2,
+            cursor: 'pointer',
+            '&:hover': {
+              backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+            }
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                backgroundColor: theme.palette.primary.main,
+                mr: 1.5,
+              }}
+            >
+              <WalletIcon sx={{ fontSize: 20, color: 'white' }} />
+            </Box>
+            <Typography variant="subtitle1" fontWeight="medium">
+              Main wallet
+            </Typography>
+            <KeyboardArrowDownIcon sx={{ ml: 0.5, color: theme.palette.text.secondary }} />
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title="Copy Address">
+              <IconButton size="small" sx={{ mr: 1 }}>
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Refresh Balance">
+              <IconButton
+                onClick={handleRefresh}
+                size="small"
+              >
+                {loadingDashboard ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <RefreshIcon fontSize="small" />
+                )}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      </Box>
 
-        {/* Total Earnings */}
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%',md : "40%", sm : "43%",xs : "100%" } }}>
-          <StatCard
-            title="Total Earnings"
-            value={dashboardData?.total_earnings || 0}
-            icon={<TrendingUpIcon sx={{ fontSize: 40 }} />}
-            prefix="$"
-            onClick={() => navigate('/daily-roi-history')}
-            sx={{ height: '100%', boxShadow: 2, borderRadius: 2 }}
-          />
-        </Grid>
-
-        {/* Active Investments */}
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%',md : "40%", sm : "43%",xs : "100%" } }}>
-          <StatCard
-            title="Active Investments"
-            value={dashboardData?.active_investments || 0}
-            icon={<ShoppingCartIcon sx={{ fontSize: 40 }} />}
-            prefix="$"
-            onClick={() => navigate('/investment-history')}
-            sx={{ height: '100%', boxShadow: 2, borderRadius: 2 }}
-          />
-        </Grid>
-
-        {/* Team Members */}
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%',md : "40%", sm : "43%" , xs : "100%"} }}>
-          <StatCard
-            title="Team Members"
-            value={dashboardData?.team_size || 0}
-            icon={<PeopleIcon sx={{ fontSize: 40 }} />}
-            prefix=""
-            onClick={() => navigate('/team')}
-            sx={{ height: '100%', boxShadow: 2, borderRadius: 2 }}
-          />
-        </Grid>
-
-        {/* Direct Referrals */}
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%',md : "40%", sm : "43%" , xs : "100%"} }}>
-          <StatCard
-            title="Direct Referrals"
-            value={dashboardData?.direct_referrals || 0}
-            icon={<PeopleIcon sx={{ fontSize: 40 }} />}
-            prefix=""
-            onClick={() => navigate('/direct-team')}
-            sx={{ height: '100%', boxShadow: 2, borderRadius: 2 }}
-          />
-        </Grid>
-
-        {/* Daily ROI */}
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%',md : "40%", sm : "43%" , xs : "100%"} }}>
-          <StatCard
-            title="Daily ROI"
-            value={dashboardData?.daily_profit || 0}
-            icon={<TrendingUpIcon sx={{ fontSize: 40 }} />}
-            prefix="$"
-            onClick={() => navigate('/daily-roi-history')}
-            sx={{ height: '100%', boxShadow: 2, borderRadius: 2 }}
-          />
-        </Grid>
-
-        {/* Level ROI Income */}
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%',md : "40%", sm : "43%" , xs : "100%"} }}>
-          <StatCard
-            title="Level ROI Income"
-            value={dashboardData?.level_roi_income || 0}
-            icon={<TrendingUpIcon sx={{ fontSize: 40 }} />}
-            prefix="$"
-            onClick={() => navigate('/level-roi-income')}
-            sx={{ height: '100%', boxShadow: 2, borderRadius: 2 }}
-          />
-        </Grid>
-      </Grid>
-
-      {/* Charts */}
-      <Grid container spacing={3} sx={{ mb: 4, width: '100%' }}>
-        <Grid item sx={{ width: { lg: '48%',md : "50%", sm : "50%",xs : "100%" } }}>
-          <EarningsChart data={earningsChartData} />
-        </Grid>
-        <Grid item sx={{ width: { lg: '49%',md : "50%", sm : "50%",xs : "100%" } }}>
-          <TeamGrowthChart data={teamGrowthData} />
-        </Grid>
-      </Grid>
-
-      {/* Quick Actions */}
-      <Typography variant="h6" component="h2" fontWeight="bold" sx={{ mb: 2 }}>
-        Quick Actions
-      </Typography>
-      <Grid container spacing={3} sx={{ mb: 4, width: '100%' }}>
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%', md: '40%', sm: '43%', xs: '100%' } }}>
-          <Card
-            elevation={0}
+      {/* Wallet Balance Card - Trust Wallet Style */}
+      <Card
+        elevation={0}
+        sx={{
+          borderRadius: { xs: 2, sm: 3 },
+          mb: 3,
+          overflow: 'hidden',
+          backgroundColor: theme.palette.background.card,
+          color: theme.palette.text.primary,
+          position: 'relative',
+          border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+        }}
+      >
+        <CardContent sx={{ p: { xs: 2, sm: 2.5 }, position: 'relative' }}>
+          <Typography
+            variant="h4"
+            component="div"
+            fontWeight="bold"
+            align="center"
             sx={{
-              height: '100%',
-              borderRadius: 2,
-              border: `1px solid ${theme.palette.divider}`,
+              mb: 1,
             }}
           >
-            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-              <ShoppingCartIcon
-                sx={{ fontSize: 48, color: theme.palette.primary.main, mb: 2 }}
+            {formatCurrency(dashboardData?.wallet_balance || 0)}
+          </Typography>
+
+          {/* Action Buttons */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-around', mt: 3 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+              onClick={() => navigate('/withdraw')}
+            >
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  backgroundColor: theme.palette.background.actionButton,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 1
+                }}
+              >
+                <ArrowUpwardIcon />
+              </Box>
+              <Typography variant="body2">Send</Typography>
+            </Box>
+
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+              onClick={() => navigate('/deposit')}
+            >
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  backgroundColor: theme.palette.background.actionButton,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 1
+                }}
+              >
+                <ArrowDownwardIcon />
+              </Box>
+              <Typography variant="body2">Receive</Typography>
+            </Box>
+
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+              onClick={() => navigate('/buy-package')}
+            >
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  backgroundColor: theme.palette.background.actionButton,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 1
+                }}
+              >
+                <CreditCardIcon />
+              </Box>
+              <Typography variant="body2">Buy</Typography>
+            </Box>
+
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+              onClick={() => navigate('/daily-roi-history')}
+            >
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  backgroundColor: theme.palette.background.actionButton,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 1
+                }}
+              >
+                <RedeemIcon />
+              </Box>
+              <Typography variant="body2">Earn</Typography>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Add Funds Banner - Trust Wallet Style */}
+      <Card
+        elevation={0}
+        sx={{
+          borderRadius: { xs: 2, sm: 3 },
+          mb: 3,
+          overflow: 'hidden',
+          backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.1)' : 'rgba(51, 117, 187, 0.05)',
+          border: '1px solid rgba(51, 117, 187, 0.2)',
+          position: 'relative',
+        }}
+      >
+        <CardContent sx={{ p: 2, position: 'relative' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box
+                component="img"
+                src="https://assets.coingecko.com/coins/images/6319/small/USD_Coin_icon.png"
+                alt="Exchange"
+                sx={{
+                  width: 40,
+                  height: 40,
+                  mr: 2,
+                  borderRadius: 1,
+                  backgroundColor: '#2775CA15',
+                  padding: 0.5
+                }}
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/40x40/3375BB/FFFFFF?text=HT';
+                }}
               />
-              <Typography variant="h6" component="h3" gutterBottom>
-                Buy Package
+              <Box>
+                <Typography variant="subtitle2">
+                  Add funds from exchange
+                </Typography>
+                <Button
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  sx={{ p: 0, minWidth: 'auto', textTransform: 'none' }}
+                  onClick={() => navigate('/deposit')}
+                >
+                  Deposit now →
+                </Button>
+              </Box>
+            </Box>
+            <IconButton size="small">
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Tabs - Trust Wallet Style */}
+      <Box sx={{ mb: 2 }}>
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{
+            '& .MuiTabs-indicator': {
+              backgroundColor: theme.palette.primary.main,
+            },
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              '&.Mui-selected': {
+                color: theme.palette.primary.main,
+              },
+            },
+            mb: 2,
+          }}
+        >
+          <Tab label="Crypto" />
+          <Tab label="NFTs" />
+          <Tab label="Live Trading" />
+        </Tabs>
+
+        {/* Crypto Tab Content */}
+        {activeTab === 0 && (
+          <Box sx={{ p: 0 }}>
+            {/* Crypto Assets */}
+            <Box sx={{ px: 2 }}>
+              {/* Error Message */}
+              {cryptoError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {cryptoError}
+                </Alert>
+              )}
+
+              {/* Loading State */}
+              {loadingCrypto && cryptoPrices.length === 0 && (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      py: 2,
+                      borderBottom: index < 4 ? `1px solid ${theme.palette.divider}` : 'none',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
+                      <Box>
+                        <Skeleton variant="text" width={80} height={24} />
+                        <Skeleton variant="text" width={40} height={16} />
+                      </Box>
+                    </Box>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Skeleton variant="text" width={60} height={24} />
+                      <Skeleton variant="text" width={80} height={16} />
+                    </Box>
+                  </Box>
+                ))
+              )}
+
+              {/* Crypto List */}
+              {!loadingCrypto && CRYPTO_ASSETS.map((asset, index) => {
+                const cryptoData = cryptoPrices.find(crypto => crypto.id === asset.id) || {};
+                const isLastItem = index === CRYPTO_ASSETS.length - 1;
+
+                // Mock balances - in a real app, these would come from the user's wallet
+                const mockBalances = {
+                  'bitcoin': 0.01,
+                  'ethereum': 0.23,
+                  'binancecoin': 2.38,
+                  'matic-network': 20.03,
+                  'usd-coin': 22220.88,
+                  'tether': parseFloat(dashboardData?.wallet_balance || 0)
+                };
+
+                const balance = mockBalances[asset.id] || 0;
+                const usdValue = balance * (cryptoData.current_price || 0);
+
+                return (
+                  <Box
+                    key={asset.id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      py: 2,
+                      borderBottom: !isLastItem ? `1px solid ${theme.palette.divider}` : 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box
+                        component="img"
+                        src={asset.image}
+                        alt={asset.name}
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          mr: 2,
+                          borderRadius: '50%',
+                        }}
+                        onError={(e) => {
+                          e.target.src = `https://via.placeholder.com/40x40/${asset.fallbackColor.replace('#', '')}/FFFFFF?text=${asset.fallbackText}`;
+                        }}
+                      />
+                      <Box>
+                        <Typography variant="body1" fontWeight="medium">
+                          {asset.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {asset.symbol.toUpperCase()}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="body1" fontWeight="bold">
+                        {balance.toLocaleString(undefined, {
+                          minimumFractionDigits: asset.id === 'tether' || asset.id === 'usd-coin' ? 2 :
+                                                 balance < 1 ? 4 : 2,
+                          maximumFractionDigits: asset.id === 'tether' || asset.id === 'usd-coin' ? 2 :
+                                                 balance < 1 ? 4 : 2
+                        })}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        ${usdValue.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              })}
+
+              {/* Price Update Indicator */}
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                  {loadingCrypto ? (
+                    <>
+                      <CircularProgress size={12} sx={{ mr: 1 }} />
+                      Updating prices...
+                    </>
+                  ) : (
+                    <>
+                      Prices updated {new Date().toLocaleTimeString()}
+                    </>
+                  )}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        )}
+
+        {/* NFTs Tab Content */}
+        {activeTab === 1 && (
+          <Box sx={{ p: 0 }}>
+            {/* NFTs Content */}
+            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
+              <Typography variant="subtitle1" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                No NFTs found
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Invest in our trading packages and start earning daily ROI.
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3, maxWidth: 300 }}>
+                Your NFT collection will appear here
               </Typography>
               <Button
-                variant="contained"
+                variant="outlined"
                 color="primary"
-                fullWidth
+                size="small"
+              >
+                Browse NFTs
+              </Button>
+            </Box>
+          </Box>
+        )}
+
+        {/* Live Trading Tab Content */}
+        {activeTab === 2 && (
+          <Box sx={{ p: 0 }}>
+            <Box sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 200,
+              background: mode === 'dark' ? 'rgba(51, 117, 187, 0.05)' : 'rgba(255, 255, 255, 1)',
+              borderRadius: 2,
+              border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.2)' : '#E6E8EA'}`,
+              boxShadow: mode === 'dark' ? '0 8px 20px rgba(0,0,0,0.05)' : '0 2px 8px rgba(0, 0, 0, 0.03)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                background: mode === 'dark'
+                  ? 'radial-gradient(circle at top right, rgba(51, 117, 187, 0.1), transparent 70%)'
+                  : 'radial-gradient(circle at top right, rgba(51, 117, 187, 0.05), transparent 70%)',
+                zIndex: 0,
+              },
+            }}>
+              <Box sx={{
+                width: '100%',
+                textAlign: 'center',
+                position: 'relative',
+                zIndex: 1,
+              }}>
+                <Typography variant="h6" color={mode === 'dark' ? theme.palette.primary.main : '#000'} sx={{ mb: 2, fontWeight: 600 }}>
+                  Live Trading Platform
+                </Typography>
+                <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3, maxWidth: 500, mx: 'auto' }}>
+                  Access our advanced trading platform with real-time market data, price jumpers, and automated trading features
+                </Typography>
+
+                {/* Market Trend Visualization Preview */}
+                <Box sx={{
+                  height: 120,
+                  width: '100%',
+                  maxWidth: 500,
+                  mx: 'auto',
+                  mb: 3,
+                  position: 'relative',
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  background: '#12151c',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                }}>
+                  <Box sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'radial-gradient(circle at 30% 30%, rgba(51, 117, 187, 0.2), transparent 70%)',
+                    opacity: 0.8,
+                    animation: 'pulse 8s ease-in-out infinite',
+                    '@keyframes pulse': {
+                      '0%': { opacity: 0.5 },
+                      '50%': { opacity: 0.8 },
+                      '100%': { opacity: 0.5 },
+                    },
+                  }} />
+
+                  <Box sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)',
+                    backgroundSize: '20px 20px',
+                    zIndex: 1,
+                  }} />
+
+                  <Box component="svg" viewBox="0 0 500 120" preserveAspectRatio="none" sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    zIndex: 2,
+                  }}>
+                    <Box component="path"
+                      d="M0,60 L50,55 L100,65 L150,50 L200,60 L250,40 L300,45 L350,30 L400,20 L450,10 L500,5"
+                      sx={{
+                        fill: 'none',
+                        stroke: '#0ecb81',
+                        strokeWidth: 2,
+                        strokeLinecap: 'round',
+                        strokeLinejoin: 'round',
+                        strokeDasharray: 1000,
+                        strokeDashoffset: 1000,
+                        animation: 'drawLine 3s forwards',
+                        '@keyframes drawLine': {
+                          '0%': { strokeDashoffset: 1000 },
+                          '100%': { strokeDashoffset: 0 },
+                        },
+                      }}
+                    />
+                  </Box>
+
+                  <Box sx={{
+                    position: 'absolute',
+                    top: 10,
+                    left: 10,
+                    display: 'flex',
+                    gap: 1,
+                    zIndex: 3,
+                  }}>
+                    <Box sx={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: '#fff',
+                      background: 'rgba(0, 0, 0, 0.5)',
+                      padding: '2px 6px',
+                      borderRadius: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                    }}>
+                      <Box sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: '#f0b90b',
+                      }} />
+                      BTC/USDT
+                    </Box>
+                    <Box sx={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: '#0ecb81',
+                      background: 'rgba(0, 0, 0, 0.5)',
+                      padding: '2px 6px',
+                      borderRadius: 1,
+                    }}>
+                      +12.45%
+                    </Box>
+                  </Box>
+
+                  <Box sx={{
+                    position: 'absolute',
+                    top: 10,
+                    right: 10,
+                    zIndex: 3,
+                    fontSize: '0.875rem',
+                    fontWeight: 700,
+                    color: '#0ecb81',
+                    textShadow: '0 0 10px rgba(14, 203, 129, 0.5)',
+                  }}>
+                    +458.72 USDT
+                  </Box>
+                </Box>
+
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  onClick={() => navigate('/live-trading')}
+                  sx={{
+                    backgroundColor: '#3375BB',
+                    backgroundImage: 'linear-gradient(135deg, #3375BB 0%, #2A5F9E 100%)',
+                    px: 4,
+                    py: 1.5,
+                    borderRadius: 6,
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    boxShadow: '0 8px 16px rgba(51, 117, 187, 0.3)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: '-100%',
+                      width: '100%',
+                      height: '100%',
+                      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                      animation: 'shine 2s infinite',
+                      '@keyframes shine': {
+                        '0%': { left: '-100%' },
+                        '100%': { left: '100%' },
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: '#2A5F9E',
+                      transform: 'translateY(-3px)',
+                      boxShadow: '0 12px 20px rgba(51, 117, 187, 0.4)',
+                    },
+                  }}
+                >
+                  Launch Trading Platform
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        )}
+
+      </Box>
+
+      {/* Quick Actions - Trust Wallet Style */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: { xs: 0, sm: 3 },
+          mb: 3,
+          overflow: 'hidden',
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Quick Actions
+            </Typography>
+            <Button
+              variant="text"
+              color="primary"
+              endIcon={<ArrowForwardIcon />}
+              size="small"
+              sx={{ textTransform: 'none', display: { xs: 'none', sm: 'flex' } }}
+              onClick={() => navigate('/transaction-history')}
+            >
+              View All
+            </Button>
+          </Box>
+
+          {/* Main Quick Actions - Always Visible */}
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={3}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                }}
                 onClick={() => navigate('/buy-package')}
               >
-                Buy Now
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%', md: '40%', sm: '43%', xs: '100%' } }}>
-          <Card
-            elevation={0}
-            sx={{
-              height: '100%',
-              borderRadius: 2,
-              border: `1px solid ${theme.palette.divider}`,
-            }}
-          >
-            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-              <PaymentsIcon
-                sx={{ fontSize: 48, color: theme.palette.primary.main, mb: 2 }}
-              />
-              <Typography variant="h6" component="h3" gutterBottom>
-                Deposit Funds
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Add funds to your wallet to invest in packages.
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: `${theme.palette.primary.main}15`,
+                    color: theme.palette.primary.main,
+                    mb: 1,
+                  }}
+                >
+                  <ShoppingCartIcon />
+                </Box>
+                <Typography variant="caption" align="center">
+                  Buy
+                </Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={3}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                }}
                 onClick={() => navigate('/deposit')}
               >
-                Deposit
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%', md: '40%', sm: '43%', xs: '100%' } }}>
-          <Card
-            elevation={0}
-            sx={{
-              height: '100%',
-              borderRadius: 2,
-              border: `1px solid ${theme.palette.divider}`,
-            }}
-          >
-            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-              <PeopleIcon
-                sx={{ fontSize: 48, color: theme.palette.primary.main, mb: 2 }}
-              />
-              <Typography variant="h6" component="h3" gutterBottom>
-                Invite Friends
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Grow your team and earn referral commissions.
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: `${theme.palette.primary.main}15`,
+                    color: theme.palette.primary.main,
+                    mb: 1,
+                  }}
+                >
+                  <AddIcon />
+                </Box>
+                <Typography variant="caption" align="center">
+                  Deposit
+                </Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={3}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                }}
+                onClick={() => navigate('/withdraw')}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: `${theme.palette.primary.main}15`,
+                    color: theme.palette.primary.main,
+                    mb: 1,
+                  }}
+                >
+                  <SendIcon />
+                </Box>
+                <Typography variant="caption" align="center">
+                  Withdraw
+                </Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={3}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                }}
                 onClick={() => {
                   // Copy referral link to clipboard
-                  const referralLink = `${window.location.origin}/register?ref=${user?.username || ''}`;
+                  const referralLink = `${window.location.origin}/register?ref=${user?.sponsorID || ''}`;
                   navigator.clipboard.writeText(referralLink);
                   alert('Referral link copied to clipboard!');
                 }}
               >
-                Copy Link
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3} sx={{ width: { lg: '25%', md: '40%', sm: '43%', xs: '100%' } }}>
-          <Card
-            elevation={0}
-            sx={{
-              height: '100%',
-              borderRadius: 2,
-              border: `1px solid ${theme.palette.divider}`,
-            }}
-          >
-            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-              <AccountBalanceIcon
-                sx={{ fontSize: 48, color: theme.palette.primary.main, mb: 2 }}
-              />
-              <Typography variant="h6" component="h3" gutterBottom>
-                Withdraw
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Withdraw your earnings to your wallet or bank account.
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                onClick={() => navigate('/withdraw')}
-              >
-                Withdraw
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: `${theme.palette.primary.main}15`,
+                    color: theme.palette.primary.main,
+                    mb: 1,
+                  }}
+                >
+                  <PeopleIcon />
+                </Box>
+                <Typography variant="caption" align="center">
+                  Invite
+                </Typography>
+              </Box>
+            </Grid>
+          </Grid>
 
-      {/* Income Breakdown */}
-      <Typography variant="h6" component="h2" fontWeight="bold" sx={{ mb: 2 }}>
-        Income Breakdown
-      </Typography>
-      <Grid container spacing={3} sx={{ width: '100%' }}>
-        <Grid item xs={12} sm={6} lg={4} sx={{ width: { lg: '33.33%', md: '50%', sm: '50%', xs: '100%' } }}>
-          <Card
-            elevation={0}
+          {/* Additional Quick Actions - Mobile Only */}
+          <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+              History & Reports
+            </Typography>
+
+            <Grid container spacing={2}>
+              {/* Investment History */}
+              <Grid item xs={3}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => navigate('/investment-history')}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      backgroundColor: `${theme.palette.secondary.main}15`,
+                      color: theme.palette.secondary.main,
+                      mb: 1,
+                    }}
+                  >
+                    <ShoppingCartIcon />
+                  </Box>
+                  <Typography variant="caption" align="center">
+                    Investments
+                  </Typography>
+                </Box>
+              </Grid>
+
+              {/* ROI History */}
+              <Grid item xs={3}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => navigate('/daily-roi-history')}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      backgroundColor: `${theme.palette.secondary.main}15`,
+                      color: theme.palette.secondary.main,
+                      mb: 1,
+                    }}
+                  >
+                    <TrendingUpIcon />
+                  </Box>
+                  <Typography variant="caption" align="center">
+                    ROI History
+                  </Typography>
+                </Box>
+              </Grid>
+
+              {/* Transaction History */}
+              <Grid item xs={3}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => navigate('/transaction-history')}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      backgroundColor: `${theme.palette.secondary.main}15`,
+                      color: theme.palette.secondary.main,
+                      mb: 1,
+                    }}
+                  >
+                    <SwapIcon />
+                  </Box>
+                  <Typography variant="caption" align="center">
+                    Transactions
+                  </Typography>
+                </Box>
+              </Grid>
+
+              {/* Transfer History */}
+              <Grid item xs={3}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => navigate('/transfer-history')}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      backgroundColor: `${theme.palette.secondary.main}15`,
+                      color: theme.palette.secondary.main,
+                      mb: 1,
+                    }}
+                  >
+                    <SwapIcon />
+                  </Box>
+                  <Typography variant="caption" align="center">
+                    Transfers
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                Team & Earnings
+              </Typography>
+
+              <Grid container spacing={2}>
+                {/* Team Structure */}
+                <Grid item xs={3}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => navigate('/team')}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 48,
+                        height: 48,
+                        borderRadius: '50%',
+                        backgroundColor: `${theme.palette.info.main}15`,
+                        color: theme.palette.info.main,
+                        mb: 1,
+                      }}
+                    >
+                      <PeopleIcon />
+                    </Box>
+                    <Typography variant="caption" align="center">
+                      Team
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                {/* Direct Team */}
+                <Grid item xs={3}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => navigate('/direct-team')}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 48,
+                        height: 48,
+                        borderRadius: '50%',
+                        backgroundColor: `${theme.palette.info.main}15`,
+                        color: theme.palette.info.main,
+                        mb: 1,
+                      }}
+                    >
+                      <PeopleIcon />
+                    </Box>
+                    <Typography variant="caption" align="center">
+                      Direct Team
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                {/* Level Income */}
+                <Grid item xs={3}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => navigate('/level-roi-income')}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 48,
+                        height: 48,
+                        borderRadius: '50%',
+                        backgroundColor: `${theme.palette.info.main}15`,
+                        color: theme.palette.info.main,
+                        mb: 1,
+                      }}
+                    >
+                      <TrendingUpIcon />
+                    </Box>
+                    <Typography variant="caption" align="center">
+                      Level Income
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                {/* Direct Income */}
+                <Grid item xs={3}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => navigate('/direct-income')}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 48,
+                        height: 48,
+                        borderRadius: '50%',
+                        backgroundColor: `${theme.palette.info.main}15`,
+                        color: theme.palette.info.main,
+                        mb: 1,
+                      }}
+                    >
+                      <TrendingUpIcon />
+                    </Box>
+                    <Typography variant="caption" align="center">
+                      Direct Income
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
+
+
+      {/* News & Announcements - Trust Wallet Style */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: { xs: 0, sm: 3 },
+          mb: 3,
+          overflow: 'hidden',
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              News & Announcements
+            </Typography>
+            <Button
+              variant="text"
+              color="primary"
+              endIcon={<ArrowForwardIcon />}
+              size="small"
+              sx={{ textTransform: 'none' }}
+            >
+              View All
+            </Button>
+          </Box>
+
+          {/* News Item 1 */}
+          <Box
             sx={{
-              height: '100%',
+              display: 'flex',
+              p: 1.5,
+              mb: 1.5,
               borderRadius: 2,
-              border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: 'rgba(51, 117, 187, 0.05)',
+              border: '1px solid rgba(51, 117, 187, 0.1)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                backgroundColor: 'rgba(51, 117, 187, 0.08)',
+              },
             }}
           >
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                Daily ROI
+            <Box
+              component="img"
+              src="https://assets.coingecko.com/coins/images/1/small/bitcoin.png"
+              alt="News"
+              sx={{
+                width: 60,
+                height: 60,
+                borderRadius: 1,
+                mr: 2,
+                objectFit: 'cover',
+                backgroundColor: '#F7931A15',
+                padding: 1,
+              }}
+              onError={(e) => {
+                e.target.src = "https://via.placeholder.com/60x60/3375BB/FFFFFF?text=News";
+              }}
+            />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                New Investment Packages Available
               </Typography>
-              <Typography variant="h5" fontWeight="bold" color="primary.main">
-                {formatCurrency(dashboardData?.daily_profit || 0)}
+              <Typography variant="caption" color="text.secondary">
+                Check out our new investment packages with higher ROI rates and better rewards.
               </Typography>
-              <Button
-                variant="text"
-                color="primary"
-                sx={{ mt: 2 }}
-                onClick={() => navigate('/daily-roi-history')}
-              >
-                View History
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={4} sx={{ width: { lg: '33.33%', md: '50%', sm: '50%', xs: '100%' } }}>
-          <Card
-            elevation={0}
+            </Box>
+          </Box>
+
+          {/* News Item 2 */}
+          <Box
             sx={{
-              height: '100%',
+              display: 'flex',
+              p: 1.5,
+              mb: 1.5,
               borderRadius: 2,
-              border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: 'rgba(51, 117, 187, 0.05)',
+              border: '1px solid rgba(51, 117, 187, 0.1)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                backgroundColor: 'rgba(51, 117, 187, 0.08)',
+              },
             }}
           >
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                Referral Bonus
+            <Box
+              component="img"
+              src="https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png"
+              alt="News"
+              sx={{
+                width: 60,
+                height: 60,
+                borderRadius: 1,
+                mr: 2,
+                objectFit: 'cover',
+                backgroundColor: '#F3BA2F15',
+                padding: 1,
+              }}
+              onError={(e) => {
+                e.target.src = "https://via.placeholder.com/60x60/0ECB81/FFFFFF?text=News";
+              }}
+            />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                Referral Program Update
               </Typography>
-              <Typography variant="h5" fontWeight="bold" color="primary.main">
-                {formatCurrency(dashboardData?.referral_bonus || 0)}
+              <Typography variant="caption" color="text.secondary">
+                We've improved our referral program with better commissions and more levels.
               </Typography>
-              <Button
-                variant="text"
-                color="primary"
-                sx={{ mt: 2 }}
-                onClick={() => navigate('/direct-income-history')}
-              >
-                View History
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} lg={4} sx={{ width: { lg: '33.33%', md: '50%', sm: '50%', xs: '100%' } }}>
-          <Card
-            elevation={0}
-            sx={{
-              height: '100%',
-              borderRadius: 2,
-              border: `1px solid ${theme.palette.divider}`,
-            }}
-          >
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                Level ROI Income
-              </Typography>
-              <Typography variant="h5" fontWeight="bold" color="primary.main">
-                {formatCurrency(dashboardData?.level_roi_income || dashboardData?.team_commission || 0)}
-              </Typography>
-              <Button
-                variant="text"
-                color="primary"
-                sx={{ mt: 2 }}
-                onClick={() => navigate('/level-roi-income')}
-              >
-                View History
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
+
+      {/* Charts - Only show on larger screens */}
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 3,
+            mb: 3,
+            overflow: 'hidden',
+            p: 2,
+          }}
+        >
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+            Performance Analytics
+          </Typography>
+          <Grid container spacing={3} sx={{ width: '100%' }}>
+            <Grid item sx={{ width: { lg: '48%',md : "50%", sm : "50%",xs : "100%" } }}>
+              <EarningsChart data={earningsChartData} />
+            </Grid>
+            <Grid item sx={{ width: { lg: '49%',md : "50%", sm : "50%",xs : "100%" } }}>
+              <TeamGrowthChart data={teamGrowthData} />
+            </Grid>
+          </Grid>
+        </Paper>
+      </Box>
     </Box>
   );
 };
