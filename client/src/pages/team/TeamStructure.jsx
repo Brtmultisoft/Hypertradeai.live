@@ -18,6 +18,20 @@ import {
   InputBase,
   Chip,
   styled,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tabs,
+  Tab,
+  Badge,
+  Pagination,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -32,6 +46,15 @@ import {
   PersonAdd as PersonAddIcon,
   CheckCircle as CheckCircleIcon,
   ZoomIn as ZoomInIcon,
+  Close as CloseIcon,
+  FilterList as FilterListIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  Layers as LayersIcon,
+  Person as PersonIcon,
+  MonetizationOn as MonetizationOnIcon,
+  CalendarToday as CalendarTodayIcon,
+  Email as EmailIcon,
+  Phone as PhoneIcon,
 } from '@mui/icons-material';
 import TeamTree from '../../components/team/TeamTree';
 import useApi from '../../hooks/useApi';
@@ -52,6 +75,83 @@ const StyledStatCard = styled(Card)(({ theme, mode }) => ({
   '&:hover': {
     transform: 'translateY(-4px)',
     boxShadow: mode === 'dark' ? '0 12px 24px rgba(0, 0, 0, 0.3)' : '0 12px 24px rgba(0, 0, 0, 0.1)',
+  },
+}));
+
+// Level Box styled component
+const LevelBox = styled(Card)(({ theme, mode, active, level }) => {
+  // Generate a color based on the level (1-10)
+  const getColorByLevel = (level) => {
+    const colors = [
+      theme.palette.primary.main,
+      theme.palette.success.main,
+      theme.palette.warning.main,
+      theme.palette.error.main,
+      theme.palette.info.main,
+      '#9c27b0', // purple
+      '#009688', // teal
+      '#ff5722', // deep orange
+      '#607d8b', // blue grey
+      '#795548', // brown
+    ];
+    return colors[(level - 1) % colors.length];
+  };
+
+  const levelColor = getColorByLevel(level);
+
+  return {
+    borderRadius: 16,
+    border: active
+      ? `2px solid ${levelColor}`
+      : `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : theme.palette.divider}`,
+    backgroundColor: active
+      ? mode === 'dark'
+        ? `${levelColor}20`
+        : `${levelColor}10`
+      : mode === 'dark'
+        ? theme.palette.background.paper
+        : '#FFFFFF',
+    boxShadow: active
+      ? `0 8px 16px ${levelColor}30`
+      : mode === 'dark'
+        ? '0 8px 16px rgba(0, 0, 0, 0.2)'
+        : '0 8px 16px rgba(0, 0, 0, 0.05)',
+    transition: 'all 0.3s ease',
+    overflow: 'hidden',
+    cursor: 'pointer',
+    position: 'relative',
+    '&:hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: active
+        ? `0 12px 24px ${levelColor}40`
+        : mode === 'dark'
+          ? '0 12px 24px rgba(0, 0, 0, 0.3)'
+          : '0 12px 24px rgba(0, 0, 0, 0.1)',
+      borderColor: levelColor,
+    },
+    '&::before': active ? {
+      content: '""',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '4px',
+      backgroundColor: levelColor,
+    } : {},
+  };
+});
+
+// Member Card styled component
+const MemberCard = styled(Card)(({ theme, mode }) => ({
+  borderRadius: 12,
+  border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : theme.palette.divider}`,
+  backgroundColor: mode === 'dark' ? theme.palette.background.paper : '#FFFFFF',
+  boxShadow: mode === 'dark' ? '0 4px 8px rgba(0, 0, 0, 0.2)' : '0 4px 8px rgba(0, 0, 0, 0.05)',
+  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+  overflow: 'hidden',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: mode === 'dark' ? '0 6px 12px rgba(0, 0, 0, 0.3)' : '0 6px 12px rgba(0, 0, 0, 0.1)',
   },
 }));
 
@@ -137,6 +237,11 @@ const TeamStructure = () => {
   const { user } = useAuth();
   const [selectedMember, setSelectedMember] = useState(null);
   const [processedTeamData, setProcessedTeamData] = useState(null);
+  const [selectedLevel, setSelectedLevel] = useState(null);
+  const [levelMembers, setLevelMembers] = useState([]);
+  const [levelStats, setLevelStats] = useState([]);
+  const [showMemberDetails, setShowMemberDetails] = useState(false);
+  const [memberDetailsData, setMemberDetailsData] = useState(null);
   const [teamStats, setTeamStats] = useState({
     totalMembers: 0,
     totalInvestment: 0,
@@ -169,22 +274,58 @@ const TeamStructure = () => {
     let maxDepth = nestedArray.length - 1; // The depth is the number of levels in the array
     let allMembers = [];
 
+    // Create level stats array (for levels 1-10)
+    const levelStatsArray = Array(10).fill().map(() => ({
+      memberCount: 0,
+      totalInvestment: 0,
+      activeMembers: 0,
+      members: []
+    }));
+
     // Flatten the nested array structure
     nestedArray.forEach((level, levelIndex) => {
       if (Array.isArray(level)) {
-        level.forEach(member => {
-          // Add level information to each member
-          member.level = levelIndex;
-          allMembers.push(member);
+        // Skip level 0 (user's own data)
+        if (levelIndex > 0 && levelIndex <= 10) {
+          // Update level stats
+          levelStatsArray[levelIndex - 1].memberCount = level.length;
 
-          // Calculate statistics
-          totalInvestment += member.total_investment || 0;
-          if (member.total_investment > 0) {
-            activeMembers++;
-          }
-        });
+          level.forEach(member => {
+            // Add level information to each member
+            member.level = levelIndex;
+            allMembers.push(member);
+
+            // Add to level stats
+            levelStatsArray[levelIndex - 1].totalInvestment += member.total_investment || 0;
+            if (member.total_investment > 0) {
+              levelStatsArray[levelIndex - 1].activeMembers++;
+            }
+
+            // Add member to level members array
+            levelStatsArray[levelIndex - 1].members.push({
+              id: member.id || member._id,
+              name: member.name || 'Unknown',
+              username: member.username || 'unknown',
+              email: member.email || 'N/A',
+              phone: member.phone || 'N/A',
+              investment: member.total_investment || 0,
+              joinDate: member.created_at || 'N/A',
+              status: member.total_investment > 0 ? 'Active' : 'Inactive',
+              referrerId: member.refer_id || 'N/A'
+            });
+
+            // Calculate global statistics
+            totalInvestment += member.total_investment || 0;
+            if (member.total_investment > 0) {
+              activeMembers++;
+            }
+          });
+        }
       }
     });
+
+    // Update level stats state
+    setLevelStats(levelStatsArray);
 
     // Transform flat structure to hierarchical tree
     const buildTree = () => {
@@ -271,9 +412,34 @@ const TeamStructure = () => {
     });
   };
 
+  // Handle level selection
+  const handleLevelClick = (level) => {
+    // Level is 1-based (1-10)
+    if (selectedLevel === level) {
+      // If clicking the same level, toggle it off
+      setSelectedLevel(null);
+      setLevelMembers([]);
+    } else {
+      setSelectedLevel(level);
+      // Get members for this level (level-1 because array is 0-based)
+      setLevelMembers(levelStats[level-1]?.members || []);
+    }
+  };
+
+  // Handle member click in the level members list
+  const handleLevelMemberClick = (member) => {
+    setMemberDetailsData(member);
+    setShowMemberDetails(true);
+  };
+
   // Handle member click in the team tree
   const handleMemberClick = (member) => {
     setSelectedMember(member);
+  };
+
+  // Close member details dialog
+  const handleCloseMemberDetails = () => {
+    setShowMemberDetails(false);
   };
 
   // Copy referral link to clipboard
@@ -352,32 +518,13 @@ const TeamStructure = () => {
               </IconButton>
             </Tooltip>
 
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<ShareIcon />}
-              onClick={copyReferralLink}
-              sx={{
-                borderRadius: 2,
-                px: 2,
-                py: 1,
-                fontWeight: 600,
-                boxShadow: mode === 'dark' ? '0 4px 12px rgba(51, 117, 187, 0.3)' : '0 4px 12px rgba(51, 117, 187, 0.2)',
-                '&:hover': {
-                  boxShadow: mode === 'dark' ? '0 6px 16px rgba(51, 117, 187, 0.4)' : '0 6px 16px rgba(51, 117, 187, 0.3)',
-                  transform: 'translateY(-2px)',
-                },
-              }}
-            >
-              Share
-            </Button>
           </Box>
         </Box>
       </StyledReferralBox>
 
       {/* Team Statistics */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Grid item spacing={3} sx={{ mb: 4 , display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+        <Grid sx={{width:'100%'}} item xs={12} sm={6} md={3}>
           <StyledStatCard mode={mode}>
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -411,7 +558,7 @@ const TeamStructure = () => {
           </StyledStatCard>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid sx={{width:'100%'}} item xs={12} sm={6} md={3}>
           <StyledStatCard mode={mode}>
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -445,7 +592,7 @@ const TeamStructure = () => {
           </StyledStatCard>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid sx={{width:'100%'}} item xs={12} sm={6} md={3}>
           <StyledStatCard mode={mode}>
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -479,7 +626,7 @@ const TeamStructure = () => {
           </StyledStatCard>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid sx={{width:'100%'}}  item xs={12} sm={6} md={3}>
           <StyledStatCard mode={mode}>
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -529,6 +676,79 @@ const TeamStructure = () => {
         >
           {teamError.msg || 'Failed to load team data. Please try again.'}
         </Alert>
+      )}
+
+      {/* Level Boxes for 1-10 */}
+      <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+        {levelStats.map((levelStat, index) => {
+          const level = index + 1;
+          const isActive = selectedLevel === level;
+          return (
+            <LevelBox
+              key={level}
+              mode={mode}
+              active={isActive}
+              level={level}
+              onClick={() => handleLevelClick(level)}
+              sx={{ width: '100%', cursor: 'pointer' }}
+            >
+              <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  Level {level}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Members: {levelStat.memberCount}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Investment: {formatCurrency(levelStat.totalInvestment)}
+                </Typography>
+              </CardContent>
+            </LevelBox>
+          );
+        })}
+      </Box>
+
+      {/* Member List for Selected Level */}
+      {selectedLevel && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+            Members at Level {selectedLevel}
+          </Typography>
+          {levelMembers.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No members found at this level.
+            </Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {levelMembers.map((member) => (
+                <Grid item xs={12} sm={6} md={4} key={member.id}>
+                  <MemberCard
+                    mode={mode}
+                    onClick={() => handleLevelMemberClick(member)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                        {member.name?.charAt(0) || 'U'}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {member.name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          @{member.username}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Investment: {formatCurrency(member.investment)}
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                  </MemberCard>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </Box>
       )}
 
       {/* Team Tree and Selected Member */}

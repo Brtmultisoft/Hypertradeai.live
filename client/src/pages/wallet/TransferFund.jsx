@@ -231,7 +231,7 @@ const TransferFund = () => {
             />
             <Tab
               icon={<PersonIcon />}
-              label="Transfer to User"
+              label="P2P"
               iconPosition="start"
             />
           </Tabs>
