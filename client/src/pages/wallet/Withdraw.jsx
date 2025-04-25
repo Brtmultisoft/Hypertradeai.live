@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -15,16 +15,26 @@ import {
   Alert,
   FormControl,
   FormHelperText,
+  CircularProgress,
+  Snackbar,
+  Checkbox,
+  FormControlLabel,
+  Divider,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   QrCode as QrCodeIcon,
   Info as InfoIcon,
   Send as SendIcon,
+  CheckCircle as CheckCircleIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 import { useTheme as useAppTheme } from '../../context/ThemeContext';
 import useData from '../../hooks/useData';
+import useApi from '../../hooks/useApi';
+import WalletService from '../../services/wallet.service';
 
 const Withdraw = () => {
   const theme = useMuiTheme();
@@ -34,6 +44,11 @@ const Withdraw = () => {
   const [amount, setAmount] = useState('');
   const [address, setAddress] = useState('');
   const [errors, setErrors] = useState({});
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+  const [refreshing, setRefreshing] = useState(false);
   const { dashboardData, fetchDashboardData } = useData();
 
   // Use real wallet data from dashboardData
@@ -53,16 +68,70 @@ const Withdraw = () => {
   const networkFee = 1; // USDT
   const networkFeeUsd = 1; // USD
 
+  // API hook for submitting withdrawal request
+  const {
+    loading: submittingWithdrawal,
+    error: withdrawalError,
+    data: withdrawalResponse,
+    execute: submitWithdrawal
+  } = useApi(() => WalletService.requestWithdrawal({
+    amount: parseFloat(amount),
+    address: address,
+    currency: balances[activeTab].currency
+  }));
+
   // Fetch dashboard data on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  // Handle successful withdrawal submission
+  useEffect(() => {
+    if (withdrawalResponse) {
+      console.log('Withdrawal response:', withdrawalResponse);
+      setSnackbarMessage('Withdrawal request submitted successfully! It will be processed after admin approval.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+
+      // Reset form
+      setAmount('');
+      setAddress('');
+      setAgreedToTerms(false);
+
+      // Set refreshing state to true
+      setRefreshing(true);
+
+      // Refresh dashboard data to show updated balance
+      // Add a small delay to ensure the server has processed the withdrawal
+      setTimeout(() => {
+        fetchDashboardData()
+          .then(() => {
+            console.log('Dashboard data refreshed successfully');
+            setRefreshing(false);
+          })
+          .catch(error => {
+            console.error('Error refreshing dashboard data:', error);
+            setRefreshing(false);
+          });
+      }, 1000);
+    }
+  }, [withdrawalResponse, fetchDashboardData]);
+
+  // Handle withdrawal error
+  useEffect(() => {
+    if (withdrawalError) {
+      setSnackbarMessage(withdrawalError.msg || 'Failed to submit withdrawal request. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  }, [withdrawalError]);
 
   const handleTabChange = (_, newValue) => {
     setActiveTab(newValue);
     setAmount('');
     setAddress('');
     setErrors({});
+    setAgreedToTerms(false);
   };
 
   const handleAmountChange = (e) => {
@@ -84,6 +153,8 @@ const Withdraw = () => {
       newErrors.amount = 'Amount is required';
     } else if (isNaN(value) || parseFloat(value) <= 0) {
       newErrors.amount = 'Please enter a valid amount';
+    } else if (parseFloat(value) < 50) {
+      newErrors.amount = 'Minimum withdrawal amount is 50 USDT';
     } else if (parseFloat(value) > balances[activeTab].balance) {
       newErrors.amount = 'Insufficient balance';
     } else {
@@ -98,7 +169,7 @@ const Withdraw = () => {
 
     if (!value) {
       newErrors.address = 'Address is required';
-    } else if (value.length < 42) {
+    } else if (value.length < 30) {
       newErrors.address = 'Please enter a valid address';
     } else {
       delete newErrors.address;
@@ -117,12 +188,26 @@ const Withdraw = () => {
     validateAmount(amount);
     validateAddress(address);
 
-    if (!amount || !address || errors.amount || errors.address) {
+    if (!amount || !address || errors.amount || errors.address || !agreedToTerms) {
       return;
     }
 
-    // Here you would implement the actual withdrawal logic
-    alert(`Withdrawal of ${amount} ${balances[activeTab].currency} to ${address} initiated!`);
+    // Check if amount is greater than available balance
+    if (parseFloat(amount) > parseFloat(balances[activeTab].balance)) {
+      setSnackbarMessage('Insufficient balance for this withdrawal');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    console.log('Submitting withdrawal request:', {
+      amount: parseFloat(amount),
+      address: address,
+      currency: balances[activeTab].currency
+    });
+
+    // Submit withdrawal request
+    submitWithdrawal();
   };
 
   const handleBack = () => {
@@ -133,6 +218,30 @@ const Withdraw = () => {
     if (!amount || isNaN(amount)) return 0;
     const usdPerUnit = balances[activeTab].usdValue / balances[activeTab].balance;
     return (parseFloat(amount) * usdPerUnit).toFixed(2);
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
+
+  // Handle manual refresh of dashboard data
+  const handleRefreshBalance = () => {
+    setRefreshing(true);
+    fetchDashboardData()
+      .then(() => {
+        console.log('Dashboard data refreshed successfully');
+        setSnackbarMessage('Balance updated successfully');
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+        setRefreshing(false);
+      })
+      .catch(error => {
+        console.error('Error refreshing dashboard data:', error);
+        setSnackbarMessage('Failed to update balance. Please try again.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        setRefreshing(false);
+      });
   };
 
   return (
@@ -192,35 +301,67 @@ const Withdraw = () => {
             mb: 3,
             borderRadius: 2,
             border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+            position: 'relative',
           }}
         >
+          {refreshing && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                borderRadius: 2,
+                zIndex: 1,
+              }}
+            >
+              <CircularProgress size={30} />
+            </Box>
+          )}
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <Box
-                component="img"
-                src={balances[activeTab].icon}
-                alt={balances[activeTab].currency}
-                sx={{
-                  width: 40,
-                  height: 40,
-                  mr: 2,
-                  borderRadius: '50%',
-                }}
-                onError={(e) => {
-                  e.target.src = balances[activeTab].placeholder;
-                }}
-              />
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Available Balance
-                </Typography>
-                <Typography variant="h6" fontWeight="bold">
-                  {balances[activeTab].balance} {balances[activeTab].currency}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  ≈ ${balances[activeTab].usdValue.toFixed(2)} USD
-                </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box
+                  component="img"
+                  src={balances[activeTab].icon}
+                  alt={balances[activeTab].currency}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    mr: 2,
+                    borderRadius: '50%',
+                  }}
+                  onError={(e) => {
+                    e.target.src = balances[activeTab].placeholder;
+                  }}
+                />
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Available Balance
+                  </Typography>
+                  <Typography variant="h6" fontWeight="bold">
+                    {balances[activeTab].balance} {balances[activeTab].currency}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ≈ ${balances[activeTab].usdValue.toFixed(2)} USD
+                  </Typography>
+                </Box>
               </Box>
+              <Tooltip title="Refresh Balance">
+                <IconButton
+                  onClick={handleRefreshBalance}
+                  disabled={refreshing}
+                  size="small"
+                  sx={{ mt: 1 }}
+                >
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Box>
           </CardContent>
         </Card>
@@ -320,23 +461,59 @@ const Withdraw = () => {
             </Box>
           </Box>
 
+          {/* Terms and Conditions */}
+          <Box sx={{ mb: 3 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  I understand that this withdrawal request will be processed after admin approval and may take 24-48 hours to complete.
+                </Typography>
+              }
+            />
+          </Box>
+
           {/* Withdraw Button */}
           <Button
             fullWidth
             variant="contained"
             color="primary"
             size="large"
-            startIcon={<SendIcon />}
+            startIcon={submittingWithdrawal ? <CircularProgress size={24} color="inherit" /> : <SendIcon />}
             onClick={handleWithdraw}
-            disabled={!amount || !address || !!errors.amount || !!errors.address}
+            disabled={!amount || !address || !!errors.amount || !!errors.address || !agreedToTerms || submittingWithdrawal}
             sx={{
               py: 1.5,
               borderRadius: 2,
             }}
           >
-            Withdraw {balances[activeTab].currency}
+            {submittingWithdrawal ? 'Processing...' : `Withdraw ${balances[activeTab].currency}`}
           </Button>
         </Paper>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={handleSnackbarClose}
+          message={snackbarMessage}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={handleSnackbarClose}
+            severity={snackbarSeverity}
+            sx={{ width: '100%' }}
+            icon={snackbarSeverity === 'success' ? <CheckCircleIcon /> : undefined}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
 
         {/* Warning */}
         <Alert

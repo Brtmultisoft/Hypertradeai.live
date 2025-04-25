@@ -11,7 +11,7 @@ module.exports = {
     getAllWithdrawals: async (req, res) => {
         let responseData = {};
         try {
-            const { status } = req.query;
+            const { status, page, limit, search, sort_field, sort_direction } = req.query;
 
             // Build query
             const query = {};
@@ -19,48 +19,139 @@ module.exports = {
                 query.status = parseInt(status);
             }
 
-            // Get withdrawals
-            const withdrawalsResult = await withdrawalDbHandler.getAll(query);
-            console.log("Withdrawals result:", withdrawalsResult);
+            // Create options for pagination
+            const options = {
+                page: parseInt(page) || 1,
+                limit: parseInt(limit) || 10
+            };
+
+            // Handle sorting properly - don't pass an object to sort_by
+            let sortOptions = {};
+            if (sort_field) {
+                sortOptions.sort_field = sort_field;
+                sortOptions.sort_direction = sort_direction || 'desc';
+            } else {
+                sortOptions.sort_field = 'created_at';
+                sortOptions.sort_direction = 'desc';
+            }
+
+            console.log("Withdrawal query:", query);
+            console.log("Withdrawal options:", options);
+            console.log("Sort options:", sortOptions);
+
+            // Get withdrawals - wrap in try/catch to handle any errors
+            let withdrawalsResult;
+            try {
+                withdrawalsResult = await withdrawalDbHandler.getAll({
+                    ...query,
+                    page: options.page,
+                    limit: options.limit,
+                    sort_field: sortOptions.sort_field,
+                    sort_direction: sortOptions.sort_direction,
+                    search: search
+                });
+
+                console.log("Withdrawals result structure:", withdrawalsResult ? Object.keys(withdrawalsResult) : "No result");
+            } catch (fetchError) {
+                console.error("Error fetching withdrawals:", fetchError);
+                // Create a fallback empty result
+                withdrawalsResult = {
+                    docs: [],
+                    totalDocs: 0,
+                    limit: options.limit,
+                    page: options.page,
+                    totalPages: 0
+                };
+            }
 
             // Ensure we have an array of withdrawals
             let withdrawals = [];
+            let totalDocs = 0;
 
+            // Check if the result is already in the expected format
+            if (withdrawalsResult && withdrawalsResult.docs) {
+                withdrawals = withdrawalsResult.docs;
+                totalDocs = withdrawalsResult.totalDocs;
+            }
             // Check if the result is already an array
-            if (Array.isArray(withdrawalsResult)) {
+            else if (Array.isArray(withdrawalsResult)) {
                 withdrawals = withdrawalsResult;
+                totalDocs = withdrawalsResult.length;
             }
             // Check if the result has a 'result' property that is an array
             else if (withdrawalsResult && Array.isArray(withdrawalsResult.result)) {
                 withdrawals = withdrawalsResult.result;
+                totalDocs = withdrawalsResult.result.length;
             }
             // Check if the result has a 'data' property that is an array
             else if (withdrawalsResult && Array.isArray(withdrawalsResult.data)) {
                 withdrawals = withdrawalsResult.data;
+                totalDocs = withdrawalsResult.data.length;
             }
             // Check if the result has a 'list' property that is an array
             else if (withdrawalsResult && Array.isArray(withdrawalsResult.list)) {
                 withdrawals = withdrawalsResult.list;
+                totalDocs = withdrawalsResult.list.length;
             }
 
-            console.log("Processed withdrawals array:", withdrawals);
+            // If we still don't have withdrawals, try to fetch them directly
+            if (withdrawals.length === 0) {
+                try {
+                    console.log("Attempting to fetch withdrawals directly from the database");
+                    const directWithdrawals = await withdrawalDbHandler._model.find(query)
+                        .sort({ created_at: -1 })
+                        .limit(options.limit)
+                        .skip((options.page - 1) * options.limit);
+
+                    if (directWithdrawals && directWithdrawals.length > 0) {
+                        console.log(`Found ${directWithdrawals.length} withdrawals directly from the database`);
+                        withdrawals = directWithdrawals;
+                        totalDocs = await withdrawalDbHandler._model.countDocuments(query);
+                    }
+                } catch (directError) {
+                    console.error("Error fetching withdrawals directly:", directError);
+                }
+            }
+
+            console.log(`Processed ${withdrawals.length} withdrawals`);
 
             // Get user details for each withdrawal
             const withdrawalsWithUserDetails = await Promise.all(
                 withdrawals.map(async (withdrawal) => {
                     try {
-                        const user = await userDbHandler.getById(withdrawal.user_id);
+                        // Convert withdrawal to plain object if it's a Mongoose document
+                        const plainWithdrawal = withdrawal.toObject ? withdrawal.toObject() : withdrawal;
+
+                        // Get user details
+                        let user;
+                        try {
+                            user = await userDbHandler.getById(plainWithdrawal.user_id);
+                        } catch (userError) {
+                            console.error(`Error fetching user for withdrawal ${plainWithdrawal._id}:`, userError);
+                            user = null;
+                        }
+
                         return {
-                            ...withdrawal,
-                            user_name: user ? user.name : null,
-                            user_email: user ? user.email : null
+                            ...plainWithdrawal,
+                            user_details: {
+                                name: user ? (user.name || user.username) : 'Unknown',
+                                email: user ? user.email : 'Unknown'
+                            }
                         };
                     } catch (error) {
-                        log.error(`Error fetching user details for withdrawal ${withdrawal._id}:`, error);
+                        console.error(`Error processing withdrawal ${withdrawal._id || 'unknown'}:`, error);
+
+                        // Return a safe fallback
+                        const safeWithdrawal = typeof withdrawal.toObject === 'function'
+                            ? withdrawal.toObject()
+                            : (typeof withdrawal === 'object' ? withdrawal : {});
+
                         return {
-                            ...withdrawal,
-                            user_name: null,
-                            user_email: null
+                            ...safeWithdrawal,
+                            user_details: {
+                                name: 'Unknown',
+                                email: 'Unknown'
+                            }
                         };
                     }
                 })
@@ -71,34 +162,53 @@ module.exports = {
                 pending: 0,
                 approved: 0,
                 rejected: 0,
-                total: withdrawals.length
+                total: totalDocs
             };
 
             // Calculate stats from the withdrawals array
-            if (Array.isArray(withdrawals)) {
-                stats.pending = withdrawals.filter(w => w.status === 0).length;
-                stats.approved = withdrawals.filter(w => w.status === 1).length;
-                stats.rejected = withdrawals.filter(w => w.status === 2).length;
-                stats.total = withdrawals.length;
-            }
-
-            // Try to use count method if available
             try {
-                if (typeof withdrawalDbHandler.count === 'function') {
-                    stats = {
-                        pending: await withdrawalDbHandler.count({ status: 0 }),
-                        approved: await withdrawalDbHandler.count({ status: 1 }),
-                        rejected: await withdrawalDbHandler.count({ status: 2 }),
-                        total: await withdrawalDbHandler.count({})
-                    };
+                // Try to use the getCount method
+                if (typeof withdrawalDbHandler.getCount === 'function') {
+                    stats.pending = await withdrawalDbHandler.getCount({ status: 0 });
+                    stats.approved = await withdrawalDbHandler.getCount({ status: 1 });
+                    stats.rejected = await withdrawalDbHandler.getCount({ status: 2 });
+                    stats.total = await withdrawalDbHandler.getCount({});
+                } else {
+                    // Fallback to direct count
+                    stats.pending = await withdrawalDbHandler._model.countDocuments({ status: 0 });
+                    stats.approved = await withdrawalDbHandler._model.countDocuments({ status: 1 });
+                    stats.rejected = await withdrawalDbHandler._model.countDocuments({ status: 2 });
+                    stats.total = await withdrawalDbHandler._model.countDocuments({});
                 }
             } catch (countError) {
                 log.error('Error using count method, using array length instead:', countError);
-                // We already set stats using array length, so no need to do anything here
+                // Fallback to calculating from the current page
+                stats.pending = withdrawals.filter(w => w.status === 0 || w.status === '0').length;
+                stats.approved = withdrawals.filter(w => w.status === 1 || w.status === '1').length;
+                stats.rejected = withdrawals.filter(w => w.status === 2 || w.status === '2').length;
+                stats.total = totalDocs;
+            }
+
+            // Create result object in the expected format
+            const result = {
+                docs: withdrawalsWithUserDetails,
+                totalDocs: totalDocs,
+                limit: parseInt(limit) || 10,
+                page: parseInt(page) || 1,
+                totalPages: Math.ceil(totalDocs / (parseInt(limit) || 10)),
+                hasNextPage: (parseInt(page) || 1) < Math.ceil(totalDocs / (parseInt(limit) || 10)),
+                hasPrevPage: (parseInt(page) || 1) > 1
+            };
+
+            console.log(`Returning ${withdrawalsWithUserDetails.length} withdrawals with user details`);
+
+            // Log a sample withdrawal for debugging
+            if (withdrawalsWithUserDetails.length > 0) {
+                console.log('Sample withdrawal:', JSON.stringify(withdrawalsWithUserDetails[0]).substring(0, 500) + '...');
             }
 
             responseData.msg = 'Withdrawals fetched successfully';
-            responseData.data = withdrawalsWithUserDetails;
+            responseData.result = result;
             responseData.stats = stats;
             return responseHelper.success(res, responseData);
         } catch (error) {
@@ -113,7 +223,7 @@ module.exports = {
         let responseData = {};
         try {
             const { withdrawalId, txid } = req.body;
-           
+
             if (!withdrawalId) {
                 responseData.msg = 'Withdrawal ID is required';
                 return responseHelper.error(res, responseData);
@@ -134,11 +244,20 @@ module.exports = {
             }
 
             // Update withdrawal status
-                await withdrawalDbHandler.updateOneByQuery({_id: withdrawalId}, {
-                    status: 1,
-                    txid: txid ,
-                    processed_at: new Date()
-                });
+            await withdrawalDbHandler.updateOneByQuery({_id: withdrawalId}, {
+                status: 1, // Approved
+                txid: txid || 'manual-process',
+                processed_at: new Date(),
+                approved_at: new Date(),
+                remark: 'Approved by admin'
+            });
+
+            // Update user's wallet_withdraw (reduce the pending withdrawal amount)
+            // Note: We don't add back to wallet since the funds are now being sent out
+            await userDbHandler.updateOneByQuery(
+                { _id: withdrawal.user_id },
+                { $inc: { wallet_withdraw: -withdrawal.amount } }
+            );
 
             responseData.msg = 'Withdrawal approved successfully';
             responseData.txid = txid || 'manual-process';
@@ -188,8 +307,8 @@ module.exports = {
                 return responseHelper.error(res, responseData);
             }
 
-            // Refund the amount to user's wallet
-            await userDbHandler.updateById(withdrawal.user_id, {
+            // Refund the amount to user's wallet and reduce the pending withdrawal amount
+            await userDbHandler.updateOneByQuery({_id : withdrawal.user_id}, {
                 $inc: {
                     wallet: parseFloat(withdrawal.amount),
                     wallet_withdraw: -parseFloat(withdrawal.amount)
@@ -198,15 +317,23 @@ module.exports = {
 
             // Update withdrawal status
             await withdrawalDbHandler.updateById(withdrawalId, {
-                status: 2,
+                status: 2, // Rejected
                 processed_at: new Date(),
+                remark: 'Rejected by admin',
                 extra: {
                     ...withdrawal.extra,
-                    rejectionReason: reason
+                    rejectionReason: reason,
+                    rejectionDate: new Date()
                 }
             });
 
             responseData.msg = 'Withdrawal rejected successfully';
+            responseData.data = {
+                withdrawal_id: withdrawalId,
+                amount: withdrawal.amount,
+                status: 'Rejected',
+                reason: reason
+            };
             return responseHelper.success(res, responseData);
         } catch (error) {
             log.error('Error in rejectWithdrawal:', error);
@@ -217,15 +344,63 @@ module.exports = {
 
     getAll: async (req, res) => {
         let reqObj = req.query;
-        log.info('Recieved request for getAll:', reqObj);
+        log.info('Received request for getAll:', reqObj);
         let responseData = {};
         try {
+            // Log the query parameters for debugging
+            console.log('Withdrawal query parameters:', reqObj);
+
+            // Get all withdrawals
             let getList = await withdrawalDbHandler.getAll(reqObj);
+            console.log('Withdrawal data retrieved:', JSON.stringify(getList).substring(0, 500) + '...');
+
+            // Process the data to ensure it's in the expected format
+            let result = getList;
+
+            // If the result is not in the expected format, transform it
+            if (!result.docs && result.data) {
+                result = {
+                    docs: result.data,
+                    totalDocs: result.data.length,
+                    limit: parseInt(reqObj.limit) || 10,
+                    page: parseInt(reqObj.page) || 1,
+                    totalPages: Math.ceil(result.data.length / (parseInt(reqObj.limit) || 10))
+                };
+            }
+
+            // Ensure we have the expected structure
+            if (!result.docs) {
+                result = {
+                    docs: Array.isArray(result) ? result : [result],
+                    totalDocs: Array.isArray(result) ? result.length : 1,
+                    limit: parseInt(reqObj.limit) || 10,
+                    page: parseInt(reqObj.page) || 1,
+                    totalPages: Math.ceil((Array.isArray(result) ? result.length : 1) / (parseInt(reqObj.limit) || 10))
+                };
+            }
+
+            // Add user details to each withdrawal
+            if (Array.isArray(result.docs)) {
+                for (let i = 0; i < result.docs.length; i++) {
+                    try {
+                        const user = await userDbHandler.getById(result.docs[i].user_id);
+                        if (user) {
+                            result.docs[i].user_details = {
+                                name: user.name || user.username,
+                                email: user.email
+                            };
+                        }
+                    } catch (userError) {
+                        console.error(`Error fetching user details for withdrawal ${result.docs[i]._id}:`, userError);
+                    }
+                }
+            }
+
             responseData.msg = 'Data fetched successfully!';
-            responseData.data = getList;
+            responseData.result = result;
             return responseHelper.success(res, responseData);
         } catch (error) {
-            log.error('failed to fetch data with error::', error);
+            log.error('Failed to fetch data with error:', error);
             responseData.msg = 'Failed to fetch data';
             return responseHelper.error(res, responseData);
         }

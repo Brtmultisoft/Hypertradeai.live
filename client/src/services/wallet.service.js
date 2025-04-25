@@ -81,6 +81,19 @@ const WalletService = {
     }
   },
 
+  // Request withdrawal (admin approval required)
+  requestWithdrawal: async (data) => {
+    try {
+      console.log('Requesting withdrawal with data:', data);
+      const response = await api.post('/request-withdrawal', data);
+      console.log('Withdrawal response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Withdrawal request error:', error);
+      throw error.response?.data || { msg: 'Failed to request withdrawal' };
+    }
+  },
+
   // Get all fund transfers
   getAllFundTransfers: async (params = {}) => {
     try {

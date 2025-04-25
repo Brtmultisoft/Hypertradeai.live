@@ -161,13 +161,16 @@ const TransactionHistory = () => {
 
   // Get status label
   const getStatusLabel = (status) => {
-    switch (status) {
+    // Convert to number if it's a string
+    const statusCode = typeof status === 'string' ? parseInt(status) : status;
+
+    switch (statusCode) {
       case 0:
         return 'Pending';
       case 1:
         return 'Approved';
       case 2:
-        return 'Completed';
+        return 'Rejected';
       default:
         return 'Unknown';
     }
@@ -175,13 +178,16 @@ const TransactionHistory = () => {
 
   // Get status color
   const getStatusColor = (status) => {
-    switch (status) {
+    // Convert to number if it's a string
+    const statusCode = typeof status === 'string' ? parseInt(status) : status;
+
+    switch (statusCode) {
       case 0:
         return 'warning';
       case 1:
         return 'success';
       case 2:
-        return 'info';
+        return 'error';
       default:
         return 'default';
     }
@@ -192,26 +198,39 @@ const TransactionHistory = () => {
     let combinedData = [];
     let totalCount = 0;
 
+    console.log('Deposit data:', depositData);
+    console.log('Withdrawal data:', withdrawalData);
+
     if (depositData?.data && (filterType === 'all' || filterType === 'deposits')) {
-      const deposits = depositData.data.docs || [];
+      // Handle different response formats for deposits
+      let deposits = [];
+      if (depositData.data.list) {
+        deposits = depositData.data.list;
+        totalCount += depositData.data.total || 0;
+      }
+
       deposits.forEach(deposit => {
         combinedData.push({
           ...deposit,
           type: 'deposit',
         });
       });
-      totalCount += depositData.data.totalDocs || 0;
     }
 
     if (withdrawalData?.data && (filterType === 'all' || filterType === 'withdrawals')) {
-      const withdrawals = withdrawalData.data.docs || [];
+      // Handle different response formats for withdrawals
+      let withdrawals = [];
+      if (withdrawalData.data.list) {
+        withdrawals = withdrawalData.data.list;
+        totalCount += withdrawalData.data.total || 0;
+      }
+
       withdrawals.forEach(withdrawal => {
         combinedData.push({
           ...withdrawal,
           type: 'withdrawal',
         });
       });
-      totalCount += withdrawalData.data.totalDocs || 0;
     }
 
     // Sort by date (newest first)
@@ -352,7 +371,7 @@ const TransactionHistory = () => {
                   <MenuItem value="all">All Statuses</MenuItem>
                   <MenuItem value="0">Pending</MenuItem>
                   <MenuItem value="1">Approved</MenuItem>
-                  <MenuItem value="2">Completed</MenuItem>
+                  <MenuItem value="2">Rejected</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -373,9 +392,9 @@ const TransactionHistory = () => {
                     ),
                     endAdornment: (
                       <InputAdornment position="end">
-                        <Button 
-                          variant="contained" 
-                          size="small" 
+                        <Button
+                          variant="contained"
+                          size="small"
                           type="submit"
                           sx={{ minWidth: 'auto', px: 2 }}
                         >
@@ -512,9 +531,9 @@ const TransactionHistory = () => {
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
                             }}
-                            title={transaction.txid}
+                            title={transaction.txid || transaction.transaction_id || transaction._id || 'N/A'}
                           >
-                            {transaction.txid || 'N/A'}
+                            {transaction.txid || transaction.transaction_id || transaction._id || 'N/A'}
                           </Typography>
                         </TableCell>
                         <TableCell>

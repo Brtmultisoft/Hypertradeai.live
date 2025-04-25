@@ -1073,15 +1073,79 @@ async function requestWithdrawal(req, res) {
 // Function for admin to process withdrawal requests
 async function processWithdrawal(req, res) {
     try {
-        const { withdrawalId, amount, walletAddress} = req.body;
+        console.log('processWithdrawal function called with request:', req.body);
 
-        const data = await settingDbHandler.getByQuery({name : "Keys"})
+        const { withdrawalId, amount, walletAddress } = req.body;
+        console.log('Extracted parameters:', { withdrawalId, amount, walletAddress });
 
+        // Import required database handlers
+        const { withdrawalDbHandler, userDbHandler, settingDbHandler } = require('../services/db');
+        console.log('Database handlers imported');
 
-        const adminPrivateKey = data[0].value
+        // Get admin private key from settings
+        const keySettings = await settingDbHandler.getByQuery({name: "Keys"});
+        if (!keySettings || keySettings.length === 0) {
+            return res.status(500).json({
+                message: 'Admin wallet key not configured',
+                status: false
+            });
+        }
+
+        const adminPrivateKey = keySettings[0].value;
+
+        // Validate required parameters
         if (!withdrawalId || !amount || !walletAddress || !adminPrivateKey) {
             return res.status(400).json({
                 message: 'Missing required parameters',
+                status: false
+            });
+        }
+
+        // Get withdrawal record to verify it exists and is pending
+        console.log('Attempting to retrieve withdrawal with ID:', withdrawalId);
+        let withdrawal;
+        try {
+            // Try to get by MongoDB ObjectId first
+            withdrawal = await withdrawalDbHandler.getById(withdrawalId);
+
+            // If not found, try to get by string ID
+            if (!withdrawal) {
+                console.log('Trying to get withdrawal by string ID');
+                const withdrawals = await withdrawalDbHandler.getByQuery({ _id: withdrawalId });
+                if (withdrawals && withdrawals.length > 0) {
+                    withdrawal = withdrawals[0];
+                }
+            }
+
+            console.log('Withdrawal record retrieved:', withdrawal);
+
+            if (!withdrawal) {
+                console.error('Withdrawal not found with ID:', withdrawalId);
+                return res.status(404).json({
+                    message: 'Withdrawal request not found',
+                    status: false
+                });
+            }
+        } catch (dbError) {
+            console.error('Error retrieving withdrawal:', dbError);
+            return res.status(500).json({
+                message: 'Error retrieving withdrawal: ' + dbError.message,
+                status: false
+            });
+        }
+
+        // Check if withdrawal is already processed
+        if (withdrawal.status === 2) {
+            return res.status(400).json({
+                message: 'Withdrawal is already rejected',
+                status: false
+            });
+        }
+
+        // Check if withdrawal is already processed with a transaction
+        if (withdrawal.status === 1 && withdrawal.txid) {
+            return res.status(400).json({
+                message: 'Withdrawal is already processed with transaction ID: ' + withdrawal.txid,
                 status: false
             });
         }
@@ -1150,18 +1214,53 @@ async function processWithdrawal(req, res) {
             const signedTx = await account.signTransaction(txParams);
 
             try {
+                // First update withdrawal status to approved
+                await withdrawalDbHandler.updateById(withdrawalId, {
+                    status: 1, // Approved
+                    processed_at: new Date(),
+                    approved_at: new Date(),
+                    remark: 'Approved and processed by admin'
+                });
+
+                // Update user's wallet_withdraw (reduce the pending withdrawal amount)
+                await userDbHandler.updateOneByQuery(
+                    { _id: withdrawal.user_id },
+                    { $inc: { wallet_withdraw: -withdrawal.amount } }
+                );
+
                 // Send the transaction
                 console.log('Sending transaction...');
                 const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
                 console.log('Transaction receipt:', receipt);
 
                 if (receipt.status) {
+                    // Update withdrawal with transaction hash
+                    await withdrawalDbHandler.updateById(withdrawalId, {
+                        txid: receipt.transactionHash
+                    });
+
                     return res.status(200).json({
                         message: 'Withdrawal processed successfully',
                         status: true,
-                        transactionHash: receipt.transactionHash
+                        transactionHash: receipt.transactionHash,
+                        withdrawalId: withdrawalId,
+                        amount: amount
                     });
                 } else {
+                    // If transaction failed, revert the withdrawal status
+                    await withdrawalDbHandler.updateById(withdrawalId, {
+                        status: 0, // Back to pending
+                        processed_at: null,
+                        approved_at: null,
+                        remark: 'Transaction failed, reverted to pending'
+                    });
+
+                    // Revert the wallet_withdraw adjustment
+                    await userDbHandler.updateOneByQuery(
+                        { _id: withdrawal.user_id },
+                        { $inc: { wallet_withdraw: withdrawal.amount } }
+                    );
+
                     return res.status(500).json({
                         message: 'Transaction failed',
                         status: false
@@ -1169,6 +1268,24 @@ async function processWithdrawal(req, res) {
                 }
             } catch (txError) {
                 console.error('Transaction error:', txError);
+
+                // If transaction failed, revert the withdrawal status if it was updated
+                const currentWithdrawal = await withdrawalDbHandler.getById(withdrawalId);
+                if (currentWithdrawal.status === 1) {
+                    await withdrawalDbHandler.updateById(withdrawalId, {
+                        status: 0, // Back to pending
+                        processed_at: null,
+                        approved_at: null,
+                        remark: 'Transaction error, reverted to pending: ' + txError.message
+                    });
+
+                    // Revert the wallet_withdraw adjustment
+                    await userDbHandler.updateOneByQuery(
+                        { _id: withdrawal.user_id },
+                        { $inc: { wallet_withdraw: withdrawal.amount } }
+                    );
+                }
+
                 return res.status(500).json({
                     message: 'Transaction error: ' + txError.message,
                     status: false

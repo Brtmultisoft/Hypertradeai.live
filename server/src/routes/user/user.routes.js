@@ -290,27 +290,9 @@ module.exports = () => {
     });
 
     /**
-     * Route for withdrawal requests
+     * Route for withdrawal requests (admin approval required)
      */
-    Router.post("/request-withdrawal", async (req, res) => {
-        try {
-            const { amount, walletAddress } = req.body;
-            const user = req.user;
-            const user_id = user.sub;
-
-            // Import the requestWithdrawal function from own_pay
-            const { requestWithdrawal } = require('../../own_pay/own_pay');
-
-            // Forward the request to the own_pay requestWithdrawal function
-            return await requestWithdrawal(req, res);
-        } catch (error) {
-            console.error('Error processing withdrawal request:', error);
-            return res.status(500).json({
-                status: false,
-                message: 'Error processing withdrawal request: ' + error.message
-            });
-        }
-    });
+    Router.post("/request-withdrawal", userWithdrawalController.requestWithdrawal);
 
     /**************************
      * END OF AUTHORIZED ROUTES

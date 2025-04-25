@@ -92,9 +92,38 @@ const WithdrawalHistory = () => {
       });
 
       if (response.data && response.data.status) {
-        setWithdrawals(response.data.result.docs || []);
-        setTotalWithdrawals(response.data.result.totalDocs || 0);
+        console.log('Withdrawal response:', response.data);
+
+        // Handle different response formats
+        if (response.data.result && response.data.result.docs) {
+          // Standard paginated format
+          console.log('Using standard paginated format with docs array');
+          setWithdrawals(response.data.result.docs || []);
+          setTotalWithdrawals(response.data.result.totalDocs || 0);
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          // Alternative format with data array
+          console.log('Using alternative format with data array');
+          setWithdrawals(response.data.data || []);
+          setTotalWithdrawals(response.data.data.length || 0);
+        } else if (response.data.result && Array.isArray(response.data.result)) {
+          // Alternative format with result array
+          console.log('Using alternative format with result array');
+          setWithdrawals(response.data.result || []);
+          setTotalWithdrawals(response.data.result.length || 0);
+        } else {
+          // Fallback
+          console.log('Using fallback format');
+          const withdrawalData = response.data.result || response.data.data || [];
+          setWithdrawals(Array.isArray(withdrawalData) ? withdrawalData : [withdrawalData]);
+          setTotalWithdrawals(Array.isArray(withdrawalData) ? withdrawalData.length : 1);
+        }
+
+        // Log the first withdrawal for debugging
+        if (response.data.result && response.data.result.docs && response.data.result.docs.length > 0) {
+          console.log('First withdrawal:', response.data.result.docs[0]);
+        }
       } else {
+        console.error('Failed to fetch withdrawal history:', response.data);
         setError(response.data?.message || 'Failed to fetch withdrawal history');
       }
     } catch (err) {
@@ -207,25 +236,81 @@ const WithdrawalHistory = () => {
 
     try {
       const token = getToken();
-      const endpoint = dialogAction === 'approve'
-        ? `/admin/approve-withdrawal/${selectedWithdrawal._id}`
-        : `/admin/reject-withdrawal/${selectedWithdrawal._id}`;
 
-      const response = await axios.post(`${API_URL}${endpoint}`, {
-        reason: actionReason,
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // If approving, use the process withdrawal endpoint directly
+      if (dialogAction === 'approve') {
+        // Debug information
+        console.log('Selected withdrawal:', selectedWithdrawal);
+        console.log('API URL:', API_URL);
+        console.log('Wallet address:', selectedWithdrawal.address || selectedWithdrawal.wallet_address);
 
-      if (response.data && response.data.status) {
-        // Close dialog
-        handleCloseDialog();
-        // Refresh data
-        fetchWithdrawalHistory();
+        // Make sure we have a wallet address
+        const walletAddress = selectedWithdrawal.address || selectedWithdrawal.wallet_address;
+
+        if (!walletAddress) {
+          setError('Wallet address is missing. Cannot process withdrawal.');
+          setActionLoading(false);
+          return;
+        }
+
+        const requestData = {
+          withdrawalId: selectedWithdrawal._id,
+          amount: selectedWithdrawal.amount.toString(),
+          walletAddress: walletAddress
+        };
+
+        console.log('Request data:', requestData);
+
+        try {
+          const response = await axios.post(`${API_URL}/admin/withdrawals/process`, requestData, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          console.log('Response:', response);
+
+          if (response.data && response.data.status) {
+            // Show success message with transaction hash
+            alert(`Withdrawal approved and processed successfully! Transaction hash: ${response.data.transactionHash}`);
+            // Close dialog
+            handleCloseDialog();
+            // Refresh data
+            fetchWithdrawalHistory();
+          } else {
+            console.error('API returned error:', response.data);
+            setError(response.data?.message || 'Failed to approve and process withdrawal');
+          }
+        } catch (apiError) {
+          console.error('API call error details:', apiError);
+          if (apiError.response) {
+            console.error('Error response:', apiError.response.data);
+            console.error('Error status:', apiError.response.status);
+          } else if (apiError.request) {
+            console.error('No response received:', apiError.request);
+          } else {
+            console.error('Error setting up request:', apiError.message);
+          }
+          throw apiError; // Re-throw to be caught by the outer catch
+        }
       } else {
-        setError(response.data?.message || `Failed to ${dialogAction} withdrawal`);
+        // For rejection, use the existing endpoint
+        const response = await axios.post(`${API_URL}/admin/reject-withdrawal/${selectedWithdrawal._id}`, {
+          reason: actionReason,
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.data && response.data.status) {
+          // Close dialog
+          handleCloseDialog();
+          // Refresh data
+          fetchWithdrawalHistory();
+        } else {
+          setError(response.data?.message || 'Failed to reject withdrawal');
+        }
       }
     } catch (err) {
       setError(err.response?.data?.message || `An error occurred while ${dialogAction}ing withdrawal`);
@@ -234,6 +319,8 @@ const WithdrawalHistory = () => {
       setActionLoading(false);
     }
   };
+
+
 
   // Render sort icon
   const renderSortIcon = (field) => {
@@ -247,15 +334,35 @@ const WithdrawalHistory = () => {
 
   // Get status chip color
   const getStatusChipColor = (status) => {
-    switch (status) {
-      case 'completed':
+    // Convert to number if it's a string
+    const statusCode = typeof status === 'string' ? parseInt(status) : status;
+
+    switch (statusCode) {
+      case 1: // Approved
         return 'success';
-      case 'pending':
+      case 0: // Pending
         return 'warning';
-      case 'rejected':
+      case 2: // Rejected
         return 'error';
       default:
         return 'default';
+    }
+  };
+
+  // Get status label
+  const getStatusLabel = (status) => {
+    // Convert to number if it's a string
+    const statusCode = typeof status === 'string' ? parseInt(status) : status;
+
+    switch (statusCode) {
+      case 1: // Approved
+        return 'Approved';
+      case 0: // Pending
+        return 'Pending';
+      case 2: // Rejected
+        return 'Rejected';
+      default:
+        return 'Unknown';
     }
   };
 
@@ -284,7 +391,7 @@ const WithdrawalHistory = () => {
               placeholder="Search by user, transaction ID..."
               value={searchTerm}
               onChange={handleSearchChange}
-              onKeyPress={handleSearchKeyPress}
+              onKeyDown={handleSearchKeyPress}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -312,9 +419,9 @@ const WithdrawalHistory = () => {
                 label="Status"
               >
                 <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-                <MenuItem value="pending">Pending</MenuItem>
-                <MenuItem value="rejected">Rejected</MenuItem>
+                <MenuItem value="1">Approved</MenuItem>
+                <MenuItem value="0">Pending</MenuItem>
+                <MenuItem value="2">Rejected</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -500,16 +607,20 @@ const WithdrawalHistory = () => {
               ) : (
                 withdrawals.map((withdrawal) => (
                   <TableRow key={withdrawal._id} hover>
-                    <TableCell>{withdrawal.transaction_id || withdrawal._id}</TableCell>
+                    <TableCell>{withdrawal.txid || withdrawal.transaction_id || withdrawal._id}</TableCell>
                     <TableCell>
                       {withdrawal.user_details ? (
                         `${withdrawal.user_details.name} (${withdrawal.user_details.email})`
+                      ) : withdrawal.user_name ? (
+                        `${withdrawal.user_name} (${withdrawal.user_email || 'No email'})`
+                      ) : withdrawal.username ? (
+                        `${withdrawal.username} (${withdrawal.email || 'No email'})`
                       ) : (
                         withdrawal.user_id
                       )}
                     </TableCell>
                     <TableCell>{formatCurrency(withdrawal.amount || 0)}</TableCell>
-                    <TableCell>{withdrawal.payment_method || 'N/A'}</TableCell>
+                    <TableCell>{withdrawal.payment_method || withdrawal.currency || 'USDT'}</TableCell>
                     <TableCell>
                       <Typography
                         variant="body2"
@@ -520,14 +631,14 @@ const WithdrawalHistory = () => {
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {withdrawal.wallet_address || 'N/A'}
+                        {withdrawal.address || withdrawal.wallet_address || 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={withdrawal.status || 'pending'}
+                        label={getStatusLabel(withdrawal.status !== undefined ? withdrawal.status : 0)}
                         size="small"
-                        color={getStatusChipColor(withdrawal.status || 'pending')}
+                        color={getStatusChipColor(withdrawal.status !== undefined ? withdrawal.status : 0)}
                       />
                     </TableCell>
                     <TableCell>{formatDate(withdrawal.created_at)}</TableCell>
@@ -544,9 +655,9 @@ const WithdrawalHistory = () => {
                           </IconButton>
                         </Tooltip>
 
-                        {withdrawal.status === 'pending' && (
+                        {(withdrawal.status === 0 || withdrawal.status === '0') && (
                           <>
-                            <Tooltip title="Approve">
+                            <Tooltip title="Approve & Process Withdrawal">
                               <IconButton
                                 size="small"
                                 color="success"
@@ -562,12 +673,15 @@ const WithdrawalHistory = () => {
                                 size="small"
                                 color="error"
                                 onClick={() => handleOpenRejectDialog(withdrawal)}
+                                sx={{ mr: 1 }}
                               >
                                 <CancelIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           </>
                         )}
+
+                        {/* Process button removed as approval now automatically processes the withdrawal */}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -595,15 +709,15 @@ const WithdrawalHistory = () => {
         fullWidth
       >
         <DialogTitle>
-          {dialogAction === 'approve' ? 'Approve Withdrawal' : 'Reject Withdrawal'}
+          {dialogAction === 'approve' ? 'Approve & Process Withdrawal' : 'Reject Withdrawal'}
         </DialogTitle>
         <DialogContent>
           {selectedWithdrawal && (
             <>
               <DialogContentText>
                 {dialogAction === 'approve'
-                  ? 'Are you sure you want to approve this withdrawal request?'
-                  : 'Are you sure you want to reject this withdrawal request?'}
+                  ? 'Are you sure you want to approve and process this withdrawal request? This will immediately send funds to the user\'s wallet address via blockchain transaction.'
+                  : 'Are you sure you want to reject this withdrawal request? Funds will be returned to the user\'s wallet.'}
               </DialogContentText>
 
               <Box sx={{ mt: 2, mb: 3 }}>
@@ -664,7 +778,7 @@ const WithdrawalHistory = () => {
             disabled={actionLoading}
             startIcon={actionLoading ? <CircularProgress size={20} /> : null}
           >
-            {dialogAction === 'approve' ? 'Approve' : 'Reject'}
+            {dialogAction === 'approve' ? 'Approve & Process' : 'Reject'}
           </Button>
         </DialogActions>
       </Dialog>

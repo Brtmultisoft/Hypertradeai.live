@@ -137,7 +137,7 @@ const TransferHistory = () => {
       setTotalRows(data.result.total || 0);
     }
   }, [data]);
-
+  
   // Update summary data when API response changes
   useEffect(() => {
     if (summaryData?.result) {

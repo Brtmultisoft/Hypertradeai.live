@@ -248,7 +248,7 @@ module.exports = () => {
     Router.put("/update-deposit", validationMiddleware(depositValidation.update, 'body'), adminDepositController.update);
 
     // Original withdrawal routes
-    Router.get("/get-all-withdrawals", adminWithdrawalController.getAll);
+    Router.get("/get-all-withdrawals", adminWithdrawalController.getAllWithdrawals); // Use getAllWithdrawals instead of getAll
     Router.get("/get-withdrawal/:id", adminWithdrawalController.getOne);
     Router.get("/get-withdrawal-sum", adminWithdrawalController.getSum);
     Router.put("/update-withdrawal", validationMiddleware(withdrawalValidation.update, 'body'), adminWithdrawalController.update);
@@ -258,14 +258,29 @@ module.exports = () => {
     Router.get("/withdrawals/:id", adminWithdrawalController.getOne);
     Router.post("/withdrawals/approve", adminWithdrawalController.approveWithdrawal);
     Router.post("/withdrawals/reject", adminWithdrawalController.rejectWithdrawal);
+
+    // Direct endpoints for approval/rejection
+    Router.post("/approve-withdrawal/:id", (req, res) => {
+        req.body.withdrawalId = req.params.id;
+        return adminWithdrawalController.approveWithdrawal(req, res);
+    });
+    Router.post("/reject-withdrawal/:id", (req, res) => {
+        req.body.withdrawalId = req.params.id;
+        return adminWithdrawalController.rejectWithdrawal(req, res);
+    });
     // Process withdrawal using own_pay.js
     Router.post("/withdrawals/process", async (req, res) => {
         try {
-            // Modify the request body to match what processWithdrawal expects
-            const { withdrawalId, userId, amount,walletAddress } = req.body;
+            // Log the incoming request for debugging
+            console.log('Process withdrawal request received:', req.body);
 
+            // Modify the request body to match what processWithdrawal expects
+            const { withdrawalId, amount, walletAddress } = req.body;
+
+            console.log('Extracted parameters:', { withdrawalId, amount, walletAddress });
 
             if (!withdrawalId || !amount || !walletAddress) {
+                console.error('Missing required parameters:', { withdrawalId, amount, walletAddress });
                 return res.status(400).json({
                     status: false,
                     message: 'Missing required parameters'
@@ -281,10 +296,13 @@ module.exports = () => {
                 }
             };
 
+            console.log('Modified request:', modifiedReq);
+
             // Import the processWithdrawal function from own_pay.js
             const { processWithdrawal } = require('../../own_pay/own_pay');
 
             // Call processWithdrawal with the modified request and response objects
+            console.log('Calling processWithdrawal function');
             return processWithdrawal(modifiedReq, res);
         } catch (error) {
             console.error('Error processing withdrawal:', error);

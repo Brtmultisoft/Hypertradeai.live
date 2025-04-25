@@ -250,4 +250,89 @@ module.exports = {
             return responseHelper.error(res, responseData);
         }
     },
+
+    // Request withdrawal (requires admin approval)
+    requestWithdrawal: async (req, res) => {
+        let responseData = {};
+        let user = req.user;
+        let user_id = user.sub;
+        let reqObj = req.body;
+        try {
+            // Get user data
+            let userData = await userDbHandler.getById(user_id);
+            let amount = parseFloat(reqObj.amount);
+            let address = reqObj.address;
+
+            // Validate request
+            if (!amount || isNaN(amount) || amount <= 0) {
+                responseData.msg = 'Please enter a valid amount';
+                return responseHelper.error(res, responseData);
+            }
+
+            if (!address) {
+                responseData.msg = 'Please enter a valid wallet address';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Check if user has sufficient balance
+            if (userData?.wallet < amount) {
+                responseData.msg = 'Insufficient funds in your wallet';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Check minimum withdrawal amount
+            if (amount < 50) {
+                responseData.msg = 'Minimum withdrawal amount is 50 USDT';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Calculate fee (1 USDT fixed fee)
+            const fee = 1;
+            const netAmount = amount - fee;
+
+            // Create withdrawal record with pending status
+            const withdrawalData = {
+                user_id: user_id,
+                amount: amount,
+                fee: fee,
+                net_amount: netAmount,
+                address: address,
+                status: 0, // Pending status
+                remark: 'Pending admin approval',
+                currency: 'USDT',
+                extra: {
+                    walletType: 'wallet',
+                    adminFee: fee,
+                    requestDate: new Date()
+                }
+            };
+
+            // Deduct amount from user's wallet and move to wallet_withdraw (pending withdrawals)
+            console.log(`Deducting ${amount} from user ${user_id}'s wallet and adding to wallet_withdraw`);
+            const updateResult = await userDbHandler.updateOneByQuery({_id : user_id}, {
+                $inc: {
+                    wallet: -amount,
+                    wallet_withdraw: amount
+                }
+            });
+            console.log('User wallet update result:', updateResult);
+
+            // Create withdrawal record
+            const withdrawal = await withdrawalDbHandler.create(withdrawalData);
+
+            responseData.msg = 'Withdrawal request submitted successfully. It will be processed after admin approval.';
+            responseData.data = {
+                withdrawal_id: withdrawal._id,
+                amount: amount,
+                fee: fee,
+                net_amount: netAmount,
+                status: 'Pending'
+            };
+            return responseHelper.success(res, responseData);
+        } catch (error) {
+            log.error('Failed to process withdrawal request with error:', error);
+            responseData.msg = typeof error === 'string' ? error : 'Failed to process withdrawal request';
+            return responseHelper.error(res, responseData);
+        }
+    },
 };

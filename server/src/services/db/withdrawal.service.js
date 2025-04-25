@@ -44,9 +44,29 @@ class Withdrawal {
 		}
 
 		let filter = params;
-		const options = pick(data, ['sort_by', 'limit', 'page']);
+
+		// Handle pagination and sorting
+		const options = {
+			limit: data.limit ? parseInt(data.limit) : 10,
+			page: data.page ? parseInt(data.page) : 1,
+			populate: '',
+			sort: {}
+		};
+
+		// Handle sort field and direction
+		if (data.sort_field && data.sort_direction) {
+			console.log(`Sorting by ${data.sort_field} in ${data.sort_direction} order`);
+			options.sort[data.sort_field] = data.sort_direction === 'desc' ? -1 : 1;
+		} else {
+			// Default sort by created_at descending
+			options.sort.created_at = -1;
+		}
+
+		console.log('Withdrawal query filter:', filter);
+		console.log('Withdrawal query options:', options);
+
+		// Define valid sort fields
 		options.sort_fields = ['txid', 'address', 'currency', 'currency_coin', 'amount', 'fee', 'net_amount', 'amount_coin', 'created_at'];
-		options.populate = '';
 		if (!user_id) {
 			const pipeline = [];
 			pipeline.push(
@@ -109,15 +129,26 @@ class Withdrawal {
 		if (user_id) {
 			params.user_id = user_id;
 		}
+
+		// Handle numeric status values (0, 1, 2)
 		if (data.status !== undefined) {
-			params.status = data.status ? true : false;
+			// If it's a boolean query, use the original logic
+			if (typeof data.status === 'boolean') {
+				params.status = data.status ? true : false;
+			} else {
+				// Otherwise, use the numeric value
+				params.status = parseInt(data.status);
+			}
 		}
+
 		if (data.currency_coin !== undefined) {
 			params.currency_coin = data.currency_coin;
 		}
 		if (data.currency !== undefined) {
 			params.currency = data.currency;
 		}
+
+		console.log('Count query:', params);
 		return this._model.countDocuments(params).exec();
 	}
 	async getSum(data, user_id = null) {
