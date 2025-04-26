@@ -87,7 +87,7 @@ const Header = ({ onToggleSidebar }) => {
             fontWeight: 'bold',
           }}
         >
-          HyperTrade Admin
+          HypeTrade AI
         </Typography>
 
         {/* Notifications */}
