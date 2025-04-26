@@ -1423,8 +1423,8 @@ const _processDailyTradingProfit = async () => {
 
         console.log(`User ${user._id} has activated daily profit today. Processing ROI...`);
 
-        // Calculate daily profit using fixed 8% ROI rate
-        const roiRate = 8; // Fixed 8% ROI rate as per requirements
+        // Calculate daily profit using fixed 8/30% ROI rate (8% monthly distributed daily)
+        const roiRate = 8/30; // Fixed 8/30% ROI rate as per requirements
         const dailyProfit = (investment.amount * roiRate) / 100;
         totalProfit += dailyProfit;
 

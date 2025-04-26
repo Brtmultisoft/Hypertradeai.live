@@ -44,7 +44,7 @@ module.exports = {
                 title: reqObj.title || 'Trading Package',
                 amount_from: 50, // Minimum investment $50
                 amount_to: 0,    // No maximum (unlimited)
-                percentage: 8,    // 8% daily ROI
+                percentage: 8/30,    // 8/30% daily ROI (8% monthly distributed daily)
                 days: 1,          // Daily distribution
                 frequency_in_days: 1,
                 referral_bonus: 3, // 3% direct referral commission
