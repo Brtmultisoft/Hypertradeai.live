@@ -78,7 +78,7 @@ const Sidebar = ({ open, onClose }) => {
       >
         <Box
           component="img"
-          src="/logo.png"
+          src="./logo.png"
           alt="HypeTrade AI"
           sx={{ height: 40, display: 'block', mx: 'auto' }}
         />
