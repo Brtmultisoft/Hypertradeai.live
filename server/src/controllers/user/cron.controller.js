@@ -567,7 +567,7 @@ const processTeamCommission = async (user_id, amount) => {
 
         // Calculate commission amount based on level and daily income
         const commissionPercentage = percentages[`level${level}`];
-        const commissionAmount = ((dailyIncome * commissionPercentage) / 100)?.toFixed(5);
+        const commissionAmount = (dailyIncome * commissionPercentage) / 100;
         console.log(`Commission percentage: ${commissionPercentage}%`);
         console.log(`Commission amount: $${commissionAmount.toFixed(4)} (${commissionPercentage}% of $${dailyIncome.toFixed(2)})`);
 
