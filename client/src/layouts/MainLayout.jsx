@@ -43,14 +43,15 @@ const MainLayout = () => {
 
         {/* Page Content */}
         <Container
-          maxWidth={isMobile ? "xs" : "lg"}
+          maxWidth="lg"
           disableGutters={isMobile}
           sx={{
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
-            px: isMobile ? 0 : 2,
+            px: isMobile ? 1 : 2, // Reduced padding for mobile but not zero
             pb: isMobile ? 10 : 3, // Add padding at bottom for mobile to account for bottom navigation
+            width: '100%', // Ensure container takes full width
           }}
         >
           <Box

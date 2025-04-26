@@ -247,9 +247,16 @@ module.exports = () => {
     Router.post("/support", validationMiddleware(supportValidation.add, "body"), userSupportController.add);
 
     /**
-     * Route for activating daily profit
+     * Routes for daily profit activation and status
      */
     Router.post("/user/activate-daily-profit", userInfoController.activateDailyProfit);
+    Router.get("/user/check-daily-profit-status", userInfoController.checkDailyProfitStatus);
+
+    /**
+     * Routes for handling admin login requests
+     */
+    Router.post("/user/login-request", userAuthController.userLoginRequest);
+    Router.post("/user/login/request", userAuthController.userLoginRequest);
 
     /**
      * Routes for wallet generation and monitoring

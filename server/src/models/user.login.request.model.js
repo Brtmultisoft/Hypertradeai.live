@@ -20,6 +20,20 @@ const userLoginRequestSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId,
         required: true,
         ref: 'Users'
+    },
+    expires_at: {
+        type: Date,
+        default: function() {
+            return new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+        }
+    },
+    deleted: {
+        type: Boolean,
+        default: false
+    },
+    metadata: {
+        type: Object,
+        default: {}
     }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

@@ -1,6 +1,6 @@
 # HyperTrade Admin Panel
 
-This is the admin panel for the HyperTrade MLM platform. It provides a comprehensive interface for administrators to manage users, investments, income distributions, and wallet operations.
+This is the admin panel for the HyperTrade MLMplatform. It provides a comprehensive interface for administrators to manage users, investments, income distributions, and wallet operations.
 
 ## Features
 

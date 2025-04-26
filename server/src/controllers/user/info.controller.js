@@ -536,4 +536,51 @@ module.exports = {
         }
     },
 
+    /**
+     * Method to check if daily profit is already activated today
+     */
+    checkDailyProfitStatus: async (req, res) => {
+        let user = req.user;
+        let id = user.sub;
+        log.info('Received request to check daily profit status for User:', id);
+        let responseData = {};
+
+        try {
+            // Get user data
+            const userData = await userDbHandler.getById(id);
+            if (!userData) {
+                responseData.msg = 'User not found';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Check if user has already activated daily profit today
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Get last activation date from either location
+            const lastActivationDate = userData.lastDailyProfitActivation ||
+                                      (userData.extra && userData.extra.lastDailyProfitActivation);
+
+            let isActivatedToday = false;
+            if (lastActivationDate) {
+                const lastActivation = new Date(lastActivationDate);
+                lastActivation.setHours(0, 0, 0, 0);
+                isActivatedToday = lastActivation.getTime() === today.getTime();
+            }
+
+            responseData.msg = isActivatedToday ? 'Daily profit is activated for today' : 'Daily profit is not activated for today';
+            responseData.data = {
+                isActivatedToday,
+                lastActivationDate
+            };
+            return responseHelper.success(res, responseData);
+
+        } catch (error) {
+            console.error('Failed to check daily profit status with error:', error);
+            log.error('Failed to check daily profit status with error:', error);
+            responseData.msg = 'Failed to check daily profit status: ' + error.message;
+            return responseHelper.error(res, responseData);
+        }
+    },
+
 };

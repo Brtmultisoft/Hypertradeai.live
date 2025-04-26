@@ -181,7 +181,16 @@ const CryptoService = {
 };
 
 // Crypto asset data with reliable image URLs and fallback colors
-export const CRYPTO_ASSETS = [{
+export const CRYPTO_ASSETS = [
+    {
+        id: 'tether',
+        symbol: 'usdt',
+        name: 'Tether',
+        image: 'https://assets.coingecko.com/coins/images/325/large/Tether.png',
+        fallbackColor: '#26A17B',
+        fallbackText: 'USDT'
+    },
+    {
         id: 'bitcoin',
         symbol: 'btc',
         name: 'Bitcoin',
@@ -220,15 +229,8 @@ export const CRYPTO_ASSETS = [{
         image: 'https://assets.coingecko.com/coins/images/6319/large/USD_Coin_icon.png',
         fallbackColor: '#2775CA',
         fallbackText: 'USDC'
-    },
-    {
-        id: 'tether',
-        symbol: 'usdt',
-        name: 'Tether',
-        image: 'https://assets.coingecko.com/coins/images/325/large/Tether.png',
-        fallbackColor: '#26A17B',
-        fallbackText: 'USDT'
     }
+  
 ];
 
 export default CryptoService;

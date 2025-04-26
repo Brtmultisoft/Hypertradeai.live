@@ -558,7 +558,7 @@ const processTeamCommission = async (user_id, amount) => {
         console.log(`User has enough direct referrals (${directReferrals.length} >= ${level}) and has invested. Processing commission...`);
 
         // Calculate daily profit from the investment amount using fixed 8% ROI
-        const roiRate = 8; // Fixed 8% ROI as per requirements
+        const roiRate = 8/30; // Fixed 8% ROI as per requirements
         console.log(`Using fixed ROI rate: ${roiRate}%`);
 
         // Calculate daily income generated from the investment
@@ -567,7 +567,7 @@ const processTeamCommission = async (user_id, amount) => {
 
         // Calculate commission amount based on level and daily income
         const commissionPercentage = percentages[`level${level}`];
-        const commissionAmount = (dailyIncome * commissionPercentage) / 100;
+        const commissionAmount = ((dailyIncome * commissionPercentage) / 100)?.toFixed(5);
         console.log(`Commission percentage: ${commissionPercentage}%`);
         console.log(`Commission amount: $${commissionAmount.toFixed(4)} (${commissionPercentage}% of $${dailyIncome.toFixed(2)})`);
 
@@ -1322,6 +1322,29 @@ const _processLevelRoiIncome = async () => {
       console.log(`\nProcessing level ROI income for user: ${user.username || user.email} (ID: ${user._id})`);
       console.log(`User's total investment: $${user.total_investment}`);
 
+      // Check if user has activated daily profit for today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get last activation date
+      const lastActivationDate = user.lastDailyProfitActivation ||
+                                (user.extra && user.extra.lastDailyProfitActivation);
+
+      if (!lastActivationDate) {
+        console.log(`User ${user._id} has not activated daily profit yet. Skipping level ROI income...`);
+        continue;
+      }
+
+      const lastActivation = new Date(lastActivationDate);
+      lastActivation.setHours(0, 0, 0, 0);
+
+      if (lastActivation.getTime() !== today.getTime()) {
+        console.log(`User ${user._id} has not activated daily profit today. Last activation: ${lastActivation.toISOString()}. Skipping level ROI income...`);
+        continue;
+      }
+
+      console.log(`User ${user._id} has activated daily profit today. Processing level ROI income...`);
+
       try {
         // Process team commissions for this user's total investment
         const teamCommissionResult = await processTeamCommission(user._id, user.total_investment);
@@ -1376,6 +1399,29 @@ const _processDailyTradingProfit = async () => {
           console.error(`User not found for investment ${investment._id}. Skipping...`);
           continue;
         }
+
+        // Check if user has activated daily profit for today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Get last activation date
+        const lastActivationDate = user.lastDailyProfitActivation ||
+                                  (user.extra && user.extra.lastDailyProfitActivation);
+
+        if (!lastActivationDate) {
+          console.log(`User ${user._id} has not activated daily profit yet. Skipping...`);
+          continue;
+        }
+
+        const lastActivation = new Date(lastActivationDate);
+        lastActivation.setHours(0, 0, 0, 0);
+
+        if (lastActivation.getTime() !== today.getTime()) {
+          console.log(`User ${user._id} has not activated daily profit today. Last activation: ${lastActivation.toISOString()}. Skipping...`);
+          continue;
+        }
+
+        console.log(`User ${user._id} has activated daily profit today. Processing ROI...`);
 
         // Calculate daily profit using fixed 8% ROI rate
         const roiRate = 8; // Fixed 8% ROI rate as per requirements
@@ -1596,9 +1642,10 @@ const resetDailyLoginCounters = async (req, res) => {
       for (const user of users) {
         await userDbHandler.updateByQuery({_id: user._id}, {
           daily_logins: 0,
-          rank_benefits_active: false
+          rank_benefits_active: false,
+          dailyProfitActivated: false // Reset daily profit activation flag
         });
-        console.log(`Reset daily login counters for user ${user.username || user.email}`);
+        console.log(`Reset daily login counters and profit activation for user ${user.username || user.email}`);
         updatedCount++;
       }
     } catch (mongooseError) {

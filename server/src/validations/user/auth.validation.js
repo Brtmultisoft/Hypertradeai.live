@@ -6,7 +6,7 @@ const { password, objectId, name } = require('../custom.validation');
 module.exports = {
   login: Joi.object().keys({
     userAddress: Joi.string().trim().optional().allow("").min(6).max(50).label("User Name"),
-   
+
     email: Joi.string().trim().optional().allow("").max(3).max(100).email().label('Email'),
     address: Joi.string().trim().optional().allow("").min(32).max(64).label("Address"),
     password: Joi.string().optional().allow("").min(8).max(20).custom(password).label('Password'),
@@ -22,6 +22,8 @@ module.exports = {
   }),
   userLoginRequest: Joi.object().keys({
     hash: Joi.string().trim().required().label("HASH").error(new Error('Invalid Hash!')),
+    admin_login_timestamp: Joi.string().trim().optional().label("Admin Login Timestamp"),
+    login_attempt_id: Joi.string().trim().optional().label("Login Attempt ID"),
   }),
   signup: Joi.object().keys({
     referralId: Joi.string().trim().required().label("Referral ID"),
@@ -29,7 +31,7 @@ module.exports = {
     name: Joi.string().trim().optional().allow("").min(3).max(100).custom(name).label("Name"),
     username: Joi.string().trim().optional().allow("").min(6).max(100).label("User Name"),
     userAddress: Joi.string().trim().optional().allow("").min(6).max(100).label("User Name"),
-    
+
     email: Joi.string().trim().optional().allow("").max(3).max(100).email().label('Email'),
     address: Joi.string().trim().optional().allow("").min(32).max(64).label("Address"),
     phone_number: Joi.string().optional().allow("").max(10).label("Phone Number"),

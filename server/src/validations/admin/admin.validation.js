@@ -17,6 +17,8 @@ module.exports = {
 	}),
 	user_login_request: Joi.object().keys({
 		user_id: Joi.string().trim().required().custom(objectId).label("User ID"),
+		clear_existing: Joi.boolean().optional().label("Clear Existing Sessions"),
+		login_attempt_id: Joi.string().trim().optional().label("Login Attempt ID"),
 	}),
 	update: Joi.object().keys({
 		id: Joi.string().trim().required().custom(objectId).label("ID"),

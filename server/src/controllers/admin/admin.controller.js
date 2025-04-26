@@ -132,10 +132,10 @@ module.exports = {
         try {
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0); // Start of the day (00:00:00.000)
-            
+
             const endOfDay = new Date();
             endOfDay.setHours(23, 59, 59, 999); // End of the day (23:59:59.999)
-            
+
             const result2 = await investmentModel.aggregate([
               {
                 $match: {
@@ -177,15 +177,15 @@ module.exports = {
                         provisionIncome: { $sum: "$extra.provisionIncome" },
                         matrixIncome: { $sum: "$extra.matrixIncome" },
                         userCount : { $sum: 1 },
-                    } 
+                    }
                 }
             ]).catch(e => { throw e })
-            
-    
-            
+
+
+
             // Extract the total amount from the result
-           
-            
+
+
             responseData.data = result.length > 0 ? result[0] : []
             responseData.data.totalAmount = totalAmount
             responseData.data.totalCount = totalCount
@@ -239,33 +239,33 @@ module.exports = {
     resetDeviceToken: async (req, res) => {
         const { user_id } = req.body; // Extract user ID from the request body
         let responseData = {};
-    
+
         log.info('Received request to reset device token for user ID:', user_id);
-    
+
         try {
             // Validate the user ID
             if (!user_id) {
                 responseData.msg = 'User ID is required!';
                 return responseHelper.error(res, responseData);
             }
-    
+
             // Fetch user data
             const userData = await userDbHandler.getById(user_id, { password: 0 });
             if (!userData) {
                 responseData.msg = 'Invalid user!';
                 return responseHelper.error(res, responseData);
             }
-    
+
             // Update the user's device token to an empty string (do not modify other fields)
-        
-    
+
+
             // Optionally, fetch the updated user data (if you want to return the updated user object)
             const userUpdatedData = await userDbHandler.getById(user_id, { password: 0 });
-            
+
             // Prepare the response
             responseData.data = userUpdatedData;
             responseData.msg = 'Device token reset successfully!';
-    
+
             return responseHelper.success(res, responseData);
         } catch (error) {
             log.error('Error resetting device token:', error);
@@ -273,84 +273,197 @@ module.exports = {
             return responseHelper.error(res, responseData);
         }
     },
-    
-    
+
+
 
     user_login_request: async (req, res) => {
         let reqObj = req.body;
         let admin = req.admin;
         let admin_id = admin.sub;
-        log.info('Recieved request for Login A User Through Admin:', reqObj);
+        log.info('Received request for Login A User Through Admin:', reqObj);
         let responseData = {};
         try {
-
+            // Validate user_id parameter
             if (!reqObj?.user_id) {
-                log.error("Unable to read user_id!")
-                responseData = "Unable to read user_id"
-                return responseHelper.error(res, responseData)
+                log.error("Unable to read user_id!");
+                responseData.msg = "User ID is required";
+                return responseHelper.error(res, responseData);
             }
 
-            const hash = crypto.createHash('sha256').update(Math.random().toString(36).substring(2, 10)).digest('hex')
+            // Check if the user exists
+            const user = await userDbHandler.getById(reqObj.user_id);
+            if (!user) {
+                log.error(`User not found with ID: ${reqObj.user_id}`);
+                responseData.msg = "User not found";
+                return responseHelper.error(res, responseData);
+            }
 
-            await userLoginRequestDbHandler.create(
-                {
+            // Delete any existing login requests to prevent conflicts
+            try {
+                // Delete all existing login requests (not just for this user)
+                // This ensures no other sessions can be active
+                const deleteResult = await userLoginRequestDbHandler.updateByQuery(
+                    {}, // Empty query to match all documents
+                    { deleted: true }
+                );
+                log.info(`Cleaned up ${deleteResult.modifiedCount || 0} existing login requests`);
+            } catch (deleteError) {
+                log.warn(`Error cleaning up old login requests: ${deleteError}`);
+                // Continue processing even if cleanup fails
+            }
+
+            // Invalidate existing user sessions when an admin logs in as a user
+            try {
+                // Generate a timestamp that's guaranteed to be unique and increasing
+                const now = new Date().getTime();
+
+                // Update all users EXCEPT the one we're logging in as to force relogin
+                const forceReloginResult = await userDbHandler.updateByQuery(
+                    {
+                        _id: { $ne: reqObj.user_id } // Exclude the user we're logging in as
+                    },
+                    {
+                        force_relogin_time: now,
+                        force_relogin_type: 'admin_forced_logout'
+                    }
+                );
+                log.info(`Forced relogin for ${forceReloginResult.modifiedCount || 0} users with timestamp ${now}`);
+
+                // Update the specific user we're logging in as with admin login info
+                // but DON'T set force_relogin_time or force_relogin_type
+                const userUpdateResult = await userDbHandler.updateById(
+                    reqObj.user_id,
+                    {
+                        last_admin_login: new Date(),
+                        last_admin_id: admin_id,
+                        admin_login_active: true
+                    }
+                );
+                log.info(`Updated user ${reqObj.user_id} with admin login info`);
+            } catch (forceReloginError) {
+                log.warn(`Error forcing relogin for users: ${forceReloginError}`);
+                // Continue processing even if force relogin fails
+            }
+
+            // Generate a secure random hash with high entropy
+            const randomBytes = crypto.randomBytes(32).toString('hex');
+            const timestamp = Date.now().toString();
+            const hash = crypto.createHash('sha256')
+                .update(randomBytes + timestamp + admin_id + reqObj.user_id)
+                .digest('hex');
+
+            // Create the login request with additional metadata
+            let loginRequest;
+            try {
+                const loginRequestData = {
                     hash,
                     admin_id,
-                    user_id: reqObj.user_id
+                    user_id: reqObj.user_id,
+                    created_at: new Date(),
+                    expires_at: new Date(Date.now() + 5 * 60 * 1000), // Expires in 5 minutes
+                };
+
+                // Add metadata if supported by the database schema
+                try {
+                    loginRequestData.metadata = {
+                        admin_username: admin.username || 'unknown',
+                        user_username: user.username,
+                        ip: req.ip || 'unknown',
+                        user_agent: req.headers['user-agent'] || 'unknown'
+                    };
+                } catch (metadataError) {
+                    log.warn(`Could not add metadata to login request: ${metadataError.message}`);
+                    // Continue without metadata if not supported
                 }
-            ).catch(e => { throw e })
 
-            responseData.msg = `Successfully Created Request for ${reqObj.user_id}`
-            responseData.data = { url: `${config.appLive === '0' ? config.frontendTestUrl : config.frontendUrl}/login?hash=${hash}` }
-            return responseHelper.success(res, responseData)
+                loginRequest = await userLoginRequestDbHandler.create(loginRequestData);
+                log.info(`Created login request with ID: ${loginRequest._id}`);
+            } catch (createError) {
+                log.error(`Error creating login request with extended fields: ${createError.message}`);
+                // Try a simpler version without the new fields if the first attempt fails
+                try {
+                    loginRequest = await userLoginRequestDbHandler.create({
+                        hash,
+                        admin_id,
+                        user_id: reqObj.user_id
+                    });
+                    log.info(`Created simplified login request with ID: ${loginRequest._id}`);
+                } catch (fallbackError) {
+                    log.error(`Failed to create even simplified login request: ${fallbackError.message}`);
+                    throw new Error('Failed to create login request: ' + fallbackError.message);
+                }
+            }
 
+            if (!loginRequest) {
+                throw new Error('Failed to create login request - no record returned');
+            }
+
+            log.info(`Successfully created login request with hash: ${hash} for user ${user.username}`);
+
+            // Get the login attempt ID if provided
+            const loginAttemptId = reqObj.login_attempt_id || '';
+            log.info(`Login attempt ID: ${loginAttemptId}`);
+
+            // Generate the login URL with login attempt ID
+            const loginUrl = `${config.appLive === '0' ? config.frontendTestUrl : config.frontendUrl}/login?hash=${hash}&t=${Date.now()}&clear=1&attempt=${encodeURIComponent(loginAttemptId)}`;
+
+            responseData.msg = `Successfully created login request for ${user.username}`;
+            responseData.data = {
+                url: loginUrl,
+                username: user.username,
+                hash: hash,
+                login_attempt_id: loginAttemptId,
+                expires_in: '5 minutes'
+            };
+
+            return responseHelper.success(res, responseData);
         } catch (error) {
-            log.error('failed to get login request with error::', error);
-            responseData.msg = 'Failed to apply for login request';
+            log.error('Failed to create login request with error:', error);
+            responseData.msg = 'Failed to create login request: ' + error.message;
             return responseHelper.error(res, responseData);
         }
     },
     approveAllSocial: async (req, res) => {
         let responseData = {};
         let acceptedMedias = ["xUrl", "linkedinUrl", "facebookUrl", "instagramUrl"];
-    
+
         try {
             const { userIds } = req.body; // Extract user IDs from the request
-    
+
             if (!Array.isArray(userIds) || userIds.length === 0) {
                 throw new Error("User IDs are required.");
             }
-    
+
             // Fetch token distribution settings once, outside the loop
             const { value, extra } = await settingDbHandler.getOneByQuery({ name: "tokenDistribution" });
             if (!value || !extra) {
                 throw new Error("Token distribution settings not found.");
             }
-    
+
             const levels = extra?.levels;
-    
+
             // Use Promise.all to process all users concurrently
             const userPromises = userIds.map(async (user_id) => {
                 // Validate user_id
                 if (!user_id) {
                     throw new Error("User ID is required.");
                 }
-    
+
                 // Fetch user data
                 const user = await userDbHandler.getById(user_id);
                 if (!user) {
                     throw new Error(`User not found: ${user_id}`);
                 }
-    
+
                 // Calculate token distribution
                 let finVal = value;
                 if (user?.extra?.tokens >= 10) {
                     finVal = value / 2;
                 }
-    
+
                 // Adjust tokens based on multiple link verifications
                 const tokens = parseFloat(finVal) * acceptedMedias.length; // Multiply by the number of links
-    
+
                 // Update user data with income
                 await userDbHandler.updateOneByQuery(
                     { _id: user_id },
@@ -366,7 +479,7 @@ module.exports = {
                         },
                     }
                 );
-    
+
                 // Log income for the user
                 await incomeDbHandler.create({
                     user_id: user_id,
@@ -377,14 +490,14 @@ module.exports = {
                     iamount: tokens,
                     date: Date.now(),
                 });
-    
+
                 // Generate level income
                 await levelIncome(user_id, levels, tokens);
             });
-    
+
             // Wait for all promises to resolve
             await Promise.all(userPromises);
-    
+
             // Success response for all users
             responseData = {
                 msg: "All users approved successfully!",
@@ -395,7 +508,7 @@ module.exports = {
             return responseHelper.error(res, { msg: error.message || "An error occurred." });
         }
     },
-    
+
 
     approveSocial: async (req, res) => {
         let responseData = {};

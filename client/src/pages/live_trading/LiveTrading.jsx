@@ -21,6 +21,8 @@ import {
   LinearProgress,
   Tooltip,
   CircularProgress,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Refresh,
@@ -81,6 +83,12 @@ const LiveTrading = () => {
   const [tradeHistory, setTradeHistory] = useState([]);
   const tradingIntervalsRef = useRef({});
 
+  // Snackbar state
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success'); // 'success', 'error', 'warning', 'info'
+  const [activatingProfit, setActivatingProfit] = useState(false);
+
   // Fetch user profile data to get total investment
   const {
     data: profileData,
@@ -88,6 +96,22 @@ const LiveTrading = () => {
     error: profileError,
     execute: fetchProfileData
   } = useApi(() => UserService.getUserProfile(), true);
+
+  // API hook for activating daily profit
+  const {
+    data: activateProfitData,
+    loading: activatingProfitLoading,
+    error: activateProfitError,
+    execute: activateDailyProfit
+  } = useApi(() => UserService.activateDailyProfit(), false);
+
+  // API hook for checking daily profit status
+  const {
+    data: profitStatusData,
+    loading: profitStatusLoading,
+    error: profitStatusError,
+    execute: checkDailyProfitStatus
+  } = useApi(() => UserService.checkDailyProfitStatus(), true);
 
   // Update total investment and calculate profit when profile data is received
   useEffect(() => {
@@ -363,6 +387,17 @@ const LiveTrading = () => {
     }
   }, [tradingPairs]);
 
+  // Check if trading is already active for today when component loads
+  useEffect(() => {
+    if (profitStatusData?.data?.isActivatedToday) {
+      console.log('Trading is already active for today');
+      setTradingActive(true);
+    } else {
+      console.log('Trading is not active for today');
+      setTradingActive(false);
+    }
+  }, [profitStatusData]);
+
   // Fetch cryptocurrency images on component mount
   useEffect(() => {
     // Fetch all cryptocurrency images when component loads
@@ -410,18 +445,86 @@ const LiveTrading = () => {
   // Session timer effect
   useEffect(() => {
     let timer;
-    if (tradingActive) {
-      timer = setInterval(() => {
+
+    // Always have a timer running to update the countdown to midnight
+    timer = setInterval(() => {
+      if (tradingActive) {
+        // When trading is active, we're just updating the UI to show countdown to midnight
+        // The actual session time still increments for tracking purposes
         setSessionTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      setSessionTime(0);
-    }
+      } else {
+        setSessionTime(0);
+      }
+    }, 1000);
+
     return () => clearInterval(timer);
   }, [tradingActive]);
 
-  const toggleTrading = async () => {
-    setTradingActive(!tradingActive);
+  // Handle snackbar close
+  const handleSnackbarClose = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
+
+  // Effect to handle daily profit activation response
+  useEffect(() => {
+    if (activateProfitData) {
+      setSnackbarMessage('Daily profit activated successfully! You will receive ROI and level ROI income for today.');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      setActivatingProfit(false);
+    }
+  }, [activateProfitData]);
+
+  // Effect to handle daily profit activation error
+  useEffect(() => {
+    if (activateProfitError) {
+      setSnackbarMessage(activateProfitError.msg || 'Failed to activate daily profit. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      setActivatingProfit(false);
+    }
+  }, [activateProfitError]);
+
+  const startTrading = async () => {
+    // If already active, do nothing
+    if (tradingActive) {
+      setSnackbarMessage('Trading is already active for today.');
+      setSnackbarSeverity('info');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    // If not active, activate trading and daily profit
+    try {
+      setActivatingProfit(true);
+
+      // Call the API to activate daily profit
+      await activateDailyProfit();
+
+      // Set trading active regardless of API response
+      // This allows users to use the trading interface even if they've already activated profit for the day
+      setTradingActive(true);
+    } catch (error) {
+      console.error('Error activating daily profit:', error);
+
+      // Check if the error is because trading is already activated today
+      if (error.msg && error.msg.includes('already activated today')) {
+        setSnackbarMessage('Daily profit already activated today. Trading session started.');
+        setSnackbarSeverity('info');
+        setTradingActive(true);
+      } else {
+        // Show error message but still allow trading to be activated
+        setSnackbarMessage('Trading activated, but there was an issue activating daily profit.');
+        setSnackbarSeverity('warning');
+        setTradingActive(true);
+      }
+
+      setSnackbarOpen(true);
+      setActivatingProfit(false);
+    }
   };
 
   // Enhanced PriceJumper Component
@@ -1397,10 +1500,30 @@ const LiveTrading = () => {
 
   // Format session time as HH:MM:SS
   const formatSessionTime = () => {
-    const hours = Math.floor(sessionTime / 3600).toString().padStart(2, '0');
-    const minutes = Math.floor((sessionTime % 3600) / 60).toString().padStart(2, '0');
-    const seconds = (sessionTime % 60).toString().padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
+    // If trading is active, show time until midnight UTC
+    if (tradingActive) {
+      const now = new Date();
+      const midnight = new Date();
+      midnight.setUTCHours(24, 0, 0, 0); // Next midnight UTC
+
+      // Calculate time difference in seconds
+      const diffSeconds = Math.floor((midnight - now) / 1000);
+
+      if (diffSeconds <= 0) {
+        return "00:00:00"; // Midnight has passed
+      }
+
+      const hours = Math.floor(diffSeconds / 3600).toString().padStart(2, '0');
+      const minutes = Math.floor((diffSeconds % 3600) / 60).toString().padStart(2, '0');
+      const seconds = (diffSeconds % 60).toString().padStart(2, '0');
+      return `${hours}:${minutes}:${seconds}`;
+    } else {
+      // Show session time as before
+      const hours = Math.floor(sessionTime / 3600).toString().padStart(2, '0');
+      const minutes = Math.floor((sessionTime % 3600) / 60).toString().padStart(2, '0');
+      const seconds = (sessionTime % 60).toString().padStart(2, '0');
+      return `${hours}:${minutes}:${seconds}`;
+    }
   };
 
   return (
@@ -1411,6 +1534,21 @@ const LiveTrading = () => {
       overflow: 'hidden',
       position: 'relative'
     }}>
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
       {/* Trust Wallet Style Header */}
       <AppBar
         position="static"
@@ -1455,17 +1593,20 @@ const LiveTrading = () => {
                     animation: `${pulseAnimation} 1.5s infinite`
                   }}
                 />
-                <Typography variant="body2" color="success.main" fontWeight="medium">
-                  {formatSessionTime()}
-                </Typography>
+                <Tooltip title={tradingActive ? "Time until trading resets (Midnight UTC)" : "Session time"}>
+                  <Typography variant="body2" color="success.main" fontWeight="medium">
+                    {formatSessionTime()}
+                  </Typography>
+                </Tooltip>
               </Box>
             )}
 
             <Button
               variant="contained"
               size="medium"
-              onClick={toggleTrading}
-              startIcon={tradingActive ? <Stop /> : <PlayArrow />}
+              onClick={startTrading}
+              startIcon={activatingProfit ? <CircularProgress size={20} color="inherit" /> : <PlayArrow />}
+              disabled={activatingProfit || tradingActive}
               sx={{
                 borderRadius: 4,
                 px: { xs: 1, sm: 2 },
@@ -1480,9 +1621,15 @@ const LiveTrading = () => {
                   transform: 'translateY(-2px)',
                   boxShadow: `0 0 30px ${alpha(tradingActive ? '#0ecb81' : '#f6465d', 0.4)}`,
                 },
+                '&.Mui-disabled': {
+                  background: tradingActive
+                    ? 'linear-gradient(45deg, #0ecb81, #0bb974)'
+                    : 'linear-gradient(45deg, #f6465d, #ff0033)',
+                  opacity: 0.7,
+                }
               }}
             >
-              {tradingActive ? 'Stop Trading' : 'Start Trading'}
+              {activatingProfit ? 'Activating...' : (tradingActive ? 'Trading Active' : 'Start Trading')}
             </Button>
           </Box>
         </Toolbar>
@@ -1678,7 +1825,7 @@ const LiveTrading = () => {
                         }}
                       />
                     )}
-                    {tradingActive ? 'Trading Active' : 'Trading Inactive'}
+                    {tradingActive ? 'Trading Active (Until Midnight UTC)' : 'Trading Inactive'}
                   </Typography>
                 </Box>
 
@@ -1773,7 +1920,7 @@ const LiveTrading = () => {
                             }}
                           />
                           <Typography variant="body2" color={tradingActive ? "success.main" : "text.secondary"}>
-                            {tradingActive ? 'Trading Active' : 'Trading Inactive'}
+                            {tradingActive ? 'Trading Active (Until Midnight UTC)' : 'Trading Inactive'}
                           </Typography>
                         </Box>
                       </Box>
