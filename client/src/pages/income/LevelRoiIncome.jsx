@@ -95,7 +95,7 @@ const LevelRoiIncome = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <PageHeader title="Level ROI Income History" />
+      <PageHeader title="Team Trade Income History" />
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -103,7 +103,7 @@ const LevelRoiIncome = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Total Level ROI Income Earned
+                Total Team Trade Income Earned
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
                 {summaryLoading ? <CircularProgress size={24} /> : formatCurrency(totalIncome)}
@@ -116,15 +116,15 @@ const LevelRoiIncome = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Level ROI Structure
+                Team Trade Income Structure
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
-                7 Levels
+                10 Levels
               </Typography>
             </CardContent>
           </Card>
         </Grid>
-
+{/* 
         <Grid item xs={12} sm={6} md={4}>
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
@@ -136,7 +136,7 @@ const LevelRoiIncome = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> */}
       </Grid>
 
       <Paper
@@ -176,7 +176,7 @@ const LevelRoiIncome = () => {
                     <TableRow>
                       <TableCell colSpan={5} align="center">
                         <Typography variant="body2" sx={{ py: 2 }}>
-                          No level ROI income records found
+                          No Team Trade income records found
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -185,7 +185,7 @@ const LevelRoiIncome = () => {
                       <TableRow key={income._id}>
                         <TableCell>{formatDate(income.created_at)}</TableCell>
                         <TableCell>{formatCurrency(income.amount)}</TableCell>
-                        <TableCell>Level {income.level || '-'}</TableCell>
+                        <TableCell>Team {income.level || '-'}</TableCell>
                         <TableCell>{income.description}</TableCell>
                         <TableCell>
                           <Chip

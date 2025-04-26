@@ -21,6 +21,7 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Snackbar,
 } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
@@ -64,8 +65,7 @@ const Dashboard = () => {
     fetchDashboardData,
     userData,
     loadingUser
-  } = useData();
-
+  } = useData()
   // State for active tab
   const [activeTab, setActiveTab] = useState(0);
 
@@ -78,6 +78,11 @@ const Dashboard = () => {
   const [cryptoPrices, setCryptoPrices] = useState([]);
   const [loadingCrypto, setLoadingCrypto] = useState(false);
   const [cryptoError, setCryptoError] = useState(null);
+
+  // State for snackbar
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
   // Handle tab change
   const handleTabChange = (_, newValue) => {
@@ -121,8 +126,24 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch crypto prices on component mount
+  // Handle snackbar close
+  const handleSnackbarClose = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
+
+  // Show snackbar message
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  };
+
+  // Fetch user data and crypto prices on component mount
   useEffect(() => {
+    fetchDashboardData(); // This will also fetch the latest user data
     fetchCryptoPrices();
   }, []);
 
@@ -155,6 +176,22 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ width: '100%' }}>
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+
       {dashboardError && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {dashboardError}
@@ -229,7 +266,22 @@ const Dashboard = () => {
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <Tooltip title="Copy Address">
-              <IconButton size="small" sx={{ mr: 0.5 }}>
+              <IconButton
+                size="small"
+                sx={{ mr: 0.5 }}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent opening the wallet menu
+                  const walletAddress = "0x" + Math.random().toString(16).slice(2, 10) + "..."; // Mock address
+                  navigator.clipboard.writeText(walletAddress)
+                    .then(() => {
+                      showSnackbar('Wallet address copied to clipboard!', 'success');
+                    })
+                    .catch((error) => {
+                      console.error('Failed to copy: ', error);
+                      showSnackbar('Failed to copy wallet address', 'error');
+                    });
+                }}
+              >
                 <ContentCopyIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -1030,10 +1082,24 @@ const Dashboard = () => {
                   cursor: 'pointer',
                 }}
                 onClick={() => {
-                  // Copy referral link to clipboard using userData which is always up-to-date
-                  const referralLink = `${window.location.origin}/register?ref=${user?.sponsorID || ''}`;
-                  navigator.clipboard.writeText(referralLink);
-                  alert('Referral link copied to clipboard!');
+                  // Use userData from useData hook which is always up-to-date
+                  // The API returns username as the referral code
+                  const referralCode = userData?.sponsorID;
+                  const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
+
+                  if (!referralCode) {
+                    showSnackbar('Unable to get your referral code. Please refresh the page.', 'error');
+                    return;
+                  }
+
+                  navigator.clipboard.writeText(referralLink)
+                    .then(() => {
+                      showSnackbar(`Referral link with code "${referralCode}" copied to clipboard!`, 'success');
+                    })
+                    .catch((error) => {
+                      console.error('Failed to copy: ', error);
+                      showSnackbar('Failed to copy referral link', 'error');
+                    });
                 }}
               >
                 <Box

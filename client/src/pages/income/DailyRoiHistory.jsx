@@ -96,7 +96,7 @@ const DailyRoiHistory = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <PageHeader title="Daily ROI History" />
+      <PageHeader title="MPR History" />
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -104,7 +104,7 @@ const DailyRoiHistory = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Total Daily ROI Earned
+                Total MPR Earned
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
                 {summaryLoading ? <CircularProgress size={24} /> : formatCurrency(totalIncome)}
@@ -117,7 +117,7 @@ const DailyRoiHistory = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Daily ROI Rate
+                MPR Rate
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
                 8%
@@ -178,7 +178,7 @@ const DailyRoiHistory = () => {
                     <TableRow>
                       <TableCell colSpan={6} align="center">
                         <Typography variant="body2" sx={{ py: 2 }}>
-                          No daily ROI income records found
+                          No MPR income records found
                         </Typography>
                       </TableCell>
                     </TableRow>

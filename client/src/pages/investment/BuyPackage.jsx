@@ -200,7 +200,7 @@ const BuyPackage = () => {
     }
 
     const investmentAmount = parseFloat(amount);
-    const dailyPercentage = selectedPlan.percentage / 100;
+    const dailyPercentage = selectedPlan.percentage;
     const dailyReturn = investmentAmount * (dailyPercentage / 100);
 
     return {
@@ -672,7 +672,7 @@ const BuyPackage = () => {
                           textShadow: selectedPlan?._id === plan._id ? '0 0 8px rgba(51, 117, 187, 0.3)' : 'none',
                         }}
                       >
-                        {plan.percentage / 100}%
+                        {plan.percentage}%
                       </Typography>
 
                       <Typography
@@ -685,7 +685,7 @@ const BuyPackage = () => {
                           fontWeight: selectedPlan?._id === plan._id ? 'medium' : 'normal',
                         }}
                       >
-                        Daily ROI
+                        Daily Trade Income
                       </Typography>
 
                       {/* Investment Range */}
@@ -1534,14 +1534,14 @@ const BuyPackage = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">
-                      Daily ROI
+                      Daily Trade Income
                     </Typography>
                     <Typography
                       variant="body1"
                       fontWeight="bold"
                       sx={{ color: mode === 'dark' ? '#fff' : '#000' }}
                     >
-                      {selectedPlan?.percentage / 100}%
+                      {selectedPlan?.percentage}%
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>

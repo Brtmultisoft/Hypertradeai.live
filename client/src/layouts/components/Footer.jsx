@@ -17,8 +17,8 @@ const Footer = () => {
     >
       <Typography variant="body2" color="text.secondary" align="center">
         {'© '}
-        <Link color="inherit" href="https://hypertrade.ai">
-          HyperTrade MLM
+        <Link color="inherit" href="#">
+          HypeTrade AI
         </Link>{' '}
         {currentYear}
         {'. All rights reserved.'}

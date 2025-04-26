@@ -30,7 +30,7 @@ const AuthLayout = () => {
             <Box
               component="img"
               src="/logo.png"
-              alt="HyperTrade MLM"
+              alt="HypeTrade AI"
               sx={{ height: 60 }}
             />
             <Typography
@@ -38,7 +38,7 @@ const AuthLayout = () => {
               component="h1"
               sx={{ mt: 2, color: theme.palette.primary.main, fontWeight: 'bold' }}
             >
-              HyperTrade MLM
+              HypeTrade AI
             </Typography>
           </Box>
 

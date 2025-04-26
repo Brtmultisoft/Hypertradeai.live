@@ -129,7 +129,7 @@ const Header = ({ onToggleSidebar }) => {
                   fontWeight: 'bold',
                 }}
               >
-                HyperTrade MLM
+                HypeTrade AI
               </Typography>
             </Box>
 
@@ -232,7 +232,7 @@ const Header = ({ onToggleSidebar }) => {
                   fontWeight: 'bold',
                 }}
               >
-                HyperTrade MLM
+                HypeTrade AI
               </Typography>
             </Box>
 

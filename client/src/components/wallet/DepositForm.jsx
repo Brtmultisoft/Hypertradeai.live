@@ -258,7 +258,7 @@ const DepositForm = ({
                       Account Name
                     </Typography>
                     <Typography variant="body1" fontWeight="medium">
-                      HyperTrade MLM
+                      HypeTrade AI
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>

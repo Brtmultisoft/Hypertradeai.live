@@ -138,7 +138,7 @@ const InvestmentHistory = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <PageHeader title="Investment History" />
+      <PageHeader title="Trade History" />
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -146,7 +146,7 @@ const InvestmentHistory = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Total Investment
+                Total Trade
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
                 {summaryLoading ? <CircularProgress size={24} /> : formatCurrency(totalInvestment)}
@@ -159,7 +159,7 @@ const InvestmentHistory = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Active Investments
+                Active Trade
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
                 {summaryLoading ? <CircularProgress size={24} /> : activeInvestments}
@@ -172,7 +172,7 @@ const InvestmentHistory = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Daily ROI Rate
+                Daily MPR Rate
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
                 8%

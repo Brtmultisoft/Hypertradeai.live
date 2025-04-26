@@ -79,7 +79,7 @@ const Sidebar = ({ open, onClose }) => {
         <Box
           component="img"
           src="/logo.png"
-          alt="HyperTrade MLM"
+          alt="HypeTrade AI"
           sx={{ height: 40, display: 'block', mx: 'auto' }}
         />
       </Box>
@@ -431,7 +431,7 @@ const Sidebar = ({ open, onClose }) => {
               <ListItemIcon>
                 <HistoryIcon color={isActive('/investment-history') ? 'primary' : 'inherit'} fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary="Investment History" />
+              <ListItemText primary="Trade History" />
             </ListItemButton>
             <ListItemButton
               component={Link}
@@ -443,7 +443,7 @@ const Sidebar = ({ open, onClose }) => {
               <ListItemIcon>
                 <AttachMoneyIcon color={isActive('/daily-roi-history') ? 'primary' : 'inherit'} fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary="Daily ROI History" />
+              <ListItemText primary="MPR History" />
             </ListItemButton>
             <ListItemButton
               component={Link}
@@ -467,7 +467,7 @@ const Sidebar = ({ open, onClose }) => {
               <ListItemIcon>
                 <AttachMoneyIcon color={isActive('/level-roi-income') ? 'primary' : 'inherit'} fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary="Level ROI Income" />
+              <ListItemText primary="Team Trade Income" />
             </ListItemButton>
           </List>
         </Collapse>

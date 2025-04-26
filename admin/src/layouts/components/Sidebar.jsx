@@ -87,7 +87,7 @@ const Sidebar = ({ open, onClose }) => {
         <Box
           component="img"
           src="/logo.png"
-          alt="HyperTrade MLM"
+          alt="HypeTrade AI"
           sx={{ height: 40, mr: 1 }}
         />
         <Typography
@@ -281,7 +281,7 @@ const Sidebar = ({ open, onClose }) => {
                   color={isActive('/daily-roi-history') ? 'primary' : 'inherit'}
                 />
               </ListItemIcon>
-              <ListItemText primary="Daily ROI History" />
+              <ListItemText primary="MPR History" />
             </ListItemButton>
             <ListItemButton
               component={Link}
