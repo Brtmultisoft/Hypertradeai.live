@@ -17,6 +17,10 @@ import {
   InputBase,
   Skeleton,
   Divider,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
@@ -65,6 +69,11 @@ const Dashboard = () => {
   // State for active tab
   const [activeTab, setActiveTab] = useState(0);
 
+  // State for wallet selection
+  const [selectedWallet, setSelectedWallet] = useState('main'); // 'main' or 'topup'
+  const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const [walletMenuAnchor, setWalletMenuAnchor] = useState(null);
+
   // State for crypto prices
   const [cryptoPrices, setCryptoPrices] = useState([]);
   const [loadingCrypto, setLoadingCrypto] = useState(false);
@@ -73,6 +82,19 @@ const Dashboard = () => {
   // Handle tab change
   const handleTabChange = (_, newValue) => {
     setActiveTab(newValue);
+  };
+
+  // Handle wallet menu toggle
+  const handleWalletMenuToggle = (event) => {
+    setWalletMenuAnchor(event.currentTarget);
+    setWalletMenuOpen(!walletMenuOpen);
+  };
+
+  // Handle wallet selection
+  const handleWalletSelect = (walletType) => {
+    setSelectedWallet(walletType);
+    setWalletMenuOpen(false);
+    setWalletMenuAnchor(null);
   };
 
   // Handle manual refresh
@@ -143,15 +165,16 @@ const Dashboard = () => {
       <Box
         sx={{
           mb: 2,
-          px: { xs: 2, sm: 0 },
+          px: { xs: 1, sm: 2 },
           display: 'flex',
           alignItems: 'center',
-          borderRadius: 8,
+          borderRadius: { xs: 4, sm: 8 },
           backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-          height: 48
+          height: 48,
+          width: '100%'
         }}
       >
-        <SearchIcon sx={{ ml: 2, color: theme.palette.text.secondary }} />
+        <SearchIcon sx={{ ml: { xs: 1, sm: 2 }, color: theme.palette.text.secondary }} />
         <InputBase
           placeholder="Search"
           sx={{
@@ -166,21 +189,24 @@ const Dashboard = () => {
       </Box>
 
       {/* Wallet Selector - Trust Wallet Style */}
-      <Box sx={{ mb: 2, px: { xs: 2, sm: 0 } }}>
+      <Box sx={{ mb: 2, px: { xs: 1, sm: 2 }, width: '100%' }}>
         <Box
+          id="wallet-selector"
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            p: 1.5,
+            p: { xs: 1, sm: 1.5 },
             borderRadius: 2,
             cursor: 'pointer',
+            width: '100%',
             '&:hover': {
               backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
             }
           }}
+          onClick={handleWalletMenuToggle}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
             <Box
               sx={{
                 display: 'flex',
@@ -190,25 +216,29 @@ const Dashboard = () => {
                 height: 36,
                 borderRadius: '50%',
                 backgroundColor: theme.palette.primary.main,
-                mr: 1.5,
+                mr: 1,
+                flexShrink: 0,
               }}
             >
               <WalletIcon sx={{ fontSize: 20, color: 'white' }} />
             </Box>
-            <Typography variant="subtitle1" fontWeight="medium">
-              Main wallet
+            <Typography variant="subtitle1" fontWeight="medium" noWrap>
+              {selectedWallet === 'main' ? 'Main wallet' : 'Spot wallet'}
             </Typography>
-            <KeyboardArrowDownIcon sx={{ ml: 0.5, color: theme.palette.text.secondary }} />
+            <KeyboardArrowDownIcon sx={{ ml: 0.5, color: theme.palette.text.secondary, flexShrink: 0 }} />
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <Tooltip title="Copy Address">
-              <IconButton size="small" sx={{ mr: 1 }}>
+              <IconButton size="small" sx={{ mr: 0.5 }}>
                 <ContentCopyIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Refresh Balance">
               <IconButton
-                onClick={handleRefresh}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent opening the wallet menu
+                  handleRefresh();
+                }}
                 size="small"
               >
                 {loadingDashboard ? (
@@ -220,6 +250,69 @@ const Dashboard = () => {
             </Tooltip>
           </Box>
         </Box>
+
+        {/* Wallet Selection Menu */}
+        <Menu
+          anchorEl={walletMenuAnchor}
+          open={walletMenuOpen}
+          onClose={() => {
+            setWalletMenuOpen(false);
+            setWalletMenuAnchor(null);
+          }}
+          slotProps={{
+            paper: {
+              sx: {
+                mt: 1,
+                width: 220,
+                borderRadius: 2,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+              }
+            }
+          }}
+        >
+          <MenuItem
+            onClick={() => handleWalletSelect('main')}
+            selected={selectedWallet === 'main'}
+            sx={{ py: 1.5 }}
+          >
+            <ListItemIcon>
+              <WalletIcon fontSize="small" color={selectedWallet === 'main' ? 'primary' : 'inherit'} />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography
+                  variant="body1"
+                  fontWeight={selectedWallet === 'main' ? 'bold' : 'medium'}
+                  color={selectedWallet === 'main' ? 'primary' : 'inherit'}
+                >
+                  Main Wallet
+                </Typography>
+              }
+              secondary={`Balance: ${formatCurrency(dashboardData?.wallet_balance || 0)}`}
+            />
+          </MenuItem>
+          <MenuItem
+            onClick={() => handleWalletSelect('topup')}
+            selected={selectedWallet === 'topup'}
+            sx={{ py: 1.5 }}
+          >
+            <ListItemIcon>
+              <WalletIcon fontSize="small" color={selectedWallet === 'topup' ? 'primary' : 'inherit'} />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography
+                  variant="body1"
+                  fontWeight={selectedWallet === 'topup' ? 'bold' : 'medium'}
+                  color={selectedWallet === 'topup' ? 'primary' : 'inherit'}
+                >
+                  Spot Wallet
+                </Typography>
+              }
+              secondary={`Balance: ${formatCurrency(dashboardData?.topup_wallet_balance || 0)}`}
+            />
+          </MenuItem>
+        </Menu>
       </Box>
 
       {/* Wallet Balance Card - Trust Wallet Style */}
@@ -245,7 +338,10 @@ const Dashboard = () => {
               mb: 1,
             }}
           >
-            {formatCurrency(dashboardData?.wallet_balance || 0)}
+            {selectedWallet === 'main'
+              ? formatCurrency(dashboardData?.wallet_balance || 0)
+              : formatCurrency(dashboardData?.topup_wallet_balance || 0)
+            }
           </Typography>
 
           {/* Action Buttons */}
@@ -482,13 +578,17 @@ const Dashboard = () => {
                 const isLastItem = index === CRYPTO_ASSETS.length - 1;
 
                 // Mock balances - in a real app, these would come from the user's wallet
+                const walletBalance = selectedWallet === 'main'
+                  ? parseFloat(dashboardData?.wallet_balance || 0)
+                  : parseFloat(dashboardData?.topup_wallet_balance || 0);
+
                 const mockBalances = {
-                  'bitcoin': 0.01,
-                  'ethereum': 0.23,
-                  'binancecoin': 2.38,
-                  'matic-network': 20.03,
-                  'usd-coin': 22220.88,
-                  'tether': parseFloat(dashboardData?.wallet_balance || 0)
+                  'tether': walletBalance,
+                  'bitcoin': 0.00,
+                  'ethereum': 0.00,
+                  'binancecoin': 0.00,
+                  'matic-network': 0.00,
+                  'usd-coin': 0.00,
                 };
 
                 const balance = mockBalances[asset.id] || 0;
@@ -627,10 +727,10 @@ const Dashboard = () => {
                 zIndex: 1,
               }}>
                 <Typography variant="h6" color={mode === 'dark' ? theme.palette.primary.main : '#000'} sx={{ mb: 2, fontWeight: 600 }}>
-                  Live Trading Platform
+                  Start Your Trading Journey
                 </Typography>
                 <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3, maxWidth: 500, mx: 'auto' }}>
-                  Access our advanced trading platform with real-time market data, price jumpers, and automated trading features
+                  Access our advanced trading platform with real-time market data, price jumpers, and automated trading features to earn daily profit
                 </Typography>
 
                 {/* Market Trend Visualization Preview */}
@@ -791,7 +891,7 @@ const Dashboard = () => {
                     },
                   }}
                 >
-                  Launch Trading Platform
+                  Activate Daily Profit
                 </Button>
               </Box>
             </Box>

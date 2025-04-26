@@ -80,6 +80,26 @@ const UserService = {
       throw error.response?.data || { msg: 'Failed to disable 2FA' };
     }
   },
+
+  // Activate daily profit
+  activateDailyProfit: async () => {
+    try {
+      const response = await api.post('/user/activate-daily-profit');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to activate daily profit' };
+    }
+  },
+
+  // Check if daily profit is already activated for today
+  checkDailyProfitStatus: async () => {
+    try {
+      const response = await api.get('/user/check-daily-profit-status');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to check daily profit status' };
+    }
+  },
 };
 
 export default UserService;

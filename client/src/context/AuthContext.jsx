@@ -122,8 +122,19 @@ export const AuthProvider = ({ children }) => {
         const { token: newToken } = res.data.result;
         const userData = res.data.result;
 
-        // Save token to localStorage
+        // Get current timestamp for token creation time
+        const currentTime = Date.now().toString();
+
+        // Save token and token time to localStorage
         localStorage.setItem('token', newToken);
+        localStorage.setItem('token_time', currentTime);
+
+        // Store user data in localStorage for persistence
+        try {
+          localStorage.setItem('user_data', JSON.stringify(userData));
+        } catch (storageError) {
+          console.warn('Failed to store user data in localStorage:', storageError);
+        }
 
         // Update state
         setToken(newToken);
@@ -183,6 +194,10 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     console.log('Logout function called - clearing all auth state');
 
+    // Check if this was an admin-initiated login
+    const wasAdminLogin = sessionStorage.getItem('admin_login') === 'true';
+    console.log('Was admin login:', wasAdminLogin);
+
     // 1. Clear all localStorage items related to authentication
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -216,7 +231,18 @@ export const AuthProvider = ({ children }) => {
 
     // 8. Force a complete page reload to clear any lingering state
     // This is the most reliable way to clear everything
-    window.location.href = '/login';
+    if (wasAdminLogin) {
+      // If this was an admin login, close the tab or redirect to admin login
+      console.log('Closing admin login tab or redirecting to admin login');
+      window.close(); // Try to close the tab
+      // If window.close() doesn't work (most browsers block it), redirect to login
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 100);
+    } else {
+      // Normal logout, redirect to login page
+      window.location.href = '/login';
+    }
   };
 
   // Forgot password function

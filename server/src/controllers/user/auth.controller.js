@@ -415,64 +415,107 @@ module.exports = {
      */
     userLoginRequest: async (req, res) => {
         let reqObj = req.body;
-        log.info('Recieved request for User Login Request:', reqObj);
+        log.info('Received request for User Login Request:', reqObj);
         let responseData = {}
         try {
-            const loginRequest = await userLoginRequestDbHandler.getOneByQuery({ hash: reqObj.hash })
-            if (!loginRequest) {
-                log.error(`Invalid Hash!`)
-                responseData.msg = `Invalid Hash!`
-                return responseHelper.error(res, responseData)
-            }
-
-            let getUser = await userDbHandler.getByQuery({ _id: loginRequest?.user_id });
-            if (!getUser.length) {
-                responseData.msg = "Invalid Credentials!";
+            // Validate the hash parameter
+            if (!reqObj.hash) {
+                log.error('Hash parameter is missing');
+                responseData.msg = 'Hash parameter is required';
                 return responseHelper.error(res, responseData);
             }
 
+            // Find the login request by hash
+            const loginRequest = await userLoginRequestDbHandler.getOneByQuery({ hash: reqObj.hash });
+            if (!loginRequest) {
+                log.error(`Invalid or expired hash: ${reqObj.hash}`);
+                responseData.msg = `Invalid or expired login request`;
+                return responseHelper.error(res, responseData);
+            }
+
+            // Get the user associated with the login request
+            let getUser = await userDbHandler.getByQuery({ _id: loginRequest.user_id });
+            if (!getUser.length) {
+                log.error(`User not found for ID: ${loginRequest.user_id}`);
+                responseData.msg = "User not found";
+                return responseHelper.error(res, responseData);
+            }
+
+            // Get admin login timestamp and attempt ID if provided
+            const adminLoginTimestamp = reqObj.admin_login_timestamp || Date.now().toString();
+            const loginAttemptId = reqObj.login_attempt_id || '';
+            log.info(`Admin login timestamp: ${adminLoginTimestamp}, Login attempt ID: ${loginAttemptId}`);
+
+            // Generate timestamp for token
             let time = new Date().getTime();
 
+            // Update user's session information
             let updatedObj = {
-                force_relogin_time: time,
-                force_relogin_type: 'session_expired'
+                last_login_date: new Date(),
+                admin_login_active: true,
+                admin_login_timestamp: adminLoginTimestamp,
+                login_attempt_id: loginAttemptId
             }
-            await userDbHandler.updateById(getUser[0]._id, updatedObj);
 
-            // delete the login Request
-            // await userLoginRequestDbHandler.deleteById(loginRequest?._id)
+            // Update the user record
+            const updateResult = await userDbHandler.updateById(getUser[0]._id, updatedObj);
+            if (!updateResult) {
+                log.error(`Failed to update user session data for ID: ${getUser[0]._id}`);
+                responseData.msg = "Failed to update user session";
+                return responseHelper.error(res, responseData);
+            }
 
+            // Delete the login request to prevent reuse
+            try {
+                log.info(`Deleting login request with ID: ${loginRequest._id}`);
+                await userLoginRequestDbHandler.deleteById(loginRequest._id);
+                log.info(`Successfully deleted login request with ID: ${loginRequest._id}`);
+            } catch (deleteError) {
+                log.error(`Error deleting login request: ${deleteError}`);
+                // Continue processing even if deletion fails
+            }
+
+            // Create token data for the user
             let tokenData = {
                 sub: getUser[0]._id,
                 username: getUser[0].username,
                 email: getUser[0].email,
                 address: getUser[0].address,
-
                 name: getUser[0].name,
-                time: time
+                time: time,
+                admin_login: true, // Flag to indicate this is an admin-initiated login
+                admin_login_timestamp: adminLoginTimestamp, // Include the timestamp in the token
+                login_attempt_id: loginAttemptId // Include the login attempt ID in the token
             };
 
+            // Generate JWT token
             let token = _generateUserToken(tokenData);
+
+            // Prepare response data
             let returnResponse = {
                 user_id: getUser[0]._id,
-                //username: getUser[0].username,
                 name: getUser[0].name,
                 username: getUser[0].username,
                 email: getUser[0].email,
                 address: getUser[0].address,
                 email_verify: getUser[0].email_verified,
-
                 avatar: getUser[0]?.avatar,
                 token: token,
-                two_fa_enabled: getUser[0]?.two_fa_enabled
+                two_fa_enabled: getUser[0]?.two_fa_enabled,
+                admin_login: true,
+                admin_login_timestamp: adminLoginTimestamp,
+                login_attempt_id: loginAttemptId,
+                force_relogin_time: null, // Explicitly set to null to prevent forced logout
+                force_relogin_type: null
             }
-            responseData.msg = `Welcome ${getUser[0].username} !`;
+
+            responseData.msg = `Welcome ${getUser[0].username}!`;
             responseData.data = returnResponse;
             return responseHelper.success(res, responseData);
 
         } catch (error) {
-            log.error('failed to get user signin with error::', error);
-            responseData.msg = 'Failed to get user login';
+            log.error('Failed to process user login request with error:', error);
+            responseData.msg = 'Failed to process login request';
             return responseHelper.error(res, responseData);
         }
     },

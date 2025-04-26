@@ -146,6 +146,135 @@ const AllTeam = () => {
     setPage(0);
   };
 
+  // Handle login as user
+  const handleLoginAsUser = async (userId) => {
+    try {
+      setLoading(true);
+      setError(null); // Clear any previous errors
+
+      // Get the admin token
+      const token = getToken();
+      if (!token) {
+        setError('Admin authentication token not found. Please log in again.');
+        return;
+      }
+
+      console.log(`Creating login request for user ID: ${userId}`);
+
+      // First, check if there's an existing user session and close it
+      try {
+        // Find any existing user login windows
+        const existingLoginWindow = window.localStorage.getItem('admin_user_login_window');
+        if (existingLoginWindow) {
+          console.log('Found existing user login window, attempting to close it');
+          try {
+            // Try to close the existing window if it's still open
+            const windowRef = window.open('', existingLoginWindow);
+            if (windowRef && !windowRef.closed) {
+              windowRef.close();
+            }
+          } catch (closeError) {
+            console.warn('Error closing existing window:', closeError);
+            // Continue even if we can't close the window
+          }
+        }
+
+        // Clear any stored window references
+        window.localStorage.removeItem('admin_user_login_window');
+      } catch (sessionError) {
+        console.warn('Error checking for existing sessions:', sessionError);
+        // Continue even if there's an error checking for existing sessions
+      }
+
+      // Generate a unique ID for this login attempt
+      const loginAttemptId = `login_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+
+      // Store the login attempt ID
+      window.localStorage.setItem('admin_login_attempt_id', loginAttemptId);
+
+      // Make the API request to create a login request
+      let response;
+      try {
+        // First try with the clear_existing parameter and login attempt ID
+        response = await axios.post(
+          `${API_URL}/admin/user-login-request`,
+          {
+            user_id: userId,
+            clear_existing: true, // Tell the server to clear any existing sessions
+            login_attempt_id: loginAttemptId // Include the login attempt ID
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      } catch (apiError) {
+        console.warn('Error with clear_existing parameter, trying without it:', apiError);
+
+        // If that fails, try without the clear_existing parameter
+        // This handles backward compatibility with older server versions
+        response = await axios.post(
+          `${API_URL}/admin/user-login-request`,
+          {
+            user_id: userId,
+            login_attempt_id: loginAttemptId // Still include the login attempt ID
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
+
+      console.log('Login request response:', response.data);
+
+      if (response.data && response.data.status) {
+        // Check if the URL is in the response
+        if (response.data.result && response.data.result.url) {
+          const loginUrl = response.data.result.url;
+          console.log(`Opening login URL: ${loginUrl}`);
+
+          // Generate a unique window name to ensure a new tab is always opened
+          const windowName = `user_login_${Date.now()}`;
+
+          // Store the window name for future reference
+          window.localStorage.setItem('admin_user_login_window', windowName);
+
+          // Open the login URL in a new tab with specific options
+          const newWindow = window.open(loginUrl, windowName, 'noopener,noreferrer');
+
+          // Check if the window was successfully opened
+          if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+            console.error('Failed to open new window. Popup might be blocked.');
+            setError('Failed to open login window. Please allow popups for this site.');
+          } else {
+            // Set up a listener to detect when the window is closed
+            const checkWindowClosed = setInterval(() => {
+              if (newWindow.closed) {
+                clearInterval(checkWindowClosed);
+                window.localStorage.removeItem('admin_user_login_window');
+                console.log('User login window was closed');
+              }
+            }, 1000);
+          }
+        } else {
+          console.error('Login URL not found in response:', response.data);
+          setError('Login URL not found in response');
+        }
+      } else {
+        console.error('Failed to create login request:', response.data);
+        setError(response.data?.msg || 'Failed to create login request');
+      }
+    } catch (err) {
+      console.error('Error creating login request:', err);
+      setError(err.response?.data?.msg || 'An error occurred while creating login request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Render sort icon
   const renderSortIcon = (field) => {
     if (sortField !== field) return null;
@@ -375,9 +504,25 @@ const AllTeam = () => {
               ) : (
                 users.map((user) => (
                   <TableRow key={user._id} hover>
-                    <TableCell>{user.name}</TableCell>
+                    <TableCell>
+                      <Button
+                        color="primary"
+                        sx={{ textTransform: 'none', fontWeight: 'normal', p: 0, minWidth: 'auto' }}
+                        onClick={() => handleLoginAsUser(user._id)}
+                      >
+                        {user.name}
+                      </Button>
+                    </TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.username}</TableCell>
+                    <TableCell>
+                      <Button
+                        color="primary"
+                        sx={{ textTransform: 'none', fontWeight: 'normal', p: 0, minWidth: 'auto' }}
+                        onClick={() => handleLoginAsUser(user._id)}
+                      >
+                        {user.username}
+                      </Button>
+                    </TableCell>
                     <TableCell>
                       {user.refer_id ? (
                         <Chip

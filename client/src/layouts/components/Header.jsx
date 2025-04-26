@@ -129,7 +129,7 @@ const Header = ({ onToggleSidebar }) => {
                   fontWeight: 'bold',
                 }}
               >
-                HyperTrade
+                HyperTrade MLM
               </Typography>
             </Box>
 
