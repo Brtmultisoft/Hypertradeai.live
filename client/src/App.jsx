@@ -31,6 +31,7 @@ import Deposit from './pages/wallet/Deposit';
 import Withdraw from './pages/wallet/Withdraw';
 import LiveTrading from './pages/live_trading/LiveTrading';
 import TransactionHistory from './pages/wallet/TransactionHistory';
+import Settings from './pages/settings/Settings';
 
 // Common Components
 
@@ -82,6 +83,9 @@ function App() {
 
               {/* Live Trading Route */}
               <Route path="/live-trading" element={<LiveTrading />} />
+
+              {/* Settings Route */}
+              <Route path="/settings" element={<Settings />} />
             </Route>
 
             {/* Default Route */}

@@ -23,6 +23,7 @@ import {
   AccountBalance as AccountBalanceIcon,
   SwapHoriz as SwapHorizIcon,
   History as HistoryIcon,
+  Settings as SettingsIcon,
   ExpandLess,
   ExpandMore,
 } from '@mui/icons-material';
@@ -236,7 +237,6 @@ const Sidebar = ({ open, onClose }) => {
                   color: isActive('/live-trading') ? theme.palette.primary.main : theme.palette.text.secondary,
                 }}
               >
-                {/* Use a suitable icon for live trading, e.g., SwapHorizIcon */}
                 <SwapHorizIcon fontSize="small" />
               </Box>
             </ListItemIcon>
@@ -246,6 +246,55 @@ const Sidebar = ({ open, onClose }) => {
                 '& .MuiTypography-root': {
                   fontWeight: isActive('/live-trading') ? 'bold' : 'medium',
                   color: isActive('/live-trading') ? theme.palette.primary.main : theme.palette.text.primary,
+                }
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+
+        {/* Settings */}
+        <ListItem disablePadding sx={{ mb: 0.5 }}>
+          <ListItemButton
+            component={Link}
+            to="/settings"
+            selected={isActive('/settings')}
+            onClick={handleItemClick}
+            sx={{
+              borderRadius: 2,
+              transition: 'all 0.2s ease',
+              '&.Mui-selected': {
+                backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                '&:hover': {
+                  backgroundColor: 'rgba(51, 117, 187, 0.12)',
+                },
+              },
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '8px',
+                  backgroundColor: isActive('/settings') ? 'rgba(51, 117, 187, 0.12)' : 'transparent',
+                  color: isActive('/settings') ? theme.palette.primary.main : theme.palette.text.secondary,
+                }}
+              >
+                <SettingsIcon fontSize="small" />
+              </Box>
+            </ListItemIcon>
+            <ListItemText
+              primary="Settings"
+              sx={{
+                '& .MuiTypography-root': {
+                  fontWeight: isActive('/settings') ? 'bold' : 'medium',
+                  color: isActive('/settings') ? theme.palette.primary.main : theme.palette.text.primary,
                 }
               }}
             />

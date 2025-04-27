@@ -26,14 +26,13 @@ const BottomNavigation = () => {
     if (path === '/dashboard') return 0;
     if (path.includes('/wallet') || path.includes('/deposit') || path.includes('/withdraw') || path.includes('/transfer')) return 1;
     if (path.includes('/buy-package') || path.includes('/investment')) return 2;
-    if (path.includes('/team') || path.includes('/direct-team')) return 3;
-    if (path.includes('/profile') || path.includes('/settings')) return 4;
+    if (path === '/settings') return 3;
     return 0; // Default to dashboard
   };
 
   const [value, setValue] = useState(getActiveTab());
 
-  const handleChange = (event, newValue) => {
+  const handleChange = (_, newValue) => {
     setValue(newValue);
 
     // Navigate based on tab index
@@ -48,7 +47,7 @@ const BottomNavigation = () => {
         navigate('/buy-package');
         break;
       case 3:
-        navigate('/team');
+        navigate('/settings');
         break;
       case 4:
         navigate('/profile');
@@ -100,7 +99,7 @@ const BottomNavigation = () => {
         }}
       >
         <BottomNavigationAction
-          label="Wallet"
+          label="Home"
           icon={
             <Box sx={{
               display: 'flex',
@@ -131,7 +130,7 @@ const BottomNavigation = () => {
           }
         />
         <BottomNavigationAction
-          label="Swap"
+          label="Wallet"
           icon={
             <Box sx={{
               display: 'flex',

@@ -29,9 +29,13 @@ const AuthLayout = () => {
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <Box
               component="img"
-              src="/logo.png"
+              src={import.meta.env.BASE_URL + "logo.png"}
               alt="HypeTrade AI"
               sx={{ height: 60 }}
+              onError={(e) => {
+                console.error("Failed to load logo from:", e.target.src);
+                e.target.src = "https://ui-avatars.com/api/?name=HT&background=3375bb&color=fff&size=100";
+              }}
             />
             <Typography
               variant="h5"
