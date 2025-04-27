@@ -120,6 +120,7 @@ const LevelBox = styled(Card)(({ theme, mode, active, level }) => {
     overflow: 'hidden',
     cursor: 'pointer',
     position: 'relative',
+    marginBottom: active ? '16px' : '0px', // Add margin when active to make room for dropdown
     '&:hover': {
       transform: 'translateY(-4px)',
       boxShadow: active
@@ -138,6 +139,42 @@ const LevelBox = styled(Card)(({ theme, mode, active, level }) => {
       height: '4px',
       backgroundColor: levelColor,
     } : {},
+  };
+});
+
+// Dropdown content for level members
+const LevelDropdown = styled(Box)(({ theme, mode, active, level }) => {
+  // Generate a color based on the level (1-10)
+  const getColorByLevel = (level) => {
+    const colors = [
+      theme.palette.primary.main,
+      theme.palette.success.main,
+      theme.palette.warning.main,
+      theme.palette.error.main,
+      theme.palette.info.main,
+      '#9c27b0', // purple
+      '#009688', // teal
+      '#ff5722', // deep orange
+      '#607d8b', // blue grey
+      '#795548', // brown
+    ];
+    return colors[(level - 1) % colors.length];
+  };
+
+  const levelColor = getColorByLevel(level);
+
+  return {
+    maxHeight: active ? '1000px' : '0px',
+    opacity: active ? 1 : 0,
+    overflow: 'hidden',
+    transition: 'all 0.5s ease',
+    marginTop: active ? '8px' : '0px',
+    borderRadius: '12px',
+    border: active ? `1px solid ${levelColor}30` : 'none',
+    backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.7)' : 'rgba(255, 255, 255, 0.9)',
+    boxShadow: active ? `0 8px 16px ${levelColor}20` : 'none',
+    position: 'relative',
+    width: '100%',
   };
 });
 
@@ -240,8 +277,7 @@ const TeamStructure = () => {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [levelMembers, setLevelMembers] = useState([]);
   const [levelStats, setLevelStats] = useState([]);
-  const [showMemberDetails, setShowMemberDetails] = useState(false);
-  const [memberDetailsData, setMemberDetailsData] = useState(null);
+  // We'll use selectedMember state instead of separate member details state
   const [teamStats, setTeamStats] = useState({
     totalMembers: 0,
     totalInvestment: 0,
@@ -420,16 +456,37 @@ const TeamStructure = () => {
       setSelectedLevel(null);
       setLevelMembers([]);
     } else {
-      setSelectedLevel(level);
       // Get members for this level (level-1 because array is 0-based)
-      setLevelMembers(levelStats[level-1]?.members || []);
+      const members = levelStats[level-1]?.members || [];
+      setLevelMembers(members);
+      setSelectedLevel(level);
+
+      // Scroll to the level box after a short delay to allow animation to start
+      setTimeout(() => {
+        const levelElement = document.getElementById(`level-${level}`);
+        if (levelElement) {
+          levelElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     }
   };
 
   // Handle member click in the level members list
   const handleLevelMemberClick = (member) => {
-    setMemberDetailsData(member);
-    setShowMemberDetails(true);
+    // Set the selected member to show details in the right panel
+    const memberWithChildren = {
+      ...member,
+      children: [] // Add empty children array to match the structure expected by the component
+    };
+    setSelectedMember(memberWithChildren);
+
+    // Scroll to the team tree section to show the member details
+    setTimeout(() => {
+      const teamTreeSection = document.getElementById('team-tree-section');
+      if (teamTreeSection) {
+        teamTreeSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   };
 
   // Handle member click in the team tree
@@ -437,10 +494,7 @@ const TeamStructure = () => {
     setSelectedMember(member);
   };
 
-  // Close member details dialog
-  const handleCloseMemberDetails = () => {
-    setShowMemberDetails(false);
-  };
+  // We no longer need a separate close function as we're using the selectedMember state
 
   // Copy referral link to clipboard
   const copyReferralLink = () => {
@@ -678,81 +732,126 @@ const TeamStructure = () => {
         </Alert>
       )}
 
-      {/* Level Boxes for 1-10 */}
-      <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+      {/* Level Boxes for 1-10 with Dropdown */}
+      <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {levelStats.map((levelStat, index) => {
           const level = index + 1;
           const isActive = selectedLevel === level;
+          const getColorByLevel = (level) => {
+            const colors = [
+              theme.palette.primary.main,
+              theme.palette.success.main,
+              theme.palette.warning.main,
+              theme.palette.error.main,
+              theme.palette.info.main,
+              '#9c27b0', // purple
+              '#009688', // teal
+              '#ff5722', // deep orange
+              '#607d8b', // blue grey
+              '#795548', // brown
+            ];
+            return colors[(level - 1) % colors.length];
+          };
+          const levelColor = getColorByLevel(level);
+
           return (
-            <LevelBox
-              key={level}
-              mode={mode}
-              active={isActive}
-              level={level}
-              onClick={() => handleLevelClick(level)}
-              sx={{ width: '100%', cursor: 'pointer' }}
-            >
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                  Level {level}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Members: {levelStat.memberCount}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Investment: {formatCurrency(levelStat.totalInvestment)}
-                </Typography>
-              </CardContent>
-            </LevelBox>
+            <Box key={level} id={`level-${level}`} sx={{ width: '100%', position: 'relative' }}>
+              {/* Level Box Header */}
+              <LevelBox
+                mode={mode}
+                active={isActive}
+                level={level}
+                onClick={() => handleLevelClick(level)}
+                sx={{ width: '100%', cursor: 'pointer' }}
+              >
+                <CardContent sx={{
+                  textAlign: 'center',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <Box>
+                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                      Level {level}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Members: {levelStat.memberCount}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Investment: {formatCurrency(levelStat.totalInvestment)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    {isActive ? (
+                      <ArrowUpwardIcon sx={{ color: levelColor }} />
+                    ) : (
+                      <ArrowDownwardIcon sx={{ color: 'text.secondary' }} />
+                    )}
+                  </Box>
+                </CardContent>
+              </LevelBox>
+
+              {/* Dropdown Content */}
+              <Box
+                sx={{
+                  maxHeight: isActive ? '1000px' : '0px',
+                  opacity: isActive ? 1 : 0,
+                  overflow: 'hidden',
+                  transition: 'all 0.5s ease',
+                  marginTop: isActive ? '8px' : '0px',
+                  borderRadius: '12px',
+                  border: isActive ? `1px solid ${levelColor}30` : 'none',
+                  backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.7)' : 'rgba(255, 255, 255, 0.9)',
+                  boxShadow: isActive ? `0 8px 16px ${levelColor}20` : 'none',
+                  position: 'relative',
+                  width: '100%',
+                  padding: isActive ? '16px' : '0px',
+                }}
+              >
+                {levelMembers.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                    No members found at this level.
+                  </Typography>
+                ) : (
+                  <Grid container spacing={2}>
+                    {levelMembers.map((member) => (
+                      <Grid item xs={12} sm={6} md={4} key={member.id}>
+                        <MemberCard
+                          mode={mode}
+                          onClick={() => handleLevelMemberClick(member)}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Avatar sx={{ bgcolor: levelColor }}>
+                              {member.name?.charAt(0) || 'U'}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="subtitle1" fontWeight="bold">
+                                {member.name}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                @{member.username}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                Investment: {formatCurrency(member.investment)}
+                              </Typography>
+                            </Box>
+                          </CardContent>
+                        </MemberCard>
+                      </Grid>
+                    ))}
+                  </Grid>
+                )}
+              </Box>
+            </Box>
           );
         })}
       </Box>
 
-      {/* Member List for Selected Level */}
-      {selectedLevel && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-            Members at Level {selectedLevel}
-          </Typography>
-          {levelMembers.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No members found at this level.
-            </Typography>
-          ) : (
-            <Grid container spacing={2}>
-              {levelMembers.map((member) => (
-                <Grid item xs={12} sm={6} md={4} key={member.id}>
-                  <MemberCard
-                    mode={mode}
-                    onClick={() => handleLevelMemberClick(member)}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-                        {member.name?.charAt(0) || 'U'}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight="bold">
-                          {member.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          @{member.username}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Investment: {formatCurrency(member.investment)}
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                  </MemberCard>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </Box>
-      )}
-
       {/* Team Tree and Selected Member */}
-      <Grid container spacing={3}>
+      <Grid container spacing={3} id="team-tree-section">
         <Grid item xs={12} md={selectedMember ? 8 : 12}>
           <StyledTeamTreeContainer mode={mode}>
             <Box sx={{
