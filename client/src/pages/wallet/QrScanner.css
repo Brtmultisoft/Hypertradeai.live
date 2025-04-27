@@ -1,30 +1,65 @@
 /* QR Scanner Styles */
+
 .qr-reader-element {
-  width: 100%;
-  height: 100%;
-  position: relative;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: #000;
 }
 
 .qr-reader-element video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    background-color: #000;
 }
 
 .qr-reader-element section {
-  width: 100% !important;
-  height: 100% !important;
-  padding-top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding-top: 0 !important;
+    background-color: #000;
 }
 
-.qr-reader-element section > div {
-  padding-top: 0 !important;
-  height: 100% !important;
+.qr-reader-element section>div {
+    padding-top: 0 !important;
+    height: 100% !important;
+    background-color: #000;
 }
 
 #qr-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background-color: #000;
+}
+
+
+/* Fix for Safari */
+
+@media not all and (min-resolution:.001dpcm) {
+    @supports (-webkit-appearance: none) {
+        .qr-reader-element video {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+    }
+}
+
+
+/* Fix for Firefox */
+
+@-moz-document url-prefix() {
+    .qr-reader-element video {
+        transform: none !important;
+    }
+}
+
+
+/* Improve contrast for better QR detection */
+
+.qr-reader-element video {
+    filter: contrast(1.2) brightness(1.1);
 }

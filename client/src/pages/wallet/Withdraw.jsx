@@ -25,7 +25,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  useMediaQuery,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -48,7 +47,6 @@ const Withdraw = () => {
   const theme = useMuiTheme();
   const { mode } = useAppTheme();
   const navigate = useNavigate();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Form state
   const [activeTab, setActiveTab] = useState(0);
@@ -79,8 +77,10 @@ const Withdraw = () => {
       currency: 'USDT',
       balance: walletBalance,
       usdValue: walletBalance, // 1 USDT = 1 USD
-      icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
-      placeholder: 'https://via.placeholder.com/40x40/26A17B/FFFFFF?text=USDT'
+      icon: 'https://assets.coingecko.com/coins/images/325/large/Tether.png',
+      placeholder: 'https://via.placeholder.com/40x40/26A17B/FFFFFF?text=USDT',
+      fallbackColor: '#26A17B',
+      fallbackText: 'USDT'
     }
   ];
 
@@ -283,25 +283,41 @@ const Withdraw = () => {
   // Handle QR scan result
   const handleScanResult = (result) => {
     if (result) {
+      console.log("QR Code detected:", result);
+
       // Extract address from QR code
       let scannedAddress = result?.text || '';
+
+      // Log the scanned data for debugging
+      console.log("Raw scanned data:", scannedAddress);
 
       // Clean up the address if needed (remove protocol, etc.)
       if (scannedAddress.includes(':')) {
         scannedAddress = scannedAddress.split(':').pop();
       }
 
-      // Set the address and validate it
-      setAddress(scannedAddress);
-      validateAddress(scannedAddress);
+      // Remove any whitespace
+      scannedAddress = scannedAddress.trim();
 
-      // Close the scanner
-      handleCloseScanner();
+      console.log("Processed address:", scannedAddress);
 
-      // Show success message
-      setSnackbarMessage('Address scanned successfully!');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
+      // Only proceed if we have a valid-looking address
+      if (scannedAddress && scannedAddress.length > 10) {
+        // Set the address and validate it
+        setAddress(scannedAddress);
+        validateAddress(scannedAddress);
+
+        // Close the scanner
+        handleCloseScanner();
+
+        // Show success message
+        setSnackbarMessage('Address scanned successfully!');
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+      } else {
+        console.warn("Invalid QR code content detected");
+        setScannerError('Invalid QR code. Please try scanning a valid cryptocurrency address.');
+      }
     }
   };
 
@@ -416,7 +432,7 @@ const Withdraw = () => {
                     backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.8)',
                   }}
                   onError={(e) => {
-                    e.target.src = balances[activeTab].placeholder;
+                    e.target.src = `https://via.placeholder.com/48x48/${balances[activeTab].fallbackColor.replace('#', '')}/FFFFFF?text=${balances[activeTab].fallbackText}`;
                   }}
                 />
                 <Box>
@@ -668,7 +684,7 @@ const Withdraw = () => {
             paper: {
               sx: {
                 borderRadius: 3,
-                backgroundColor: mode === 'dark' ? '#1E2329' : '#FFFFFF',
+                backgroundColor: '#000', // Always black background for better scanning
                 backgroundImage: 'none',
                 overflow: 'hidden',
               }
@@ -679,18 +695,20 @@ const Withdraw = () => {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            borderBottom: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+            borderBottom: `1px solid rgba(255, 255, 255, 0.1)`,
             p: 2,
+            backgroundColor: '#000',
+            color: '#fff',
           }}>
             <Typography variant="h6" fontWeight="bold">Scan QR Code</Typography>
-            <IconButton onClick={handleCloseScanner} size="small">
+            <IconButton onClick={handleCloseScanner} size="small" sx={{ color: '#fff' }}>
               <CloseIcon />
             </IconButton>
           </DialogTitle>
 
-          <DialogContent sx={{ p: 0 }}>
+          <DialogContent sx={{ p: 0, backgroundColor: '#000' }}>
             {hasPermission === false ? (
-              <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Box sx={{ p: 3, textAlign: 'center', backgroundColor: '#000', color: '#fff' }}>
                 <Typography color="error" sx={{ mb: 2 }}>
                   {scannerError || 'Camera permission denied'}
                 </Typography>
@@ -698,6 +716,7 @@ const Withdraw = () => {
                   variant="outlined"
                   onClick={handleOpenScanner}
                   startIcon={<CameraIcon />}
+                  sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.5)' }}
                 >
                   Try Again
                 </Button>
@@ -706,7 +725,7 @@ const Withdraw = () => {
               <Box
                 sx={{
                   position: 'relative',
-                  height: 350,
+                  height: 400, // Increased height for better visibility
                   overflow: 'hidden',
                   backgroundColor: '#000',
                 }}
@@ -720,7 +739,7 @@ const Withdraw = () => {
                     frameRate: { max: 30 }
                   }}
                   onResult={handleScanResult}
-                  scanDelay={300}
+                  scanDelay={100} // Faster scanning rate
                   videoId="qr-video"
                   className="qr-reader-element"
                   containerStyle={{
@@ -731,8 +750,11 @@ const Withdraw = () => {
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
-                    transform: isMobile ? 'scaleX(-1)' : 'none', // Mirror for front camera on mobile
+                    transform: 'none', // Don't mirror the camera feed
                   }}
+                  // Increase sensitivity for better detection
+                  resolution={800}
+                  torch={false}
                   ViewFinder={() => (
                     <Box
                       sx={{
@@ -740,21 +762,27 @@ const Withdraw = () => {
                         top: '50%',
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        width: 200,
-                        height: 200,
-                        border: '2px solid #3375BB',
+                        width: 220,
+                        height: 220,
+                        border: '3px solid #3375BB',
                         borderRadius: 2,
-                        boxShadow: '0 0 0 4000px rgba(0, 0, 0, 0.5)',
+                        boxShadow: '0 0 0 4000px rgba(0, 0, 0, 0.7)',
                         zIndex: 10,
+                        animation: 'pulse 2s infinite',
+                        '@keyframes pulse': {
+                          '0%': { boxShadow: '0 0 0 4000px rgba(0, 0, 0, 0.7)', border: '3px solid #3375BB' },
+                          '50%': { boxShadow: '0 0 0 4000px rgba(0, 0, 0, 0.8)', border: '3px solid #4285f4' },
+                          '100%': { boxShadow: '0 0 0 4000px rgba(0, 0, 0, 0.7)', border: '3px solid #3375BB' },
+                        },
                         '&::before': {
                           content: '""',
                           position: 'absolute',
                           top: 0,
                           left: 0,
-                          width: 20,
-                          height: 20,
-                          borderTop: '2px solid #3375BB',
-                          borderLeft: '2px solid #3375BB',
+                          width: 30,
+                          height: 30,
+                          borderTop: '3px solid #3375BB',
+                          borderLeft: '3px solid #3375BB',
                           borderTopLeftRadius: 8,
                         },
                         '&::after': {
@@ -762,10 +790,10 @@ const Withdraw = () => {
                           position: 'absolute',
                           bottom: 0,
                           right: 0,
-                          width: 20,
-                          height: 20,
-                          borderBottom: '2px solid #3375BB',
-                          borderRight: '2px solid #3375BB',
+                          width: 30,
+                          height: 30,
+                          borderBottom: '3px solid #3375BB',
+                          borderRight: '3px solid #3375BB',
                           borderBottomRightRadius: 8,
                         }
                       }}
@@ -779,13 +807,17 @@ const Withdraw = () => {
                     left: 0,
                     right: 0,
                     p: 2,
-                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
                     color: '#FFFFFF',
                     textAlign: 'center',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
                   }}
                 >
-                  <Typography variant="body2">
-                    Position the QR code within the frame
+                  <Typography variant="body2" fontWeight="medium">
+                    Position the QR code within the frame to scan
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'rgba(255, 255, 255, 0.7)' }}>
+                    Make sure the QR code is well-lit and clearly visible
                   </Typography>
                 </Box>
               </Box>
@@ -794,19 +826,39 @@ const Withdraw = () => {
 
           <DialogActions sx={{
             p: 2,
-            borderTop: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-            justifyContent: 'center',
+            borderTop: `1px solid rgba(255, 255, 255, 0.1)`,
+            justifyContent: 'space-between',
+            backgroundColor: '#000',
           }}>
             <Button
-              onClick={handleCloseScanner}
+              onClick={handleOpenScanner}
               variant="outlined"
+              startIcon={<RefreshIcon />}
+              sx={{
+                borderRadius: 2,
+                px: 2,
+                color: '#fff',
+                borderColor: 'rgba(255,255,255,0.3)',
+                '&:hover': {
+                  borderColor: 'rgba(255,255,255,0.5)',
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                }
+              }}
+            >
+              Rescan
+            </Button>
+
+            <Button
+              onClick={handleCloseScanner}
+              variant="contained"
               color="primary"
               sx={{
                 borderRadius: 2,
                 px: 3,
+                fontWeight: 'bold',
               }}
             >
-              Cancel
+              Close
             </Button>
           </DialogActions>
         </Dialog>
