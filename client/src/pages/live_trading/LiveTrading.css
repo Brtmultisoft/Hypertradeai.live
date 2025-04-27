@@ -94,3 +94,173 @@
         box-shadow: 0 0 5px rgba(14, 203, 129, 0.5);
     }
 }
+
+
+/* Animation for trading pair changes */
+
+.trading-pair-display {
+    transition: all 0.3s ease;
+}
+
+.pair-changing {
+    animation: pairChange 0.5s ease;
+    text-shadow: 0 0 10px #f0b90b;
+}
+
+@keyframes pairChange {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+
+/* Profit/Loss Bubbles - Removed to fix removeChild errors */
+
+
+/* Exchange Selector */
+
+.exchange-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.exchange-card {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex: 1;
+    min-width: 80px;
+    max-width: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+}
+
+.exchange-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.exchange-card.active {
+    border: 2px solid #0ecb81;
+    box-shadow: 0 0 10px rgba(14, 203, 129, 0.5);
+}
+
+.exchange-logo-container {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    background-color: rgba(255, 255, 255, 0.1);
+    position: relative;
+}
+
+.exchange-logo {
+    width: 70%;
+    height: 70%;
+    object-fit: contain;
+}
+
+.exchange-name {
+    font-size: 12px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.exchange-profit {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+.exchange-profit.positive {
+    background-color: rgba(14, 203, 129, 0.8);
+    color: white;
+}
+
+.exchange-profit.negative {
+    background-color: rgba(246, 70, 93, 0.8);
+    color: white;
+}
+
+
+/* Exchange Jumper */
+
+.exchange-jumper {
+    position: relative;
+    height: 100px;
+    overflow: hidden;
+    margin: 20px 0;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.jumper-exchange {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    transition: all 0.5s ease;
+}
+
+.jumper-exchange img {
+    width: 70%;
+    height: 70%;
+    object-fit: contain;
+}
+
+.jumper-line {
+    position: absolute;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    z-index: -1;
+}
+
+.jumper-price {
+    position: absolute;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 10px;
+    color: white;
+    animation: priceJump 0.5s ease;
+}
+
+@keyframes priceJump {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}

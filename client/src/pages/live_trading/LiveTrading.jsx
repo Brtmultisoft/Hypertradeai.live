@@ -54,25 +54,99 @@ const flashAnimation = keyframes`
   100% { background-color: rgba(255, 255, 255, 0.1); }
 `;
 
-// Trading pairs with CoinGecko IDs
+const bubbleAnimation = keyframes`
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-100px);
+    opacity: 0;
+  }
+`;
+
+const jumpAnimation = keyframes`
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0); }
+`;
+
+const pairChangeAnimation = keyframes`
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+`;
+
+// Trading pairs with CoinGecko IDs and supported exchanges
 const tradingPairs = [
-  { symbol: 'BTCUSDT', name: 'BTC/USDT', fullName: 'Bitcoin', id: 'bitcoin' },
-  { symbol: 'BNBUSDT', name: 'BNB/USDT', fullName: 'Binance Coin', id: 'binancecoin' },
-  { symbol: 'ETHUSDT', name: 'ETH/USDT', fullName: 'Ethereum', id: 'ethereum' },
-  { symbol: 'SOLUSDT', name: 'SOL/USDT', fullName: 'Solana', id: 'solana' },
-  { symbol: 'ADAUSDT', name: 'ADA/USDT', fullName: 'Cardano', id: 'cardano' },
-  { symbol: 'DOGEUSDT', name: 'DOGE/USDT', fullName: 'Dogecoin', id: 'dogecoin' }
+  {
+    symbol: 'BTCUSDT',
+    name: 'BTC/USDT',
+    fullName: 'Bitcoin',
+    id: 'bitcoin',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate', 'coinbase']
+  },
+  {
+    symbol: 'BNBUSDT',
+    name: 'BNB/USDT',
+    fullName: 'Binance Coin',
+    id: 'binancecoin',
+    supportedExchanges: ['binance', 'kucoin', 'gate']
+  },
+  {
+    symbol: 'ETHUSDT',
+    name: 'ETH/USDT',
+    fullName: 'Ethereum',
+    id: 'ethereum',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate', 'coinbase']
+  },
+  {
+    symbol: 'SOLUSDT',
+    name: 'SOL/USDT',
+    fullName: 'Solana',
+    id: 'solana',
+    supportedExchanges: ['binance', 'kucoin', 'okx', 'crypto']
+  },
+  {
+    symbol: 'ADAUSDT',
+    name: 'ADA/USDT',
+    fullName: 'Cardano',
+    id: 'cardano',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'gate']
+  },
+  {
+    symbol: 'DOGEUSDT',
+    name: 'DOGE/USDT',
+    fullName: 'Dogecoin',
+    id: 'dogecoin',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx']
+  }
 ];
+
+// No global profit bubble function - removed to fix removeChild errors
 
 const LiveTrading = () => {
   const theme = useTheme();
   const { mode } = useAppTheme();
   // Get user data from auth context
   const { user } = useAuth();
-  const [tradingActive, setTradingActive] = useState(false);
+  const [tradingActive, setTradingActive] = useState(true); // Set to true by default to enable automatic trading
   const [sessionTime, setSessionTime] = useState(0);
   const [currentBasePrice, setCurrentBasePrice] = useState(45000);
   const [currentTradingPair, setCurrentTradingPair] = useState('BTCUSDT');
+  const [flash, setFlash] = useState(false);
   const [totalInvestment, setTotalInvestment] = useState(0);
   const [dailyProfitRate, setDailyProfitRate] = useState(0.8); // 0.8% daily profit
   const [dailyProfit, setDailyProfit] = useState(0);
@@ -159,95 +233,94 @@ const LiveTrading = () => {
     }
   }, [tradingActive, sessionTime, dailyProfit]);
 
+  // Bubble generation removed to fix removeChild errors
+
   // We'll move this useEffect after the fetchAllCryptoImages function is defined
 
-  // Function to fetch real-time price and image from CoinGecko API
+  // Function to fetch mock price data (avoiding CORS issues with CoinGecko API)
   const updateBasePriceFromAPI = useCallback(async () => {
     try {
-      // Get the current pair's CoinGecko ID
+      // Get the current pair
       const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
       if (!currentPair) return;
 
-      // Fetch data from CoinGecko API
-      const response = await axios.get(
-        `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${currentPair.id}&order=market_cap_desc&per_page=1&page=1&sparkline=false&price_change_percentage=24h`
-      );
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      if (response.data && response.data.length > 0) {
-        const coinData = response.data[0];
-        const newPrice = parseFloat(coinData.current_price);
+      // Generate realistic mock prices based on the cryptocurrency
+      let mockPrice;
+      let mockChange = (Math.random() * 6 - 2).toFixed(2); // -2% to +4%
 
-        // Store coin image URL in the trading pairs data
-        const updatedPairs = tradingPairs.map(pair => {
-          if (pair.id === currentPair.id) {
-            return {
-              ...pair,
-              imageUrl: coinData.image, // Store the image URL from CoinGecko
-              marketCap: coinData.market_cap,
-              totalVolume: coinData.total_volume,
-              high24h: coinData.high_24h,
-              low24h: coinData.low_24h,
-              priceChange24h: coinData.price_change_percentage_24h
-            };
-          }
-          return pair;
-        });
-
-        // Update trading pairs with image URLs
-        window.tradingPairsData = updatedPairs;
-
-        console.log(`Fetched ${currentPair.fullName} data from CoinGecko:`, {
-          price: newPrice,
-          image: coinData.image
-        });
-
-        setCurrentBasePrice(newPrice);
-
-        // Update millisecond prices for more dynamic display
-        setMillisecondPrices(prev => {
-          const newPrices = [...prev, newPrice];
-          if (newPrices.length > 20) {
-            return newPrices.slice(-20);
-          }
-          return newPrices;
-        });
-      }
-    } catch (error) {
-      console.error(`Error fetching ${currentTradingPair} price:`, error);
-
-      // Fallback to mock data if API fails
-      const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
-      let fallbackPrice;
-
-      switch(currentPair?.id) {
+      switch(currentPair.id) {
         case 'bitcoin':
-          fallbackPrice = 45000 + (Math.random() * 2000 - 1000);
+          mockPrice = 45000 + (Math.random() * 2000 - 1000);
           break;
         case 'ethereum':
-          fallbackPrice = 2500 + (Math.random() * 100 - 50);
+          mockPrice = 2500 + (Math.random() * 100 - 50);
           break;
         case 'binancecoin':
-          fallbackPrice = 350 + (Math.random() * 20 - 10);
+          mockPrice = 350 + (Math.random() * 20 - 10);
           break;
         case 'solana':
-          fallbackPrice = 120 + (Math.random() * 10 - 5);
+          mockPrice = 120 + (Math.random() * 10 - 5);
           break;
         case 'cardano':
-          fallbackPrice = 0.5 + (Math.random() * 0.05 - 0.025);
+          mockPrice = 0.5 + (Math.random() * 0.05 - 0.025);
           break;
         case 'dogecoin':
-          fallbackPrice = 0.1 + (Math.random() * 0.01 - 0.005);
+          mockPrice = 0.1 + (Math.random() * 0.01 - 0.005);
           break;
         default:
-          fallbackPrice = 100 + (Math.random() * 10 - 5);
+          mockPrice = 100 + (Math.random() * 10 - 5);
       }
 
-      console.log(`Using fallback price for ${currentTradingPair}:`, fallbackPrice);
+      // Create mock data structure similar to what the API would return
+      const mockData = {
+        current_price: mockPrice,
+        market_cap: mockPrice * 1000000000,
+        total_volume: mockPrice * 100000000,
+        high_24h: mockPrice * 1.05,
+        low_24h: mockPrice * 0.95,
+        price_change_percentage_24h: parseFloat(mockChange)
+      };
 
-      const newPrice = parseFloat(fallbackPrice.toFixed(2));
+      console.log(`Generated mock data for ${currentPair.fullName}:`, {
+        price: mockData.current_price,
+        change: mockData.price_change_percentage_24h + '%'
+      });
+
+      // Update the current base price with our mock data
+      const newPrice = parseFloat(mockData.current_price.toFixed(2));
       setCurrentBasePrice(newPrice);
 
+      // Update trading pair data with mock market data
+      const updatedPair = {
+        ...currentPair,
+        marketCap: mockData.market_cap,
+        totalVolume: mockData.total_volume,
+        high24h: mockData.high_24h,
+        low24h: mockData.low_24h,
+        priceChange24h: mockData.price_change_percentage_24h
+      };
+
       // Update millisecond prices for more dynamic display
+      setMillisecondPrices(prev => {
+        const newPrices = [...prev, newPrice];
+        if (newPrices.length > 20) {
+          return newPrices.slice(-20);
+        }
+        return newPrices;
+      });
+    } catch (error) {
+      console.error(`Error generating mock data for ${currentTradingPair}:`, error);
+
+      // Fallback to even simpler mock data
+      const fallbackPrice = 100 + (Math.random() * 10 - 5);
+      const newPrice = parseFloat(fallbackPrice.toFixed(2));
+
+      setCurrentBasePrice(newPrice);
+
+      // Update millisecond prices
       setMillisecondPrices(prev => {
         const newPrices = [...prev, newPrice];
         if (newPrices.length > 20) {
@@ -258,9 +331,10 @@ const LiveTrading = () => {
     }
   }, [currentTradingPair]);
 
-  // Change trading pair randomly
+  // Change trading pair randomly with visual effects - runs every second
   const changeTradingPair = useCallback(() => {
-    if (!tradingActive) return;
+    // Always run regardless of tradingActive state to ensure pairs change automatically
+    // This ensures pairs change even if trading is not active
 
     // Get a random index different from the current one
     let currentIndex = tradingPairs.findIndex(pair => pair.symbol === currentTradingPair);
@@ -270,9 +344,17 @@ const LiveTrading = () => {
       nextIndex = Math.floor(Math.random() * tradingPairs.length);
     } while (nextIndex === currentIndex);
 
+    // Use state-based animation for the card
+    setFlash(true);
+    // We'll handle this with a separate useEffect instead of setTimeout
+
     console.log(`Switching trading pair from ${currentTradingPair} to ${tradingPairs[nextIndex].symbol}`);
     setCurrentTradingPair(tradingPairs[nextIndex].symbol);
-  }, [tradingActive, currentTradingPair]);
+
+    // Also update the base price to simulate price changes when switching pairs
+    const newBasePrice = currentBasePrice * (1 + (Math.random() * 0.04 - 0.02)); // ±2% change
+    setCurrentBasePrice(parseFloat(newBasePrice.toFixed(2)));
+  }, [currentTradingPair, currentBasePrice, tradingPairs]);
 
 
 
@@ -283,7 +365,7 @@ const LiveTrading = () => {
     console.log('Simulating order book data generation for', currentTradingPair);
   }, [currentTradingPair]);
 
-  // Generate trade history data
+  // Generate trade history data with exchange information
   const generateTradeHistory = useCallback(() => {
     if (!tradingActive) return;
 
@@ -299,6 +381,54 @@ const LiveTrading = () => {
     const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
     const symbol = currentPair ? currentPair.symbol.replace('USDT', '') : 'BTC';
 
+    // Get a random active exchange for this trade using embedded SVG data URLs
+    const exchangeOptions = [
+      {
+        name: 'Binance',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4=',
+        active: true,
+        profit: '+0.0037 USDT',
+        id: 'binance',
+        highlight: true,
+        fallbackLogo: 'https://ui-avatars.com/api/?name=B&background=random&color=fff&size=100'
+      },
+      {
+        name: 'KuCoin',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIzQkY3NiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI2Ljk4NWMtNi4wNDYgMC0xMC45ODYgNC45NC0xMC45ODYgMTAuOTg1UzkuOTU0IDI2Ljk4NSAxNiAyNi45ODVzMTAuOTg2LTQuOTQgMTAuOTg2LTEwLjk4NVMyMi4wNDYgNS4wMTUgMTYgNS4wMTV6bS0uOTg0IDEyLjk4M2wtMy4wMTMtMy4wMTMgMS40MTQtMS40MTQgMS41OTkgMS41OTkgNS4zOTgtNS4zOTggMS40MTQgMS40MTQtNi44MTIgNi44MTJ6Ii8+PC9zdmc+',
+        active: true,
+        profit: '+0.0055 USDT',
+        id: 'kucoin',
+        highlight: true,
+        fallbackLogo: 'https://ui-avatars.com/api/?name=K&background=random&color=fff&size=100'
+      },
+      {
+        name: 'Crypto.com',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwMzNhZCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjAxOC03LjkwM2wzLjA3LTEuNzc0YS43NzIuNzcyIDAgMCAwIC4zODYtLjY3MlYxMi4zNWEuNzcyLjc3MiAwIDAgMC0uMzg2LS42NzJsLTMuMDctMS43NzRhLjc3Mi43NzIgMCAwIDAtLjc3MiAwbC0zLjA3IDEuNzc0YS43NzIuNzcyIDAgMCAwLS4zODYuNjcydjcuMzAxYzAgLjI3Ny4xNDYuNTM0LjM4Ni42NzJsMy4wNyAxLjc3NGEuNzcyLjc3MiAwIDAgMCAuNzcyIDB6bS0yLjUwMi0yLjQ0NmMwIC4wNjktLjAzNS4xMDQtLjEwNC4xMDRoLS40MTRjLS4wNyAwLS4xMDQtLjAzNS0uMTA0LS4xMDR2LTUuMjA4YzAtLjA3LjAzNC0uMTA0LjEwNC0uMTA0aC40MTRjLjA2OSAwIC4xMDQuMDM1LjEwNC4xMDR2NS4yMDh6bTEuNTU0IDBjMCAuMDY5LS4wMzUuMTA0LS4xMDQuMTA0aC0uNDE0Yy0uMDcgMC0uMTA0LS4wMzUtLjEwNC0uMTA0di01LjIwOGMwLS4wNy4wMzQtLjEwNC4xMDQtLjEwNGguNDE0Yy4wNjkgMCAuMTA0LjAzNS4xMDQuMTA0djUuMjA4em0xLjU1NCAwYzAgLjA2OS0uMDM1LjEwNC0uMTA0LjEwNGgtLjQxNGMtLjA3IDAtLjEwNC0uMDM1LS4xMDQtLjEwNHYtNS4yMDhjMC0uMDcuMDM0LS4xMDQuMTA0LS4xMDRoLjQxNGMuMDY5IDAgLjEwNC4wMzUuMTA0LjEwNHY1LjIwOHoiLz48L3N2Zz4=',
+        active: true,
+        profit: '+0.0042 USDT',
+        id: 'crypto',
+        highlight: true,
+        fallbackLogo: 'https://ui-avatars.com/api/?name=C&background=random&color=fff&size=100'
+      },
+      {
+        name: 'OKX',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIxNmZlYSIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNy4xMDUtMTAuMDI1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXptLTkuNDk1LTkuNDk1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXoiLz48L3N2Zz4=',
+        active: true,
+        profit: '+0.0023 USDT',
+        id: 'okx',
+        highlight: true,
+        fallbackLogo: 'https://ui-avatars.com/api/?name=O&background=random&color=fff&size=100'
+      }
+    ];
+
+    const randomExchange = exchangeOptions[Math.floor(Math.random() * exchangeOptions.length)];
+
+    // Generate profit/loss for this trade
+    const isPositive = Math.random() > 0.3; // 70% chance of positive profit
+    const profitAmount = (Math.random() * (isPositive ? 0.01 : 0.005) + 0.0001).toFixed(6);
+    const profitText = `${isPositive ? '+' : '-'}${profitAmount}`;
+
+    // Create the new trade with exchange info
     const newTrade = {
       id: Date.now(),
       type: tradeType,
@@ -307,7 +437,11 @@ const LiveTrading = () => {
       total: tradePrice * parseFloat(tradeAmount),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       pair: currentTradingPair,
-      symbol: symbol
+      symbol: symbol,
+      exchange: {
+        ...randomExchange,
+        profit: profitText + ' USDT'
+      }
     };
 
     // Add to trade history
@@ -321,6 +455,12 @@ const LiveTrading = () => {
 
     // Update total trades count
     setTotalTrades(prev => prev + 1);
+
+    // Update accumulated profit based on the new trade
+    setAccumulatedProfit(prev => {
+      const profitValue = parseFloat(profitAmount) * (isPositive ? 1 : -1);
+      return prev + profitValue;
+    });
 
     // Update success rate randomly (but keep it high)
     if (Math.random() > 0.8) {
@@ -350,42 +490,233 @@ const LiveTrading = () => {
     });
   }, [tradingActive, millisecondPrices]);
 
-  // Function to fetch all cryptocurrency images
+  // Function to fetch all cryptocurrency images - using mock data to avoid CORS issues
   const fetchAllCryptoImages = useCallback(async () => {
-    try {
-      // Create a comma-separated list of all coin IDs
-      const coinIds = tradingPairs.map(pair => pair.id).join(',');
+    // Skip API call and use mock data directly to avoid CORS issues
+    console.log('Using mock cryptocurrency data to avoid CORS issues');
 
-      // Fetch data for all coins at once
-      const response = await axios.get(
-        `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coinIds}&order=market_cap_desc&per_page=10&page=1&sparkline=false`
-      );
-
-      if (response.data && response.data.length > 0) {
-        // Create a map of coin data with images
-        const updatedPairs = response.data.map(coinData => ({
-          id: coinData.id,
-          symbol: tradingPairs.find(p => p.id === coinData.id)?.symbol || coinData.symbol.toUpperCase() + 'USDT',
-          name: tradingPairs.find(p => p.id === coinData.id)?.name || coinData.symbol.toUpperCase() + '/USDT',
-          fullName: tradingPairs.find(p => p.id === coinData.id)?.fullName || coinData.name,
-          imageUrl: coinData.image,
-          marketCap: coinData.market_cap,
-          totalVolume: coinData.total_volume,
-          high24h: coinData.high_24h,
-          low24h: coinData.low_24h,
-          priceChange24h: coinData.price_change_percentage_24h,
-          currentPrice: coinData.current_price
-        }));
-
-        // Store the data globally
-        window.tradingPairsData = updatedPairs;
-
-        console.log('Fetched all cryptocurrency data:', updatedPairs);
+    // Mock cryptocurrency data with images
+    const mockCryptoData = [
+      {
+        id: 'bitcoin',
+        symbol: 'BTCUSDT',
+        name: 'BTC/USDT',
+        fullName: 'Bitcoin',
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/46/Bitcoin.svg',
+        marketCap: 1000000000000,
+        totalVolume: 30000000000,
+        high24h: currentBasePrice * 1.05,
+        low24h: currentBasePrice * 0.95,
+        priceChange24h: 2.5,
+        currentPrice: currentBasePrice
+      },
+      {
+        id: 'ethereum',
+        symbol: 'ETHUSDT',
+        name: 'ETH/USDT',
+        fullName: 'Ethereum',
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Ethereum_logo_2014.svg/1257px-Ethereum_logo_2014.svg.png',
+        marketCap: 500000000000,
+        totalVolume: 15000000000,
+        high24h: 3500,
+        low24h: 3300,
+        priceChange24h: 1.8,
+        currentPrice: 3400
+      },
+      {
+        id: 'binancecoin',
+        symbol: 'BNBUSDT',
+        name: 'BNB/USDT',
+        fullName: 'Binance Coin',
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/f/fc/Binance-coin-bnb-logo.png',
+        marketCap: 80000000000,
+        totalVolume: 2000000000,
+        high24h: 650,
+        low24h: 620,
+        priceChange24h: -0.5,
+        currentPrice: 635
+      },
+      {
+        id: 'solana',
+        symbol: 'SOLUSDT',
+        name: 'SOL/USDT',
+        fullName: 'Solana',
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/b/b9/Solana_logo.png',
+        marketCap: 40000000000,
+        totalVolume: 1500000000,
+        high24h: 150,
+        low24h: 140,
+        priceChange24h: 3.2,
+        currentPrice: 145
+      },
+      {
+        id: 'cardano',
+        symbol: 'ADAUSDT',
+        name: 'ADA/USDT',
+        fullName: 'Cardano',
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/f/f6/Cardano.svg',
+        marketCap: 20000000000,
+        totalVolume: 800000000,
+        high24h: 0.65,
+        low24h: 0.60,
+        priceChange24h: 1.2,
+        currentPrice: 0.63
+      },
+      {
+        id: 'ripple',
+        symbol: 'XRPUSDT',
+        name: 'XRP/USDT',
+        fullName: 'XRP',
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/88/Ripple_logo.svg',
+        marketCap: 30000000000,
+        totalVolume: 1200000000,
+        high24h: 0.58,
+        low24h: 0.55,
+        priceChange24h: -0.8,
+        currentPrice: 0.56
+      },
+      {
+        id: 'polkadot',
+        symbol: 'DOTUSDT',
+        name: 'DOT/USDT',
+        fullName: 'Polkadot',
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/d/df/Polkadot_Logo.png',
+        marketCap: 15000000000,
+        totalVolume: 600000000,
+        high24h: 8.2,
+        low24h: 7.8,
+        priceChange24h: 2.1,
+        currentPrice: 8.0
+      },
+      {
+        id: 'dogecoin',
+        symbol: 'DOGEUSDT',
+        name: 'DOGE/USDT',
+        fullName: 'Dogecoin',
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/en/d/d0/Dogecoin_Logo.png',
+        marketCap: 12000000000,
+        totalVolume: 500000000,
+        high24h: 0.085,
+        low24h: 0.080,
+        priceChange24h: 4.5,
+        currentPrice: 0.083
       }
-    } catch (error) {
-      console.error('Error fetching cryptocurrency data:', error);
-    }
-  }, [tradingPairs]);
+    ];
+
+    // Don't store in window object to avoid DOM manipulation issues
+
+    console.log('Using mock cryptocurrency data:', mockCryptoData);
+
+    return mockCryptoData;
+  }, [currentBasePrice]);
+
+  // Function to fetch exchange logos with embedded SVG data URLs for guaranteed display
+  const fetchExchangeLogos = useCallback(async () => {
+    // Using embedded SVG data URLs to avoid CORS issues and ensure reliable display
+    console.log('Using embedded SVG exchange data for guaranteed display');
+
+    // Mock exchange data with embedded SVG data URLs
+    const mockExchangeData = [
+      {
+        name: 'Binance',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4=',
+        active: true,
+        profit: '+0.0037 USDT',
+        id: 'binance',
+        highlight: false,
+        volume: '$12.4B',
+        pairs: '740+'
+      },
+      {
+        name: 'KuCoin',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIzQkY3NiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI2Ljk4NWMtNi4wNDYgMC0xMC45ODYgNC45NC0xMC45ODYgMTAuOTg1UzkuOTU0IDI2Ljk4NSAxNiAyNi45ODVzMTAuOTg2LTQuOTQgMTAuOTg2LTEwLjk4NVMyMi4wNDYgNS4wMTUgMTYgNS4wMTV6bS0uOTg0IDEyLjk4M2wtMy4wMTMtMy4wMTMgMS40MTQtMS40MTQgMS41OTkgMS41OTkgNS4zOTgtNS4zOTggMS40MTQgMS40MTQtNi44MTIgNi44MTJ6Ii8+PC9zdmc+',
+        active: true,
+        profit: '+0.0055 USDT',
+        id: 'kucoin',
+        highlight: false,
+        volume: '$5.8B',
+        pairs: '580+'
+      },
+      {
+        name: 'Coinbase',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwNTJGRiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI4QzkuMzY4IDQgNCAxMC4zNjggNCAxN3M1LjM2OCAxMiAxMiAxMiAxMi01LjM2OCAxMi0xMlMyMi42MzIgNCAxNiA0em0zLjU4MiAxNS45NTNjLS4xNTUuMzYtLjQyLjY1NC0uNzg0Ljg3NC0uMzYzLjIyLS44MjUuMzMtMS4zNjMuMzMtLjYxIDAtMS4xNS0uMTYtMS42Mi0uNDgzLS40Ny0uMzIyLS43OTgtLjc5My0uOTg0LTEuNDFsMS44NS0uNzY1Yy4wOTQuMjY3LjIyNy40NjYuMzk4LjU5OC4xNy4xMzIuMzY4LjE5OC41OTIuMTk4LjIyIDAgLjQwNi0uMDQ3LjU1OC0uMTQyLjE1Mi0uMDk0LjIyOC0uMjI3LjIyOC0uNHYtNi4xMzhoMi4xMjV2Ni4zMzh6bS0xLjg4Mi04LjQ2N2MtLjUxNi0uNDctMS4xMy0uNzA0LTEuODQtLjcwNC0uNzEgMC0xLjMyNC4yMzQtMS44NC43MDQtLjUxNi40Ny0uNzc1IDEuMDQzLS43NzUgMS43MnMuMjU4IDEuMjUyLjc3NSAxLjcyYy41MTYuNDcgMS4xMy43MDQgMS44NC43MDQuNzEgMCAxLjMyNC0uMjM0IDEuODQtLjcwNC41MTYtLjQ3Ljc3NS0xLjA0My43NzUtMS43MnMtLjI1OC0xLjI1Mi0uNzc1LTEuNzJ6TTEwLjk1MyAxOC42M2MtLjYxIDAtMS4xNS0uMTYtMS42Mi0uNDgzLS40Ny0uMzIyLS43OTgtLjc5My0uOTg0LTEuNDFsMS44NS0uNzY1Yy4wOTQuMjY3LjIyNy40NjYuMzk4LjU5OC4xNy4xMzIuMzY4LjE5OC41OTIuMTk4LjIyIDAgLjQwNi0uMDQ3LjU1OC0uMTQyLjE1Mi0uMDk0LjIyOC0uMjI3LjIyOC0uNHYtNi4xMzhoMi4xMjV2Ni4zMzhjLS4xNTUuMzYtLjQyLjY1NC0uNzg0Ljg3NC0uMzYzLjIyLS44MjUuMzMtMS4zNjMuMzN6TTkuMjM0IDkuODg3Yy41MTYuNDcgMS4xMy43MDQgMS44NC43MDQuNzEgMCAxLjMyNC0uMjM0IDEuODQtLjcwNC41MTYtLjQ3Ljc3NS0xLjA0My43NzUtMS43MnMtLjI1OC0xLjI1Mi0uNzc1LTEuNzJjLS41MTYtLjQ3LTEuMTMtLjcwNC0xLjg0LS43MDQtLjcxIDAtMS4zMjQuMjM0LTEuODQuNzA0LS41MTYuNDctLjc3NSAxLjA0My0uNzc1IDEuNzJzLjI1OCAxLjI1Mi43NzUgMS43MnoiLz48L3N2Zz4=',
+        active: true,
+        profit: '-0.0012 USDT',
+        id: 'coinbase',
+        highlight: false,
+        volume: '$8.2B',
+        pairs: '420+'
+      },
+      {
+        name: 'Crypto.com',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwMzNhZCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjAxOC03LjkwM2wzLjA3LTEuNzc0YS43NzIuNzcyIDAgMCAwIC4zODYtLjY3MlYxMi4zNWEuNzcyLjc3MiAwIDAgMC0uMzg2LS42NzJsLTMuMDctMS43NzRhLjc3Mi43NzIgMCAwIDAtLjc3MiAwbC0zLjA3IDEuNzc0YS43NzIuNzcyIDAgMCAwLS4zODYuNjcydjcuMzAxYzAgLjI3Ny4xNDYuNTM0LjM4Ni42NzJsMy4wNyAxLjc3NGEuNzcyLjc3MiAwIDAgMCAuNzcyIDB6bS0yLjUwMi0yLjQ0NmMwIC4wNjktLjAzNS4xMDQtLjEwNC4xMDRoLS40MTRjLS4wNyAwLS4xMDQtLjAzNS0uMTA0LS4xMDR2LTUuMjA4YzAtLjA3LjAzNC0uMTA0LjEwNC0uMTA0aC40MTRjLjA2OSAwIC4xMDQuMDM1LjEwNC4xMDR2NS4yMDh6bTEuNTU0IDBjMCAuMDY5LS4wMzUuMTA0LS4xMDQuMTA0aC0uNDE0Yy0uMDcgMC0uMTA0LS4wMzUtLjEwNC0uMTA0di01LjIwOGMwLS4wNy4wMzQtLjEwNC4xMDQtLjEwNGguNDE0Yy4wNjkgMCAuMTA0LjAzNS4xMDQuMTA0djUuMjA4em0xLjU1NCAwYzAgLjA2OS0uMDM1LjEwNC0uMTA0LjEwNGgtLjQxNGMtLjA3IDAtLjEwNC0uMDM1LS4xMDQtLjEwNHYtNS4yMDhjMC0uMDcuMDM0LS4xMDQuMTA0LS4xMDRoLjQxNGMuMDY5IDAgLjEwNC4wMzUuMTA0LjEwNHY1LjIwOHoiLz48L3N2Zz4=',
+        active: true,
+        profit: '+0.0042 USDT',
+        id: 'crypto',
+        highlight: false,
+        volume: '$3.7B',
+        pairs: '250+'
+      },
+      {
+        name: 'OKX',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIxNmZlYSIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNy4xMDUtMTAuMDI1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXptLTkuNDk1LTkuNDk1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXoiLz48L3N2Zz4=',
+        active: true,
+        profit: '+0.0023 USDT',
+        id: 'okx',
+        highlight: false,
+        volume: '$4.9B',
+        pairs: '350+'
+      },
+      {
+        name: 'Gate.io',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2Y0YjgwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNS40NjYtMTIuNzY2YzAgMy4yNTUgMi42NCA1Ljg5NiA1Ljg5NiA1Ljg5NnM1Ljg5Ni0yLjY0IDUuODk2LTUuODk2LTIuNjQtNS44OTYtNS44OTYtNS44OTYtNS44OTYgMi42NC01Ljg5NiA1Ljg5NnptNS44OTYtMy45M2MyLjE3IDAgMy45MyAxLjc2IDMuOTMgMy45M3MtMS43NiAzLjkzLTMuOTMgMy45My0zLjkzLTEuNzYtMy45My0zLjkzIDEuNzYtMy45MyAzLjkzLTMuOTN6bTAgMS45NjVjLTEuMDg1IDAtMS45NjUuODgtMS45NjUgMS45NjVzLjg4IDEuOTY1IDEuOTY1IDEuOTY1IDEuOTY1LS44OCAxLjk2NS0xLjk2NS0uODgtMS45NjUtMS45NjUtMS45NjV6Ii8+PC9zdmc+',
+        active: true,
+        profit: '-0.0008 USDT',
+        id: 'gate',
+        highlight: false,
+        volume: '$2.8B',
+        pairs: '280+'
+      },
+      {
+        name: 'Bybit',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI0ZGQjcwMCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNS4zMzMtMTAuNjY3aDEwLjY2NnYtMTAuNjZoLTEwLjY2NnYxMC42NnptMi4xMzQtOC41MzNoNi40djYuNGgtNi40di02LjR6Ii8+PC9zdmc+',
+        active: true,
+        profit: '+0.0019 USDT',
+        id: 'bybit',
+        highlight: false,
+        volume: '$3.2B',
+        pairs: '300+'
+      },
+      {
+        name: 'Kraken',
+        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzVCNkRFRSIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI4QzkuMzY4IDQgNCAxMC4zNjggNCAxN3M1LjM2OCAxMiAxMiAxMiAxMi01LjM2OCAxMi0xMlMyMi42MzIgNCAxNiA0em0wIDIwYTggOCAwIDEgMSAwLTE2IDggOCAwIDAgMSAwIDE2em0wLTJhNiA2IDAgMSAwIDAtMTIgNiA2IDAgMCAwIDAgMTJ6Ii8+PC9zdmc+',
+        active: true,
+        profit: '+0.0031 USDT',
+        id: 'kraken',
+        highlight: false,
+        volume: '$3.5B',
+        pairs: '330+'
+      }
+    ];
+
+    // Add fallback mechanism for each exchange in case SVG doesn't load
+    const enhancedExchangeData = mockExchangeData.map(exchange => ({
+      ...exchange,
+      fallbackLogo: `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`,
+      // Add stats for display
+      stats: {
+        volume: exchange.volume || '$1.0B',
+        pairs: exchange.pairs || '100+',
+        price: `$${(Math.random() * 1000 + 45000).toFixed(2)}`
+      }
+    }));
+
+    // Don't store in window object to avoid DOM manipulation issues
+
+    console.log('Using embedded SVG exchange data:', enhancedExchangeData);
+
+    return enhancedExchangeData;
+  }, []);
 
   // Check if trading is already active for today when component loads
   useEffect(() => {
@@ -398,49 +729,70 @@ const LiveTrading = () => {
     }
   }, [profitStatusData]);
 
-  // Fetch cryptocurrency images on component mount
+  // Fetch cryptocurrency images and exchange logos on component mount
   useEffect(() => {
     // Fetch all cryptocurrency images when component loads
     fetchAllCryptoImages();
-  }, [fetchAllCryptoImages]);
+
+    // Fetch exchange logos - don't store in window object to avoid DOM manipulation issues
+    fetchExchangeLogos();
+  }, [fetchAllCryptoImages, fetchExchangeLogos]);
 
   // Initialize all trading intervals
   const initializeTrading = useCallback(() => {
-    if (!tradingActive) return;
-
     // Fetch all cryptocurrency images first
     fetchAllCryptoImages();
 
     // Clear any existing intervals
     Object.values(tradingIntervalsRef.current).forEach(clearInterval);
 
-    // Set new intervals
+    // Set new intervals - some intervals only run when trading is active
     tradingIntervalsRef.current = {
       price: setInterval(updateBasePriceFromAPI, 10000),
-      pair: setInterval(changeTradingPair, 60000), // Change pair every minute
-      orderBook: setInterval(generateOrderBook, 2000),
-      tradeHistory: setInterval(generateTradeHistory, 3000), // Generate new trade every 3 seconds
-      millisecondPrice: setInterval(simulateMillisecondPriceChanges, 100) // Update every 100ms
+      pair: setInterval(changeTradingPair, 1000), // Change pair every second (as requested) - always runs
+      orderBook: tradingActive ? setInterval(generateOrderBook, 2000) : null,
+      tradeHistory: tradingActive ? setInterval(generateTradeHistory, 3000) : null, // Generate new trade every 3 seconds
+      millisecondPrice: tradingActive ? setInterval(simulateMillisecondPriceChanges, 100) : null // Update every 100ms
     };
 
     // Initial updates
     updateBasePriceFromAPI();
-    generateOrderBook();
-    generateTradeHistory(); // Generate initial trade history
-  }, [tradingActive, updateBasePriceFromAPI, changeTradingPair, generateOrderBook, generateTradeHistory, simulateMillisecondPriceChanges]);
-
-  // Effect for trading activation
-  useEffect(() => {
     if (tradingActive) {
-      initializeTrading();
-    } else {
-      Object.values(tradingIntervalsRef.current).forEach(clearInterval);
+      generateOrderBook();
+      generateTradeHistory(); // Generate initial trade history
     }
+  }, [tradingActive, updateBasePriceFromAPI, changeTradingPair, generateOrderBook, generateTradeHistory, simulateMillisecondPriceChanges, fetchAllCryptoImages]);
+
+  // Effect for trading activation and to ensure pair changes
+  useEffect(() => {
+    // Always initialize trading to ensure pair changes
+    initializeTrading();
 
     return () => {
       Object.values(tradingIntervalsRef.current).forEach(clearInterval);
     };
   }, [tradingActive, initializeTrading]);
+
+  // Initialize pair changing on component mount
+  useEffect(() => {
+    // Start changing pairs immediately on component mount
+    const pairChangeInterval = setInterval(changeTradingPair, 1000);
+
+    // Initial pair change
+    changeTradingPair();
+
+    return () => clearInterval(pairChangeInterval);
+  }, [changeTradingPair]);
+
+  // Handle flash animation without setTimeout
+  useEffect(() => {
+    if (flash) {
+      const timer = setTimeout(() => {
+        setFlash(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [flash]);
 
   // Session timer effect
   useEffect(() => {
@@ -527,16 +879,167 @@ const LiveTrading = () => {
     }
   };
 
-  // Enhanced PriceJumper Component
+  // Enhanced PriceJumper Component with Exchange Jumper
   const PriceJumper = () => {
     const [price, setPrice] = useState(currentBasePrice);
     const [trend, setTrend] = useState('up');
-    const [flash, setFlash] = useState(false);
+    // We'll use the parent component's flash state instead of a local one
     const [volume24h, setVolume24h] = useState(Math.random() * 1000000 + 500000);
     const [high24h, setHigh24h] = useState(price * 1.05);
     const [low24h, setLow24h] = useState(price * 0.95);
     const [change24h, setChange24h] = useState((Math.random() * 10 - 5).toFixed(2));
     const lastPriceRef = useRef(price);
+
+    // Exchange data with logos from API
+    const [exchanges, setExchanges] = useState([]);
+
+    // Get the current trading pair to filter exchanges
+    const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
+
+    // Initialize exchanges from global data or API
+    useEffect(() => {
+      const initExchanges = async () => {
+        try {
+          // Fetch exchange data directly
+          const exchangeData = await fetchExchangeLogos();
+          if (exchangeData && exchangeData.length > 0) {
+            setExchanges(exchangeData);
+          } else {
+            // Fallback to hardcoded data with embedded SVG data URLs if API fails
+            setExchanges([
+              {
+                name: 'Binance',
+                logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4=',
+                active: true,
+                profit: '+0.0037 USDT',
+                id: 'binance',
+                highlight: false,
+                fallbackLogo: 'https://ui-avatars.com/api/?name=B&background=random&color=fff&size=100'
+              },
+              {
+                name: 'KuCoin',
+                logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIzQkY3NiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI2Ljk4NWMtNi4wNDYgMC0xMC45ODYgNC45NC0xMC45ODYgMTAuOTg1UzkuOTU0IDI2Ljk4NSAxNiAyNi45ODVzMTAuOTg2LTQuOTQgMTAuOTg2LTEwLjk4NVMyMi4wNDYgNS4wMTUgMTYgNS4wMTV6bS0uOTg0IDEyLjk4M2wtMy4wMTMtMy4wMTMgMS40MTQtMS40MTQgMS41OTkgMS41OTkgNS4zOTgtNS4zOTggMS40MTQgMS40MTQtNi44MTIgNi44MTJ6Ii8+PC9zdmc+',
+                active: true,
+                profit: '+0.0055 USDT',
+                id: 'kucoin',
+                highlight: false,
+                fallbackLogo: 'https://ui-avatars.com/api/?name=K&background=random&color=fff&size=100'
+              },
+              {
+                name: 'Coinbase',
+                logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwNTJGRiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI4QzkuMzY4IDQgNCAxMC4zNjggNCAxN3M1LjM2OCAxMiAxMiAxMiAxMi01LjM2OCAxMi0xMlMyMi42MzIgNCAxNiA0em0zLjU4MiAxNS45NTNjLS4xNTUuMzYtLjQyLjY1NC0uNzg0Ljg3NC0uMzYzLjIyLS44MjUuMzMtMS4zNjMuMzMtLjYxIDAtMS4xNS0uMTYtMS42Mi0uNDgzLS40Ny0uMzIyLS43OTgtLjc5My0uOTg0LTEuNDFsMS44NS0uNzY1Yy4wOTQuMjY3LjIyNy40NjYuMzk4LjU5OC4xNy4xMzIuMzY4LjE5OC41OTIuMTk4LjIyIDAgLjQwNi0uMDQ3LjU1OC0uMTQyLjE1Mi0uMDk0LjIyOC0uMjI3LjIyOC0uNHYtNi4xMzhoMi4xMjV2Ni4zMzh6bS0xLjg4Mi04LjQ2N2MtLjUxNi0uNDctMS4xMy0uNzA0LTEuODQtLjcwNC0uNzEgMC0xLjMyNC4yMzQtMS44NC43MDQtLjUxNi40Ny0uNzc1IDEuMDQzLS43NzUgMS43MnMuMjU4IDEuMjUyLjc3NSAxLjcyYy41MTYuNDcgMS4xMy43MDQgMS44NC43MDQuNzEgMCAxLjMyNC0uMjM0IDEuODQtLjcwNC41MTYtLjQ3Ljc3NS0xLjA0My43NzUtMS43MnMtLjI1OC0xLjI1Mi0uNzc1LTEuNzJ6TTEwLjk1MyAxOC42M2MtLjYxIDAtMS4xNS0uMTYtMS42Mi0uNDgzLS40Ny0uMzIyLS43OTgtLjc5My0uOTg0LTEuNDFsMS44NS0uNzY1Yy4wOTQuMjY3LjIyNy40NjYuMzk4LjU5OC4xNy4xMzIuMzY4LjE5OC41OTIuMTk4LjIyIDAgLjQwNi0uMDQ3LjU1OC0uMTQyLjE1Mi0uMDk0LjIyOC0uMjI3LjIyOC0uNHYtNi4xMzhoMi4xMjV2Ni4zMzhjLS4xNTUuMzYtLjQyLjY1NC0uNzg0Ljg3NC0uMzYzLjIyLS44MjUuMzMtMS4zNjMuMzN6TTkuMjM0IDkuODg3Yy41MTYuNDcgMS4xMy43MDQgMS44NC43MDQuNzEgMCAxLjMyNC0uMjM0IDEuODQtLjcwNC41MTYtLjQ3Ljc3NS0xLjA0My43NzUtMS43MnMtLjI1OC0xLjI1Mi0uNzc1LTEuNzJjLS41MTYtLjQ3LTEuMTMtLjcwNC0xLjg0LS43MDQtLjcxIDAtMS4zMjQuMjM0LTEuODQuNzA0LS41MTYuNDctLjc3NSAxLjA0My0uNzc1IDEuNzJzLjI1OCAxLjI1Mi43NzUgMS43MnoiLz48L3N2Zz4=',
+                active: true,
+                profit: '-0.0012 USDT',
+                id: 'coinbase',
+                highlight: false,
+                fallbackLogo: 'https://ui-avatars.com/api/?name=C&background=random&color=fff&size=100'
+              },
+              {
+                name: 'Crypto.com',
+                logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwMzNhZCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjAxOC03LjkwM2wzLjA3LTEuNzc0YS43NzIuNzcyIDAgMCAwIC4zODYtLjY3MlYxMi4zNWEuNzcyLjc3MiAwIDAgMC0uMzg2LS42NzJsLTMuMDctMS43NzRhLjc3Mi43NzIgMCAwIDAtLjc3MiAwbC0zLjA3IDEuNzc0YS43NzIuNzcyIDAgMCAwLS4zODYuNjcydjcuMzAxYzAgLjI3Ny4xNDYuNTM0LjM4Ni42NzJsMy4wNyAxLjc3NGEuNzcyLjc3MiAwIDAgMCAuNzcyIDB6bS0yLjUwMi0yLjQ0NmMwIC4wNjktLjAzNS4xMDQtLjEwNC4xMDRoLS40MTRjLS4wNyAwLS4xMDQtLjAzNS0uMTA0LS4xMDR2LTUuMjA4YzAtLjA3LjAzNC0uMTA0LjEwNC0uMTA0aC40MTRjLjA2OSAwIC4xMDQuMDM1LjEwNC4xMDR2NS4yMDh6bTEuNTU0IDBjMCAuMDY5LS4wMzUuMTA0LS4xMDQuMTA0aC0uNDE0Yy0uMDcgMC0uMTA0LS4wMzUtLjEwNC0uMTA0di01LjIwOGMwLS4wNy4wMzQtLjEwNC4xMDQtLjEwNGguNDE0Yy4wNjkgMCAuMTA0LjAzNS4xMDQuMTA0djUuMjA4em0xLjU1NCAwYzAgLjA2OS0uMDM1LjEwNC0uMTA0LjEwNGgtLjQxNGMtLjA3IDAtLjEwNC0uMDM1LS4xMDQtLjEwNHYtNS4yMDhjMC0uMDcuMDM0LS4xMDQuMTA0LS4xMDRoLjQxNGMuMDY5IDAgLjEwNC4wMzUuMTA0LjEwNHY1LjIwOHoiLz48L3N2Zz4=',
+                active: true,
+                profit: '+0.0042 USDT',
+                id: 'crypto',
+                highlight: false,
+                fallbackLogo: 'https://ui-avatars.com/api/?name=C&background=random&color=fff&size=100'
+              },
+              {
+                name: 'OKX',
+                logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIxNmZlYSIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNy4xMDUtMTAuMDI1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXptLTkuNDk1LTkuNDk1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXoiLz48L3N2Zz4=',
+                active: true,
+                profit: '+0.0023 USDT',
+                id: 'okx',
+                highlight: false,
+                fallbackLogo: 'https://ui-avatars.com/api/?name=O&background=random&color=fff&size=100'
+              },
+              {
+                name: 'Gate.io',
+                logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2Y0YjgwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNS40NjYtMTIuNzY2YzAgMy4yNTUgMi42NCA1Ljg5NiA1Ljg5NiA1Ljg5NnM1Ljg5Ni0yLjY0IDUuODk2LTUuODk2LTIuNjQtNS44OTYtNS44OTYtNS44OTYtNS44OTYgMi42NC01Ljg5NiA1Ljg5NnptNS44OTYtMy45M2MyLjE3IDAgMy45MyAxLjc2IDMuOTMgMy45M3MtMS43NiAzLjkzLTMuOTMgMy45My0zLjkzLTEuNzYtMy45My0zLjkzIDEuNzYtMy45MyAzLjkzLTMuOTN6bTAgMS45NjVjLTEuMDg1IDAtMS45NjUuODgtMS45NjUgMS45NjVzLjg4IDEuOTY1IDEuOTY1IDEuOTY1IDEuOTY1LS44OCAxLjk2NS0xLjk2NS0uODgtMS45NjUtMS45NjUtMS45NjV6Ii8+PC9zdmc+',
+                active: true,
+                profit: '-0.0008 USDT',
+                id: 'gate',
+                highlight: false,
+                fallbackLogo: 'https://ui-avatars.com/api/?name=G&background=random&color=fff&size=100'
+              }
+            ]);
+          }
+        }
+        catch (error) {
+          console.error('Error fetching exchanges:', error);
+        }
+      };
+
+      initExchanges();
+    }, []);
+
+    // No profit bubbles animation - completely removed to fix removeChild errors
+
+    // Track highlighted exchanges with a ref - moved outside useEffect to follow React rules
+    const highlightedExchangesRef = useRef([]);
+
+    // Randomly change active exchanges to simulate jumping between exchanges
+    useEffect(() => {
+      if (!tradingActive) return;
+
+      // Update exchanges
+      const updateInterval = setInterval(() => {
+        setExchanges(prev => {
+          const newExchanges = [...prev];
+
+          // Randomly activate/deactivate exchanges
+          const randomIndex = Math.floor(Math.random() * newExchanges.length);
+          const randomIndex2 = Math.floor(Math.random() * newExchanges.length);
+
+          // Make sure at least 3 exchanges are always active
+          const activeCount = newExchanges.filter(ex => ex.active).length;
+
+          if (activeCount > 3 || !newExchanges[randomIndex].active) {
+            newExchanges[randomIndex].active = !newExchanges[randomIndex].active;
+          }
+
+          if (randomIndex2 !== randomIndex) {
+            if (activeCount > 3 || !newExchanges[randomIndex2].active) {
+              newExchanges[randomIndex2].highlight = true;
+
+              // Track this exchange for highlight removal
+              highlightedExchangesRef.current.push({
+                index: randomIndex2,
+                time: Date.now()
+              });
+            }
+          }
+
+          return newExchanges;
+        });
+      }, 5000);
+
+      // Separate interval for removing highlights without setTimeout
+      const highlightRemovalInterval = setInterval(() => {
+        const now = Date.now();
+        const highlightsToRemove = highlightedExchangesRef.current
+          .filter(item => now - item.time >= 1000);
+
+        if (highlightsToRemove.length > 0) {
+          setExchanges(current => {
+            return current.map((ex, i) => {
+              if (highlightsToRemove.some(item => item.index === i)) {
+                return { ...ex, highlight: false };
+              }
+              return ex;
+            });
+          });
+
+          // Remove processed items from the ref
+          highlightedExchangesRef.current = highlightedExchangesRef.current
+            .filter(item => now - item.time < 1000);
+        }
+      }, 100);
+
+      return () => {
+        clearInterval(updateInterval);
+        clearInterval(highlightRemovalInterval);
+      };
+    }, [tradingActive]);
 
     // Update price when currentBasePrice changes
     useEffect(() => {
@@ -545,7 +1048,7 @@ const LiveTrading = () => {
 
       setPrice(newPrice);
       setTrend(newPrice > oldPrice ? 'up' : 'down');
-      setFlash(true);
+      // We don't need to set flash here as it's controlled by the parent component
 
       // Update high/low if needed
       if (newPrice > high24h) setHigh24h(newPrice);
@@ -557,8 +1060,6 @@ const LiveTrading = () => {
 
       // Store the current price for next comparison
       lastPriceRef.current = newPrice;
-
-      setTimeout(() => setFlash(false), 500);
     }, [currentBasePrice]);
 
     // Update price from millisecond changes for more dynamic display
@@ -570,52 +1071,48 @@ const LiveTrading = () => {
       }
     }, [millisecondPrices]);
 
-    // Fetch 24h market data from CoinGecko API
+    // Fetch 24h market data - using mock data to avoid CORS issues
     useEffect(() => {
       const fetchMarketData = async () => {
-        try {
-          // Get the current pair's CoinGecko ID
-          const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
-          if (!currentPair) return;
+        // Skip API call and use mock data directly to avoid CORS issues
+        console.log('Using mock market data to avoid CORS issues');
 
-          // Fetch data from CoinGecko API
-          const response = await axios.get(
-            `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${currentPair.id}&order=market_cap_desc&per_page=1&page=1&sparkline=false&price_change_percentage=24h`
-          );
+        // Get the current pair from our trading pairs data
+        const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
 
-          if (response.data && response.data.length > 0) {
-            const coinData = response.data[0];
+        if (currentPair) {
+          // Use the mock data
+          setVolume24h(currentPair.totalVolume || price * 1000);
+          setHigh24h(currentPair.high24h || price * 1.05);
+          setLow24h(currentPair.low24h || price * 0.95);
+          setChange24h(currentPair.priceChange24h?.toFixed(2) || '0.00');
 
-            // Update market data
-            setVolume24h(coinData.total_volume || 0);
-            setHigh24h(coinData.high_24h || price * 1.05);
-            setLow24h(coinData.low_24h || price * 0.95);
-            setChange24h(coinData.price_change_percentage_24h?.toFixed(2) || '0.00');
-
-            console.log(`Fetched ${currentPair.fullName} market data from CoinGecko:`, {
-              volume: coinData.total_volume,
-              high: coinData.high_24h,
-              low: coinData.low_24h,
-              change: coinData.price_change_percentage_24h
-            });
-          }
-        } catch (error) {
-          console.error(`Error fetching market data for ${currentTradingPair}:`, error);
-
-          // Fallback to calculated values if API fails
+          console.log(`Using mock market data for ${currentPair.fullName}:`, {
+            volume: currentPair.totalVolume,
+            high: currentPair.high24h,
+            low: currentPair.low24h,
+            change: currentPair.priceChange24h
+          });
+        } else {
+          // Fallback to calculated values if pair not found
           setVolume24h(price * 1000);
           setHigh24h(price * 1.05);
           setLow24h(price * 0.95);
-          setChange24h('0.00');
+
+          // Generate a random change percentage that's mostly positive
+          const randomChange = (Math.random() * 6 - 1).toFixed(2); // -1% to +5%
+          setChange24h(randomChange);
+
+          console.log(`Using fallback market data for ${currentTradingPair}`);
         }
+
+        // Profit bubble generation removed to fix removeChild errors
       };
 
-      if (tradingActive) {
-        fetchMarketData();
-        const interval = setInterval(fetchMarketData, 30000); // Update every 30 seconds
-        return () => clearInterval(interval);
-      }
-    }, [currentTradingPair, tradingActive, price]);
+      fetchMarketData();
+      const interval = setInterval(fetchMarketData, 5000); // Update more frequently for better visuals
+      return () => clearInterval(interval);
+    }, [currentTradingPair, price]);
 
     // Current pair info
     const currentPairInfo = tradingPairs.find(pair => pair.symbol === currentTradingPair) || {};
@@ -627,7 +1124,7 @@ const LiveTrading = () => {
           borderRadius: 3,
           border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
           backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.9)' : '#ffffff',
-          animation: flash ? `${flashAnimation} 0.5s ease` : 'none',
+          animation: flash ? `${flashAnimation} 0.5s ease` : 'none', // Using parent component's flash state
           overflow: 'hidden'
         }}
       >
@@ -656,27 +1153,31 @@ const LiveTrading = () => {
                   fontSize: '1rem'
                 }}
               >
-                {window.tradingPairsData?.find(p => p.id === currentPairInfo.id)?.imageUrl ? (
-                  <img
-                    src={window.tradingPairsData?.find(p => p.id === currentPairInfo.id)?.imageUrl ||
-                         `https://assets.coingecko.com/coins/images/1/large/bitcoin.png`}
-                    alt={currentPairInfo.fullName}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      borderRadius: '50%',
-                      objectFit: 'cover'
-                    }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.parentNode.innerText = currentPairInfo.name?.charAt(0) || 'C';
-                    }}
-                  />
-                ) : (
-                  currentPairInfo.name?.charAt(0) || 'C'
-                )}
+                <img
+                  src={`https://assets.coingecko.com/coins/images/${
+                    currentPairInfo.id === 'bitcoin' ? '1' :
+                    currentPairInfo.id === 'ethereum' ? '279' :
+                    currentPairInfo.id === 'binancecoin' ? '825' :
+                    currentPairInfo.id === 'solana' ? '4128' :
+                    currentPairInfo.id === 'cardano' ? '975' :
+                    currentPairInfo.id === 'ripple' ? '44' :
+                    currentPairInfo.id === 'polkadot' ? '12171' :
+                    currentPairInfo.id === 'dogecoin' ? '5' : '1'
+                  }/large/${currentPairInfo.id || 'bitcoin'}.png`}
+                  alt={currentPairInfo.fullName}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    objectFit: 'cover'
+                  }}
+                  onError={(e) => {
+                    console.warn(`Failed to load image for ${currentPairInfo.fullName}, using fallback`);
+                    e.target.src = `https://ui-avatars.com/api/?name=${currentPairInfo.name?.charAt(0) || 'C'}&background=random&color=fff&size=100`;
+                  }}
+                />
               </Box>
-              <Box>
+              <Box className="trading-pair-display">
                 <Typography variant="subtitle1" fontWeight="bold">
                   {currentPairInfo.name}
                 </Typography>
@@ -747,6 +1248,306 @@ const LiveTrading = () => {
                 USDT
               </Typography>
             </Box>
+
+             {/* Trading Exchanges Section */}
+          <Grid item xs={12} sx={{ width: '100%', px: { xs: 0, sm: 1 }, mt: 2 }}>
+            <Card
+              elevation={0}
+              sx={{
+                width: '100%',
+                borderRadius: { xs: 0, sm: 3 },
+                border: { xs: 'none', sm: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}` },
+                backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.9)' : '#ffffff',
+                overflow: 'hidden'
+              }}
+            >
+              <CardContent sx={{ p: 2 }}>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+                  TRADING EXCHANGES
+                </Typography>
+
+                <Grid container spacing={2}>
+                  {exchanges && exchanges.length > 0 ? exchanges.map((exchange) => (
+                    <Grid item xs={6} sm={4} md={3} lg={2} key={exchange.id}>
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
+                          backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.7)' : '#ffffff',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          transition: 'all 0.3s ease',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          '&:hover': {
+                            transform: 'translateY(-5px)',
+                            boxShadow: mode === 'dark'
+                              ? '0 8px 16px rgba(0, 0, 0, 0.4)'
+                              : '0 8px 16px rgba(0, 0, 0, 0.1)',
+                          },
+                          ...(exchange.highlight && {
+                            animation: `${pulseAnimation} 1s infinite`,
+                            border: `1px solid ${exchange.profit?.startsWith('+') ? '#0ecb81' : '#f6465d'}`
+                          })
+                        }}
+                      >
+                        {/* Exchange Logo */}
+                        <Box
+                          sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: '50%',
+                            backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            mb: 1,
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <img
+                            src={exchange.logo}
+                            alt={exchange.name}
+                            style={{
+                              width: '70%',
+                              height: '70%',
+                              objectFit: 'contain'
+                            }}
+                            onError={(e) => {
+                              console.warn(`Failed to load image for ${exchange.name}, using fallback`);
+                              e.target.src = exchange.fallbackLogo ||
+                                `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                            }}
+                          />
+                        </Box>
+
+                        {/* Exchange Name */}
+                        <Typography
+                          variant="subtitle2"
+                          fontWeight="bold"
+                          align="center"
+                          sx={{ mb: 0.5 }}
+                        >
+                          {exchange.name}
+                        </Typography>
+
+                        {/* Exchange Stats */}
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          align="center"
+                          sx={{ mb: 0.5 }}
+                        >
+                          Volume: {exchange.stats?.volume || '$1.0B'}
+                        </Typography>
+
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          align="center"
+                          sx={{ mb: 1 }}
+                        >
+                          Pairs: {exchange.stats?.pairs || '100+'}
+                        </Typography>
+
+                        {/* Profit Indicator */}
+                        <Chip
+                          label={exchange.profit || '+0.00 USDT'}
+                          size="small"
+                          color={exchange.profit?.startsWith('+') ? "success" : "error"}
+                          sx={{
+                            fontWeight: 'bold',
+                            fontSize: '0.7rem',
+                            height: 20,
+                            '& .MuiChip-label': {
+                              px: 1
+                            }
+                          }}
+                        />
+
+                        {/* Active Indicator */}
+                        {exchange.active && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 8,
+                              right: 8,
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor: 'success.main',
+                              animation: `${pulseAnimation} 2s infinite`
+                            }}
+                          />
+                        )}
+                      </Paper>
+                    </Grid>
+                  )) : (
+                    // Default exchanges if none are available
+                    [
+                      {
+                        id: 'binance',
+                        name: 'Binance',
+                        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4=',
+                        active: true,
+                        profit: '+0.0037 USDT',
+                        highlight: false,
+                        fallbackLogo: 'https://ui-avatars.com/api/?name=B&background=random&color=fff&size=100'
+                      },
+                      {
+                        id: 'kucoin',
+                        name: 'KuCoin',
+                        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIzQkY3NiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI2Ljk4NWMtNi4wNDYgMC0xMC45ODYgNC45NC0xMC45ODYgMTAuOTg1UzkuOTU0IDI2Ljk4NSAxNiAyNi45ODVzMTAuOTg2LTQuOTQgMTAuOTg2LTEwLjk4NVMyMi4wNDYgNS4wMTUgMTYgNS4wMTV6bS0uOTg0IDEyLjk4M2wtMy4wMTMtMy4wMTMgMS40MTQtMS40MTQgMS41OTkgMS41OTkgNS4zOTgtNS4zOTggMS40MTQgMS40MTQtNi44MTIgNi44MTJ6Ii8+PC9zdmc+',
+                        active: true,
+                        profit: '+0.0055 USDT',
+                        highlight: false,
+                        fallbackLogo: 'https://ui-avatars.com/api/?name=K&background=random&color=fff&size=100'
+                      },
+                      {
+                        id: 'crypto',
+                        name: 'Crypto.com',
+                        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwMzNhZCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjAxOC03LjkwM2wzLjA3LTEuNzc0YS43NzIuNzcyIDAgMCAwIC4zODYtLjY3MlYxMi4zNWEuNzcyLjc3MiAwIDAgMC0uMzg2LS42NzJsLTMuMDctMS43NzRhLjc3Mi43NzIgMCAwIDAtLjc3MiAwbC0zLjA3IDEuNzc0YS43NzIuNzcyIDAgMCAwLS4zODYuNjcydjcuMzAxYzAgLjI3Ny4xNDYuNTM0LjM4Ni42NzJsMy4wNyAxLjc3NGEuNzcyLjc3MiAwIDAgMCAuNzcyIDB6bS0yLjUwMi0yLjQ0NmMwIC4wNjktLjAzNS4xMDQtLjEwNC4xMDRoLS40MTRjLS4wNyAwLS4xMDQtLjAzNS0uMTA0LS4xMDR2LTUuMjA4YzAtLjA3LjAzNC0uMTA0LjEwNC0uMTA0aC40MTRjLjA2OSAwIC4xMDQuMDM1LjEwNC4xMDR2NS4yMDh6bTEuNTU0IDBjMCAuMDY5LS4wMzUuMTA0LS4xMDQuMTA0aC0uNDE0Yy0uMDcgMC0uMTA0LS4wMzUtLjEwNC0uMTA0di01LjIwOGMwLS4wNy4wMzQtLjEwNC4xMDQtLjEwNGguNDE0Yy4wNjkgMCAuMTA0LjAzNS4xMDQuMTA0djUuMjA4em0xLjU1NCAwYzAgLjA2OS0uMDM1LjEwNC0uMTA0LjEwNGgtLjQxNGMtLjA3IDAtLjEwNC0uMDM1LS4xMDQtLjEwNHYtNS4yMDhjMC0uMDcuMDM0LS4xMDQuMTA0LS4xMDRoLjQxNGMuMDY5IDAgLjEwNC4wMzUuMTA0LjEwNHY1LjIwOHoiLz48L3N2Zz4=',
+                        active: true,
+                        profit: '+0.0042 USDT',
+                        highlight: false,
+                        fallbackLogo: 'https://ui-avatars.com/api/?name=C&background=random&color=fff&size=100'
+                      },
+                      {
+                        id: 'okx',
+                        name: 'OKX',
+                        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIxNmZlYSIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNy4xMDUtMTAuMDI1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXptLTkuNDk1LTkuNDk1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXoiLz48L3N2Zz4=',
+                        active: true,
+                        profit: '+0.0023 USDT',
+                        highlight: false,
+                        fallbackLogo: 'https://ui-avatars.com/api/?name=O&background=random&color=fff&size=100'
+                      }
+                    ].map((exchange) => (
+                      <Grid item xs={6} sm={4} md={3} lg={2} key={exchange.id}>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 2,
+                            borderRadius: 2,
+                            border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
+                            backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.7)' : '#ffffff',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            '&:hover': {
+                              transform: 'translateY(-5px)',
+                              boxShadow: mode === 'dark'
+                                ? '0 8px 16px rgba(0, 0, 0, 0.4)'
+                                : '0 8px 16px rgba(0, 0, 0, 0.1)',
+                            }
+                          }}
+                        >
+                          {/* Exchange Logo */}
+                          <Box
+                            sx={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: '50%',
+                              backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              mb: 1,
+                              position: 'relative',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            <img
+                              src={exchange.logo}
+                              alt={exchange.name}
+                              style={{
+                                width: '70%',
+                                height: '70%',
+                                objectFit: 'contain'
+                              }}
+                              onError={(e) => {
+                                console.warn(`Failed to load image for ${exchange.name}, using fallback`);
+                                e.target.src = exchange.fallbackLogo ||
+                                  `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                              }}
+                            />
+                          </Box>
+
+                          {/* Exchange Name */}
+                          <Typography
+                            variant="subtitle2"
+                            fontWeight="bold"
+                            align="center"
+                            sx={{ mb: 0.5 }}
+                          >
+                            {exchange.name}
+                          </Typography>
+
+                          {/* Exchange Stats */}
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            align="center"
+                            sx={{ mb: 0.5 }}
+                          >
+                            Volume: $1.0B
+                          </Typography>
+
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            align="center"
+                            sx={{ mb: 1 }}
+                          >
+                            Pairs: 100+
+                          </Typography>
+
+                          {/* Profit Indicator */}
+                          <Chip
+                            label={exchange.profit}
+                            size="small"
+                            color={exchange.profit.startsWith('+') ? "success" : "error"}
+                            sx={{
+                              fontWeight: 'bold',
+                              fontSize: '0.7rem',
+                              height: 20,
+                              '& .MuiChip-label': {
+                                px: 1
+                              }
+                            }}
+                          />
+
+                          {/* Active Indicator */}
+                          {exchange.active && (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: 8,
+                                right: 8,
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                backgroundColor: 'success.main',
+                                animation: `${pulseAnimation} 2s infinite`
+                              }}
+                            />
+                          )}
+                        </Paper>
+                      </Grid>
+                    ))
+                  )}
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
 
             {/* Price Stats */}
             <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -897,15 +1698,16 @@ const LiveTrading = () => {
                                 objectFit: 'cover'
                               }}
                               onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.parentNode.innerText = pair.name.charAt(0);
+                                console.warn(`Failed to load image for ${pair.fullName}, using fallback`);
+                                // Use a reliable fallback from CoinGecko
+                                e.target.src = `https://assets.coingecko.com/coins/images/1/large/bitcoin.png`;
                               }}
                             />
                           ) : (
                             pair.name.charAt(0)
                           )}
                         </Box>
-                        <Typography variant="subtitle2" fontWeight="bold">
+                        <Typography variant="subtitle2" fontWeight="bold" className="trading-pair-display">
                           {pair.name}
                         </Typography>
                       </Box>
@@ -939,8 +1741,96 @@ const LiveTrading = () => {
     );
   };
 
-  // Trade History Component
+  // Trade History Component with Exchange Indicators
   const TradeHistory = () => {
+    // Use state for exchanges to make them dynamic
+    const [exchanges, setExchanges] = useState([]);
+
+    // Initialize exchanges from global data or API
+    useEffect(() => {
+      const initExchanges = async () => {
+        // Try to get exchange data from global state first
+
+            // Fallback to hardcoded data if API fails
+            setExchanges([
+              { name: 'Binance', logo: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.png', active: true, profit: '+0.0037 USDT', id: 'binance', highlight: false },
+              { name: 'KuCoin', logo: 'https://cryptologos.cc/logos/kucoin-token-kcs-logo.png', active: true, profit: '+0.0055 USDT', id: 'kucoin', highlight: false },
+              { name: 'Coinbase', logo: 'https://cryptologos.cc/logos/coinbase-coin-logo.png', active: true, profit: '-0.0012 USDT', id: 'coinbase', highlight: false },
+              { name: 'Crypto.com', logo: 'https://cryptologos.cc/logos/crypto-com-coin-cro-logo.png', active: true, profit: '+0.0042 USDT', id: 'crypto', highlight: false },
+              { name: 'OKX', logo: 'https://cryptologos.cc/logos/okb-okb-logo.png', active: true, profit: '+0.0023 USDT', id: 'okx', highlight: false },
+              { name: 'Gate.io', logo: 'https://cryptologos.cc/logos/gate-token-gt-logo.png', active: true, profit: '-0.0008 USDT', id: 'gate', highlight: false }
+            ]);
+
+      };
+
+      initExchanges();
+    }, []);
+
+    // Function to get a random active exchange
+    const getRandomExchange = useCallback(() => {
+      const activeExchanges = exchanges.filter(ex => ex.active);
+      if (activeExchanges.length === 0) return exchanges[0];
+      return activeExchanges[Math.floor(Math.random() * activeExchanges.length)];
+    }, [exchanges]);
+
+    // Randomly change active exchanges to simulate jumping between exchanges
+    useEffect(() => {
+      if (!tradingActive) return;
+
+      const interval = setInterval(() => {
+        setExchanges(prev => {
+          const newExchanges = [...prev];
+
+          // Randomly activate/deactivate exchanges
+          const randomIndex = Math.floor(Math.random() * newExchanges.length);
+
+          // Make sure at least 3 exchanges are always active
+          const activeCount = newExchanges.filter(ex => ex.active).length;
+
+          if (activeCount > 3 || !newExchanges[randomIndex].active) {
+            newExchanges[randomIndex].active = !newExchanges[randomIndex].active;
+            newExchanges[randomIndex].highlight = true;
+
+            // Remove highlight after 1 second
+            setTimeout(() => {
+              setExchanges(current => current.map((ex, i) =>
+                i === randomIndex ? { ...ex, highlight: false } : ex
+              ));
+            }, 1000);
+          }
+
+          return newExchanges;
+        });
+      }, 4000);
+
+      return () => clearInterval(interval);
+    }, [tradingActive]);
+
+    // Add exchange info to trade history items with memoization
+    const enhancedTradeHistory = useMemo(() => {
+      return tradeHistory.map(trade => {
+        // If trade already has an exchange, check if it's still active
+        if (trade.exchange) {
+          const matchingExchange = exchanges.find(ex => ex.id === trade.exchange.id);
+          if (matchingExchange && matchingExchange.active) {
+            return {
+              ...trade,
+              exchange: {
+                ...matchingExchange,
+                highlight: matchingExchange.highlight || trade.id === tradeHistory[0]?.id
+              }
+            };
+          }
+        }
+
+        // Otherwise assign a new random exchange
+        return {
+          ...trade,
+          exchange: getRandomExchange()
+        };
+      });
+    }, [tradeHistory, exchanges, getRandomExchange]);
+
     return (
       <Card
         elevation={0}
@@ -966,6 +1856,38 @@ const LiveTrading = () => {
               Trade History
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {/* Exchange Filter Chips */}
+              <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
+                {exchanges.filter(ex => ex.active).slice(0, 3).map(exchange => (
+                  <Tooltip key={exchange.id} title={exchange.name}>
+                    <Box
+                      sx={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                      }}
+                    >
+                      <img
+                        src={exchange.logo}
+                        alt={exchange.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                          // Fallback for image loading errors using the embedded fallback logo
+                          console.warn(`Failed to load image for ${exchange.name}, using fallback`);
+                          e.target.src = exchange.fallbackLogo ||
+                            `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                        }}
+                      />
+                    </Box>
+                  </Tooltip>
+                ))}
+              </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
                 {tradeHistory.length} trades
               </Typography>
@@ -981,7 +1903,10 @@ const LiveTrading = () => {
             justifyContent: 'space-between',
             borderBottom: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
           }}>
-            <Typography variant="body2" color="text.secondary" sx={{ width: '25%', textAlign: 'left' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ width: '10%', textAlign: 'left' }}>
+              Exchange
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ width: '20%', textAlign: 'left' }}>
               Time
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ width: '15%', textAlign: 'center' }}>
@@ -990,14 +1915,14 @@ const LiveTrading = () => {
             <Typography variant="body2" color="text.secondary" sx={{ width: '25%', textAlign: 'right' }}>
               Price
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ width: '35%', textAlign: 'right' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ width: '30%', textAlign: 'right' }}>
               Amount
             </Typography>
           </Box>
 
           <Box sx={{ flex: 1, overflow: 'auto', p: 1 }}>
-            {tradeHistory.length > 0 ? (
-              tradeHistory.map((trade) => (
+            {enhancedTradeHistory.length > 0 ? (
+              enhancedTradeHistory.map((trade) => (
                 <Box
                   key={trade.id}
                   sx={{
@@ -1006,9 +1931,45 @@ const LiveTrading = () => {
                     mb: 0.5,
                     py: 0.5,
                     borderBottom: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'}`,
+                    animation: `${flashAnimation} 0.5s ease`,
+                    animationPlayState: trade.id === enhancedTradeHistory[0]?.id ? 'running' : 'paused'
                   }}
                 >
-                  <Typography variant="body2" sx={{ width: '25%', textAlign: 'left' }}>
+                  {/* Exchange Logo */}
+                  <Box sx={{ width: '10%', display: 'flex', alignItems: 'center' }}>
+                    <Tooltip title={trade.exchange.name}>
+                      <Box
+                        sx={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: '50%',
+                          overflow: 'hidden',
+                          border: trade.exchange.highlight ? `1px solid ${trade.type === 'buy' ? '#0ecb81' : '#f6465d'}` : 'none',
+                          boxShadow: trade.exchange.highlight ? `0 0 5px ${trade.type === 'buy' ? 'rgba(14, 203, 129, 0.5)' : 'rgba(246, 70, 93, 0.5)'}` : 'none',
+                          animation: trade.exchange.highlight ? `${pulseAnimation} 1s ease` : 'none',
+                          transition: 'all 0.3s ease'
+                        }}
+                      >
+                        <img
+                          src={trade.exchange.logo}
+                          alt={trade.exchange.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                          onError={(e) => {
+                            // Fallback for image loading errors using the embedded fallback logo
+                            console.warn(`Failed to load image for ${trade.exchange.name}, using fallback`);
+                            e.target.src = trade.exchange.fallbackLogo ||
+                              `https://ui-avatars.com/api/?name=${trade.exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                          }}
+                        />
+                      </Box>
+                    </Tooltip>
+                  </Box>
+
+                  <Typography variant="body2" sx={{ width: '20%', textAlign: 'left' }}>
                     {trade.time}
                   </Typography>
                   <Typography
@@ -1025,7 +1986,7 @@ const LiveTrading = () => {
                   <Typography variant="body2" sx={{ width: '25%', textAlign: 'right' }}>
                     ${parseFloat(trade.price).toFixed(2)}
                   </Typography>
-                  <Typography variant="body2" sx={{ width: '35%', textAlign: 'right' }}>
+                  <Typography variant="body2" sx={{ width: '30%', textAlign: 'right' }}>
                     {trade.amount} {trade.pair.replace('USDT', '')}
                   </Typography>
                 </Box>
@@ -1043,8 +2004,94 @@ const LiveTrading = () => {
     );
   };
 
-  // Enhanced Order Book Component
+  // Enhanced Order Book Component with Exchange Indicators
   const OrderBook = () => {
+    // Use state for exchanges to make them dynamic
+    const [exchanges, setExchanges] = useState([]);
+
+    // Initialize exchanges from global data or API
+    useEffect(() => {
+      const initExchanges = async () => {
+        // Try to get exchange data from global state first
+        if (window.exchangeData && window.exchangeData.length > 0) {
+          console.log('Using global exchange data in OrderBook:', window.exchangeData);
+          setExchanges(window.exchangeData);
+        } else {
+          // Fetch exchange data if not available
+          const exchangeData = await fetchExchangeLogos();
+          if (exchangeData && exchangeData.length > 0) {
+            setExchanges(exchangeData);
+          } else {
+            // Fallback to hardcoded data if API fails
+            setExchanges([
+              { name: 'Binance', logo: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.png', active: true, profit: '+0.0037 USDT', id: 'binance', highlight: false },
+              { name: 'KuCoin', logo: 'https://cryptologos.cc/logos/kucoin-token-kcs-logo.png', active: true, profit: '+0.0055 USDT', id: 'kucoin', highlight: false },
+              { name: 'Coinbase', logo: 'https://cryptologos.cc/logos/coinbase-coin-logo.png', active: true, profit: '-0.0012 USDT', id: 'coinbase', highlight: false },
+              { name: 'Crypto.com', logo: 'https://cryptologos.cc/logos/crypto-com-coin-cro-logo.png', active: true, profit: '+0.0042 USDT', id: 'crypto', highlight: false },
+              { name: 'OKX', logo: 'https://cryptologos.cc/logos/okb-okb-logo.png', active: true, profit: '+0.0023 USDT', id: 'okx', highlight: false },
+              { name: 'Gate.io', logo: 'https://cryptologos.cc/logos/gate-token-gt-logo.png', active: true, profit: '-0.0008 USDT', id: 'gate', highlight: false }
+            ]);
+          }
+        }
+      };
+
+      initExchanges();
+    }, []);
+
+    // State for order exchange assignments
+    const [sellOrderExchanges, setSellOrderExchanges] = useState([]);
+    const [buyOrderExchanges, setBuyOrderExchanges] = useState([]);
+
+    // Function to get a random active exchange
+    const getRandomExchange = useCallback(() => {
+      const activeExchanges = exchanges.filter(ex => ex.active);
+      if (activeExchanges.length === 0) return exchanges[0];
+      return activeExchanges[Math.floor(Math.random() * activeExchanges.length)];
+    }, [exchanges]);
+
+    // Randomly change active exchanges to simulate jumping between exchanges
+    useEffect(() => {
+      if (!tradingActive) return;
+
+      const interval = setInterval(() => {
+        setExchanges(prev => {
+          const newExchanges = [...prev];
+
+          // Randomly activate/deactivate exchanges
+          const randomIndex = Math.floor(Math.random() * newExchanges.length);
+
+          // Make sure at least 3 exchanges are always active
+          const activeCount = newExchanges.filter(ex => ex.active).length;
+
+          if (activeCount > 3 || !newExchanges[randomIndex].active) {
+            newExchanges[randomIndex].active = !newExchanges[randomIndex].active;
+            newExchanges[randomIndex].highlight = true;
+
+            // Remove highlight after 1 second
+            setTimeout(() => {
+              setExchanges(current => current.map((ex, i) =>
+                i === randomIndex ? { ...ex, highlight: false } : ex
+              ));
+            }, 1000);
+          }
+
+          return newExchanges;
+        });
+
+        // Reassign exchanges to orders
+        setSellOrderExchanges(Array.from({ length: 10 }, () => getRandomExchange()));
+        setBuyOrderExchanges(Array.from({ length: 10 }, () => getRandomExchange()));
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }, [tradingActive, getRandomExchange]);
+
+    // Initialize order exchange assignments
+    useEffect(() => {
+      setSellOrderExchanges(Array.from({ length: 10 }, () => getRandomExchange()));
+      setBuyOrderExchanges(Array.from({ length: 10 }, () => getRandomExchange()));
+    }, [getRandomExchange]);
+
     return (
       <Card
         elevation={0}
@@ -1069,9 +2116,38 @@ const LiveTrading = () => {
             <Typography variant="h6" fontWeight="bold">
               Order Book
             </Typography>
-            <IconButton size="small">
-              <Refresh fontSize="small" />
-            </IconButton>
+
+            {/* Exchange Filter Chips */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
+                {exchanges.filter(ex => ex.active).slice(0, 3).map(exchange => (
+                  <Tooltip key={exchange.id} title={exchange.name}>
+                    <Box
+                      sx={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                      }}
+                    >
+                      <img
+                        src={exchange.logo}
+                        alt={exchange.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    </Box>
+                  </Tooltip>
+                ))}
+              </Box>
+              <IconButton size="small">
+                <Refresh fontSize="small" />
+              </IconButton>
+            </Box>
           </Box>
 
           <Box sx={{
@@ -1080,13 +2156,16 @@ const LiveTrading = () => {
             justifyContent: 'space-between',
             borderBottom: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
           }}>
-            <Typography variant="body2" color="text.secondary" sx={{ width: '33%', textAlign: 'left' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ width: '10%', textAlign: 'left' }}>
+              Exchange
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ width: '30%', textAlign: 'left' }}>
               Price (USDT)
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ width: '33%', textAlign: 'right' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ width: '30%', textAlign: 'right' }}>
               Amount (BTC)
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ width: '33%', textAlign: 'right' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ width: '30%', textAlign: 'right' }}>
               Total
             </Typography>
           </Box>
@@ -1099,6 +2178,8 @@ const LiveTrading = () => {
                 const amount = Math.random() * 2 + 0.1;
                 const total = price * amount;
                 const depth = 10 - index; // Depth indicator for visualization
+                const exchange = sellOrderExchanges[index] || getRandomExchange();
+                const isHighlighted = exchange.highlight;
 
                 return (
                   <Box
@@ -1111,6 +2192,9 @@ const LiveTrading = () => {
                       py: 0.5,
                       px: 1,
                       borderRadius: 1,
+                      transition: 'all 0.3s ease',
+                      animation: isHighlighted ? `${jumpAnimation} 0.5s ease` : 'none',
+                      backgroundColor: isHighlighted ? (mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)') : 'transparent',
                       '&::before': {
                         content: '""',
                         position: 'absolute',
@@ -1124,13 +2208,72 @@ const LiveTrading = () => {
                       }
                     }}
                   >
-                    <Typography variant="body2" color="error.main" sx={{ width: '33%', textAlign: 'left', zIndex: 1 }}>
+                    {/* Exchange Logo */}
+                    <Box sx={{ width: '10%', display: 'flex', alignItems: 'center', zIndex: 1 }}>
+                      <Tooltip title={exchange.name}>
+                        <Box
+                          sx={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: '50%',
+                            overflow: 'hidden',
+                            border: isHighlighted ? `1px solid ${mode === 'dark' ? '#f6465d' : '#f6465d'}` : 'none',
+                            boxShadow: isHighlighted ? '0 0 5px rgba(246, 70, 93, 0.5)' : 'none',
+                            animation: isHighlighted ? `${pulseAnimation} 1s ease` : 'none',
+                          }}
+                        >
+                          <img
+                            src={exchange.logo}
+                            alt={exchange.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                              // Fallback for image loading errors using the embedded fallback logo
+                              console.warn(`Failed to load image for ${exchange.name}, using fallback`);
+                              e.target.src = exchange.fallbackLogo ||
+                                `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                            }}
+                          />
+                        </Box>
+                      </Tooltip>
+                    </Box>
+
+                    <Typography
+                      variant="body2"
+                      color="error.main"
+                      sx={{
+                        width: '30%',
+                        textAlign: 'left',
+                        zIndex: 1,
+                        fontWeight: isHighlighted ? 'bold' : 'normal'
+                      }}
+                    >
                       {price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Typography>
-                    <Typography variant="body2" sx={{ width: '33%', textAlign: 'right', zIndex: 1 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        width: '30%',
+                        textAlign: 'right',
+                        zIndex: 1,
+                        fontWeight: isHighlighted ? 'bold' : 'normal'
+                      }}
+                    >
                       {amount.toFixed(4)}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ width: '33%', textAlign: 'right', zIndex: 1 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        width: '30%',
+                        textAlign: 'right',
+                        zIndex: 1,
+                        fontWeight: isHighlighted ? 'bold' : 'normal'
+                      }}
+                    >
                       {total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Typography>
                   </Box>
@@ -1151,6 +2294,52 @@ const LiveTrading = () => {
               <Typography variant="subtitle1" fontWeight="bold" color="primary">
                 ${currentBasePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Typography>
+
+              {/* Multi-exchange indicator */}
+              <Box sx={{
+                display: 'flex',
+                ml: 2,
+                backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                borderRadius: 10,
+                padding: '2px 8px',
+                alignItems: 'center'
+              }}>
+                <Typography variant="caption" sx={{ mr: 1 }}>
+                  Multi-Exchange
+                </Typography>
+                <Box sx={{ display: 'flex' }}>
+                  {exchanges.filter(ex => ex.active).slice(0, 3).map((exchange, i) => (
+                    <Box
+                      key={exchange.id}
+                      sx={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: `1px solid ${mode === 'dark' ? '#1a1b20' : '#fff'}`,
+                        ml: i > 0 ? -0.5 : 0,
+                        zIndex: 3 - i
+                      }}
+                    >
+                      <img
+                        src={exchange.logo}
+                        alt={exchange.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                          // Fallback for image loading errors using the embedded fallback logo
+                          console.warn(`Failed to load image for ${exchange.name}, using fallback`);
+                          e.target.src = exchange.fallbackLogo ||
+                            `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                        }}
+                      />
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
             </Box>
 
             {/* Buy Orders */}
@@ -1160,6 +2349,8 @@ const LiveTrading = () => {
                 const amount = Math.random() * 2 + 0.1;
                 const total = price * amount;
                 const depth = index + 1; // Depth indicator for visualization
+                const exchange = buyOrderExchanges[index] || getRandomExchange();
+                const isHighlighted = exchange.highlight;
 
                 return (
                   <Box
@@ -1172,6 +2363,9 @@ const LiveTrading = () => {
                       py: 0.5,
                       px: 1,
                       borderRadius: 1,
+                      transition: 'all 0.3s ease',
+                      animation: isHighlighted ? `${jumpAnimation} 0.5s ease` : 'none',
+                      backgroundColor: isHighlighted ? (mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)') : 'transparent',
                       '&::before': {
                         content: '""',
                         position: 'absolute',
@@ -1185,13 +2379,72 @@ const LiveTrading = () => {
                       }
                     }}
                   >
-                    <Typography variant="body2" color="success.main" sx={{ width: '33%', textAlign: 'left', zIndex: 1 }}>
+                    {/* Exchange Logo */}
+                    <Box sx={{ width: '10%', display: 'flex', alignItems: 'center', zIndex: 1 }}>
+                      <Tooltip title={exchange.name}>
+                        <Box
+                          sx={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: '50%',
+                            overflow: 'hidden',
+                            border: isHighlighted ? `1px solid ${mode === 'dark' ? '#0ecb81' : '#0ecb81'}` : 'none',
+                            boxShadow: isHighlighted ? '0 0 5px rgba(14, 203, 129, 0.5)' : 'none',
+                            animation: isHighlighted ? `${pulseAnimation} 1s ease` : 'none',
+                          }}
+                        >
+                          <img
+                            src={exchange.logo}
+                            alt={exchange.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                              // Fallback for image loading errors using the embedded fallback logo
+                              console.warn(`Failed to load image for ${exchange.name}, using fallback`);
+                              e.target.src = exchange.fallbackLogo ||
+                                `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                            }}
+                          />
+                        </Box>
+                      </Tooltip>
+                    </Box>
+
+                    <Typography
+                      variant="body2"
+                      color="success.main"
+                      sx={{
+                        width: '30%',
+                        textAlign: 'left',
+                        zIndex: 1,
+                        fontWeight: isHighlighted ? 'bold' : 'normal'
+                      }}
+                    >
                       {price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Typography>
-                    <Typography variant="body2" sx={{ width: '33%', textAlign: 'right', zIndex: 1 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        width: '30%',
+                        textAlign: 'right',
+                        zIndex: 1,
+                        fontWeight: isHighlighted ? 'bold' : 'normal'
+                      }}
+                    >
                       {amount.toFixed(4)}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ width: '33%', textAlign: 'right', zIndex: 1 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        width: '30%',
+                        textAlign: 'right',
+                        zIndex: 1,
+                        fontWeight: isHighlighted ? 'bold' : 'normal'
+                      }}
+                    >
                       {total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Typography>
                   </Box>
@@ -1534,6 +2787,7 @@ const LiveTrading = () => {
       overflow: 'hidden',
       position: 'relative'
     }}>
+
       {/* Snackbar for notifications */}
       <Snackbar
         open={snackbarOpen}
@@ -1762,6 +3016,8 @@ const LiveTrading = () => {
             <TradingPairs />
           </Grid>
 
+
+
           {/* Main Trading Interface */}
           <Grid item xs={12} sx={{ width: '100%', px: { xs: 0, sm: 1 } }}>
             <Card
@@ -1805,28 +3061,88 @@ const LiveTrading = () => {
                       }}
                     />
                   </Box>
-                  <Typography
-                    variant="body2"
-                    color={tradingActive ? "success.main" : "text.secondary"}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      animation: tradingActive ? `${pulseAnimation} 2s infinite` : 'none'
-                    }}
-                  >
-                    {tradingActive && (
-                      <Box
-                        sx={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          bgcolor: 'success.main',
-                          mr: 0.5
-                        }}
-                      />
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    {tradingActive ? (
+                      <>
+                        {/* Multi-exchange indicator */}
+                        <Box sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          backgroundColor: mode === 'dark' ? 'rgba(14, 203, 129, 0.1)' : 'rgba(14, 203, 129, 0.05)',
+                          borderRadius: 10,
+                          padding: '2px 8px',
+                          mr: 1
+                        }}>
+                          <Box
+                            sx={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              bgcolor: 'success.main',
+                              mr: 0.5,
+                              animation: `${pulseAnimation} 2s infinite`
+                            }}
+                          />
+                          <Typography variant="caption" color="success.main" sx={{ mr: 1 }}>
+                            Multi-Exchange
+                          </Typography>
+                          <Box sx={{ display: 'flex' }}>
+                            {/* Exchange logos - same as in PriceJumper */}
+                            {['binance', 'kucoin', 'crypto'].map((exchange, i) => (
+                              <Box
+                                key={exchange}
+                                sx={{
+                                  width: 16,
+                                  height: 16,
+                                  borderRadius: '50%',
+                                  overflow: 'hidden',
+                                  border: `1px solid ${mode === 'dark' ? '#1a1b20' : '#fff'}`,
+                                  ml: i > 0 ? -0.5 : 0,
+                                  zIndex: 3 - i
+                                }}
+                              >
+                                <img
+                                  src={exchange === 'binance'
+                                    ? 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4='
+                                    : exchange === 'kucoin'
+                                    ? 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIzQkY3NiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI2Ljk4NWMtNi4wNDYgMC0xMC45ODYgNC45NC0xMC45ODYgMTAuOTg1UzkuOTU0IDI2Ljk4NSAxNiAyNi45ODVzMTAuOTg2LTQuOTQgMTAuOTg2LTEwLjk4NVMyMi4wNDYgNS4wMTUgMTYgNS4wMTV6bS0uOTg0IDEyLjk4M2wtMy4wMTMtMy4wMTMgMS40MTQtMS40MTQgMS41OTkgMS41OTkgNS4zOTgtNS4zOTggMS40MTQgMS40MTQtNi44MTIgNi44MTJ6Ii8+PC9zdmc+'
+                                    : 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwMzNhZCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjAxOC03LjkwM2wzLjA3LTEuNzc0YS43NzIuNzcyIDAgMCAwIC4zODYtLjY3MlYxMi4zNWEuNzcyLjc3MiAwIDAgMC0uMzg2LS42NzJsLTMuMDctMS43NzRhLjc3Mi43NzIgMCAwIDAtLjc3MiAwbC0zLjA3IDEuNzc0YS43NzIuNzcyIDAgMCAwLS4zODYuNjcydjcuMzAxYzAgLjI3Ny4xNDYuNTM0LjM4Ni42NzJsMy4wNyAxLjc3NGEuNzcyLjc3MiAwIDAgMCAuNzcyIDB6bS0yLjUwMi0yLjQ0NmMwIC4wNjktLjAzNS4xMDQtLjEwNC4xMDRoLS40MTRjLS4wNyAwLS4xMDQtLjAzNS0uMTA0LS4xMDR2LTUuMjA4YzAtLjA3LjAzNC0uMTA0LjEwNC0uMTA0aC40MTRjLjA2OSAwIC4xMDQuMDM1LjEwNC4xMDR2NS4yMDh6bTEuNTU0IDBjMCAuMDY5LS4wMzUuMTA0LS4xMDQuMTA0aC0uNDE0Yy0uMDcgMC0uMTA0LS4wMzUtLjEwNC0uMTA0di01LjIwOGMwLS4wNy4wMzQtLjEwNC4xMDQtLjEwNGguNDE0Yy4wNjkgMCAuMTA0LjAzNS4xMDQuMTA0djUuMjA4em0xLjU1NCAwYzAgLjA2OS0uMDM1LjEwNC0uMTA0LjEwNGgtLjQxNGMtLjA3IDAtLjEwNC0uMDM1LS4xMDQtLjEwNHYtNS4yMDhjMC0uMDcuMDM0LS4xMDQuMTA0LS4xMDRoLjQxNGMuMDY5IDAgLjEwNC4wMzUuMTA0LjEwNHY1LjIwOHoiLz48L3N2Zz4='
+                                  }
+                                  alt={exchange}
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover'
+                                  }}
+                                  onError={(e) => {
+                                    console.warn(`Failed to load image for ${exchange}, using fallback`);
+                                    e.target.src = `https://ui-avatars.com/api/?name=${exchange.charAt(0)}&background=random&color=fff&size=100`;
+                                  }}
+                                />
+                              </Box>
+                            ))}
+                          </Box>
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          color="success.main"
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          Trading Active (Until Midnight UTC)
+                        </Typography>
+                      </>
+                    ) : (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                      >
+                        Trading Inactive
+                      </Typography>
                     )}
-                    {tradingActive ? 'Trading Active (Until Midnight UTC)' : 'Trading Inactive'}
-                  </Typography>
+                  </Box>
                 </Box>
 
                 {/* Trading Interface */}
@@ -1905,24 +3221,85 @@ const LiveTrading = () => {
                             mr: 1
                           }}
                         />
-                        <Box sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          ml: 1
-                        }}>
-                          <Box
-                            sx={{
-                              width: { xs: 6, sm: 8 },
-                              height: { xs: 6, sm: 8 },
-                              borderRadius: '50%',
-                              bgcolor: tradingActive ? 'success.main' : 'text.disabled',
-                              mr: 0.5
-                            }}
-                          />
-                          <Typography variant="body2" color={tradingActive ? "success.main" : "text.secondary"}>
-                            {tradingActive ? 'Trading Active (Until Midnight UTC)' : 'Trading Inactive'}
-                          </Typography>
-                        </Box>
+                        {tradingActive ? (
+                          <Box sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            backgroundColor: mode === 'dark' ? 'rgba(14, 203, 129, 0.1)' : 'rgba(14, 203, 129, 0.05)',
+                            borderRadius: 10,
+                            padding: '2px 8px',
+                            ml: 1
+                          }}>
+                            <Box
+                              sx={{
+                                width: { xs: 6, sm: 8 },
+                                height: { xs: 6, sm: 8 },
+                                borderRadius: '50%',
+                                bgcolor: 'success.main',
+                                mr: 0.5,
+                                animation: `${pulseAnimation} 2s infinite`
+                              }}
+                            />
+                            <Typography variant="caption" color="success.main" sx={{ mr: 1 }}>
+                              Multi-Exchange
+                            </Typography>
+                            <Box sx={{ display: 'flex' }}>
+                              {/* Exchange logos - same as in PriceJumper */}
+                              {['binance', 'kucoin', 'crypto'].map((exchange, i) => (
+                                <Box
+                                  key={exchange}
+                                  sx={{
+                                    width: 16,
+                                    height: 16,
+                                    borderRadius: '50%',
+                                    overflow: 'hidden',
+                                    border: `1px solid ${mode === 'dark' ? '#1a1b20' : '#fff'}`,
+                                    ml: i > 0 ? -0.5 : 0,
+                                    zIndex: 3 - i
+                                  }}
+                                >
+                                  <img
+                                    src={exchange === 'binance'
+                                      ? 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4='
+                                      : exchange === 'kucoin'
+                                      ? 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIzQkY3NiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI2Ljk4NWMtNi4wNDYgMC0xMC45ODYgNC45NC0xMC45ODYgMTAuOTg1UzkuOTU0IDI2Ljk4NSAxNiAyNi45ODVzMTAuOTg2LTQuOTQgMTAuOTg2LTEwLjk4NVMyMi4wNDYgNS4wMTUgMTYgNS4wMTV6bS0uOTg0IDEyLjk4M2wtMy4wMTMtMy4wMTMgMS40MTQtMS40MTQgMS41OTkgMS41OTkgNS4zOTgtNS4zOTggMS40MTQgMS40MTQtNi44MTIgNi44MTJ6Ii8+PC9zdmc+'
+                                      : 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwMzNhZCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjAxOC03LjkwM2wzLjA3LTEuNzc0YS43NzIuNzcyIDAgMCAwIC4zODYtLjY3MlYxMi4zNWEuNzcyLjc3MiAwIDAgMC0uMzg2LS42NzJsLTMuMDctMS43NzRhLjc3Mi43NzIgMCAwIDAtLjc3MiAwbC0zLjA3IDEuNzc0YS43NzIuNzcyIDAgMCAwLS4zODYuNjcydjcuMzAxYzAgLjI3Ny4xNDYuNTM0LjM4Ni42NzJsMy4wNyAxLjc3NGEuNzcyLjc3MiAwIDAgMCAuNzcyIDB6bS0yLjUwMi0yLjQ0NmMwIC4wNjktLjAzNS4xMDQtLjEwNC4xMDRoLS40MTRjLS4wNyAwLS4xMDQtLjAzNS0uMTA0LS4xMDR2LTUuMjA4YzAtLjA3LjAzNC0uMTA0LjEwNC0uMTA0aC40MTRjLjA2OSAwIC4xMDQuMDM1LjEwNC4xMDR2NS4yMDh6bTEuNTU0IDBjMCAuMDY5LS4wMzUuMTA0LS4xMDQuMTA0aC0uNDE0Yy0uMDcgMC0uMTA0LS4wMzUtLjEwNC0uMTA0di01LjIwOGMwLS4wNy4wMzQtLjEwNC4xMDQtLjEwNGguNDE0Yy4wNjkgMCAuMTA0LjAzNS4xMDQuMTA0djUuMjA4em0xLjU1NCAwYzAgLjA2OS0uMDM1LjEwNC0uMTA0LjEwNGgtLjQxNGMtLjA3IDAtLjEwNC0uMDM1LS4xMDQtLjEwNHYtNS4yMDhjMC0uMDcuMDM0LS4xMDQuMTA0LS4xMDRoLjQxNGMuMDY5IDAgLjEwNC4wMzUuMTA0LjEwNHY1LjIwOHoiLz48L3N2Zz4='
+                                    }
+                                    alt={exchange}
+                                    style={{
+                                      width: '100%',
+                                      height: '100%',
+                                      objectFit: 'cover'
+                                    }}
+                                    onError={(e) => {
+                                      console.warn(`Failed to load image for ${exchange}, using fallback`);
+                                      e.target.src = `https://ui-avatars.com/api/?name=${exchange.charAt(0)}&background=random&color=fff&size=100`;
+                                    }}
+                                  />
+                                </Box>
+                              ))}
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Box sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            ml: 1
+                          }}>
+                            <Box
+                              sx={{
+                                width: { xs: 6, sm: 8 },
+                                height: { xs: 6, sm: 8 },
+                                borderRadius: '50%',
+                                bgcolor: 'text.disabled',
+                                mr: 0.5
+                              }}
+                            />
+                            <Typography variant="body2" color="text.secondary">
+                              Trading Inactive
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
                     </Box>
                     <Box sx={{

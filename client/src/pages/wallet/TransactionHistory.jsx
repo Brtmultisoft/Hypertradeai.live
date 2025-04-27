@@ -281,7 +281,7 @@ const TransactionHistory = () => {
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={4}>
+        {/* <Grid item xs={12} sm={6} md={4}>
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -295,7 +295,7 @@ const TransactionHistory = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> */}
         <Grid item xs={12} sm={6} md={4}>
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
@@ -375,43 +375,13 @@ const TransactionHistory = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={6}>
-              <Box component="form" onSubmit={handleSearchSubmit}>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  placeholder="Search by transaction ID or address"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <Button
-                          variant="contained"
-                          size="small"
-                          type="submit"
-                          sx={{ minWidth: 'auto', px: 2 }}
-                        >
-                          Search
-                        </Button>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Box>
-            </Grid>
+           
           </Grid>
 
           <Divider sx={{ my: 2 }} />
 
           {/* Date Range Filter */}
-          <Grid container spacing={2} alignItems="center">
+          {/* <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <DateRangeIcon fontSize="small" sx={{ mr: 0.5 }} />
@@ -460,7 +430,7 @@ const TransactionHistory = () => {
                 </Button>
               </Box>
             </Grid>
-          </Grid>
+          </Grid> */}
         </CardContent>
       </Card>
 
