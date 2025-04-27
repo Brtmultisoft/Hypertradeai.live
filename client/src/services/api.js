@@ -49,6 +49,17 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => {
         try {
+            // Only check for force_relogin_time if we're not in the login process
+            const isLoginProcess = response.config.url.includes('/login') ||
+                response.config.url.includes('/signup') ||
+                response.config.url.includes('/login/request');
+
+            // Skip session checks during login process
+            if (isLoginProcess) {
+                console.log('Login process detected, skipping session checks');
+                return response;
+            }
+
             // Check for force_relogin_time in user data responses
             if (response.data &&
                 response.data.result &&

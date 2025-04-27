@@ -21,16 +21,16 @@ const contractAddress = process.env.VITE_APP_DEPOSIT_CONTRACT_ADDRESS;
 const crypto = require('crypto');
 const mongoose = require('mongoose')
 const ObjectId = mongoose.Types.ObjectId
-/*******************
- * PRIVATE FUNCTIONS
- ********************/
-/**
- * Method to Compare password
- */
+    /*******************
+     * PRIVATE FUNCTIONS
+     ********************/
+    /**
+     * Method to Compare password
+     */
 let _comparePassword = (reqPassword, userPassword) => {
     return new Promise((resolve, reject) => {
         //compare password with bcrypt method, password and hashed password both are required
-        bcrypt.compare(reqPassword, userPassword, function (err, isMatch) {
+        bcrypt.compare(reqPassword, userPassword, function(err, isMatch) {
             if (err) reject(err);
             resolve(isMatch);
         });
@@ -57,7 +57,7 @@ let _generateVerificationToken = (tokenData, verification_type) => {
 /**
  * Method to update user Email verification Database
  */
-let _handleVerificationDataUpdate = async (id) => {
+let _handleVerificationDataUpdate = async(id) => {
     log.info('Received request for deleting verification token::', id);
     let deletedInfo = await verificationDbHandler.deleteById(id);
     return deletedInfo;
@@ -67,10 +67,10 @@ let _encryptPassword = (password) => {
     let salt = config.bcrypt.saltValue;
     // generate a salt
     return new Promise((resolve, reject) => {
-        bcrypt.genSalt(salt, function (err, salt) {
+        bcrypt.genSalt(salt, function(err, salt) {
             if (err) reject(err);
             // hash the password with new salt
-            bcrypt.hash(password, salt, function (err, hash) {
+            bcrypt.hash(password, salt, function(err, hash) {
                 if (err) reject(err);
                 // override the plain password with the hashed one
                 resolve(hash);
@@ -100,7 +100,7 @@ const generateTraceId = () => {
 };
 
 // Generate a unique sponsor ID (HS + 5 digits)
-const generateSponsorId = async () => {
+const generateSponsorId = async() => {
     const prefix = 'HS';
     let isUnique = false;
     let sponsorId = '';
@@ -250,7 +250,7 @@ module.exports = {
     //         return responseHelper.success2(res, responseData);
     //     }
     // },
-    checkAddress: async (req, res) => {
+    checkAddress: async(req, res) => {
         let reqObj = req.body;
         log.info('Received request for checking user address:', reqObj);
         let responseData = {};
@@ -289,15 +289,15 @@ module.exports = {
             return responseHelper.error(res, responseData);
         }
     },
-    login: async (req, res) => {
+    login: async(req, res) => {
         let reqObj = req.body;
         log.info('Recieved request for User Login:', reqObj);
         let responseData = {};
         try {
             let query = {
                 $or: [
-                    { username: reqObj?.userAddress },
-                    { email: reqObj?.userAddress?.toLowerCase() } // Also check if userAddress matches an email
+                    { username: reqObj ?.userAddress },
+                    { email: reqObj ?.userAddress ?.toLowerCase() } // Also check if userAddress matches an email
                 ]
             };
 
@@ -310,7 +310,7 @@ module.exports = {
             console.log(getUser);
             // Check if password matches
             try {
-                const checkPassword = await _comparePassword(reqObj?.password, getUser[0].password);
+                const checkPassword = await _comparePassword(reqObj ?.password, getUser[0].password);
                 if (!checkPassword) {
                     console.log('Password comparison failed for user:', getUser[0].username);
                     responseData.msg = "Invalid Credentials!";
@@ -331,15 +331,16 @@ module.exports = {
 
             // Get user's last login date
             const lastLoginDate = getUser[0].last_login_date ? new Date(getUser[0].last_login_date) : null;
-            lastLoginDate?.setHours(0, 0, 0, 0);
+            lastLoginDate ?.setHours(0, 0, 0, 0);
 
             // Check if this is the first login of the day
             const isNewDay = !lastLoginDate || lastLoginDate.getTime() !== today.getTime();
 
-            // Update login tracking fields
+            // Update login tracking fields - don't set force_relogin_time to avoid immediate session expiration
             const updateFields = {
-                force_relogin_time: time,
-                force_relogin_type: 'session_expired',
+                // Don't set force_relogin_time during login
+                // force_relogin_time: time,
+                // force_relogin_type: 'session_expired',
                 last_login_date: new Date()
             };
 
@@ -366,7 +367,7 @@ module.exports = {
                 console.log(`Rank benefits activated: Trade Booster ${getUser[0].trade_booster}%, Level ROI Income: ${getUser[0].level_roi_income}`);
             } else {
                 console.log(`User ${getUser[0].username} has not met the daily login requirement yet. ` +
-                          `Current: ${updateFields.daily_logins}, Required: ${dailyLoginRequirement}`);
+                    `Current: ${updateFields.daily_logins}, Required: ${dailyLoginRequirement}`);
                 console.log(`Rank benefits deactivated. Using base ACTIVE rank benefits.`);
             }
 
@@ -392,9 +393,9 @@ module.exports = {
                 address: getUser[0].address,
                 email_verify: getUser[0].email_verified,
 
-                avatar: getUser[0]?.avatar,
+                avatar: getUser[0] ?.avatar,
                 token: token,
-                two_fa_enabled: getUser[0]?.two_fa_enabled
+                two_fa_enabled: getUser[0] ?.two_fa_enabled
 
             }
             responseData.msg = `Welcome !`;
@@ -413,7 +414,7 @@ module.exports = {
     /**
      * Method to handle user login request from Admin Side
      */
-    userLoginRequest: async (req, res) => {
+    userLoginRequest: async(req, res) => {
         let reqObj = req.body;
         log.info('Received request for User Login Request:', reqObj);
         let responseData = {}
@@ -499,9 +500,9 @@ module.exports = {
                 email: getUser[0].email,
                 address: getUser[0].address,
                 email_verify: getUser[0].email_verified,
-                avatar: getUser[0]?.avatar,
+                avatar: getUser[0] ?.avatar,
                 token: token,
-                two_fa_enabled: getUser[0]?.two_fa_enabled,
+                two_fa_enabled: getUser[0] ?.two_fa_enabled,
                 admin_login: true,
                 admin_login_timestamp: adminLoginTimestamp,
                 login_attempt_id: loginAttemptId,
@@ -523,7 +524,7 @@ module.exports = {
     /**
      * Method to handle user login step2
      */
-    loginStep2: async (req, res) => {
+    loginStep2: async(req, res) => {
         let reqObj = req.body;
         log.info('Recieved request for User Login:', reqObj);
         let responseData = {};
@@ -576,9 +577,9 @@ module.exports = {
                     email: getUser[0].email,
                     address: getUser[0].address,
                     email_verify: getUser[0].email_verified,
-                    avatar: getUser[0]?.avatar,
+                    avatar: getUser[0] ?.avatar,
                     token: token,
-                    two_fa_enabled: getUser[0]?.two_fa_enabled
+                    two_fa_enabled: getUser[0] ?.two_fa_enabled
                 }
                 responseData.msg = `Welcome ${getUser[0].username} !`;
                 responseData.data = returnResponse;
@@ -594,11 +595,11 @@ module.exports = {
     /**
      * Method to check If Refer ID exists
      */
-    checkReferID: async (req, res) => {
+    checkReferID: async(req, res) => {
         let responseData = {}
 
         try {
-            if (!req.body?.refer_id) throw "Invalid Refer ID !!!"
+            if (!req.body ?.refer_id) throw "Invalid Refer ID !!!"
 
             // Special case for 'admin' refer_id
             if (req.body.refer_id === 'admin') {
@@ -665,15 +666,12 @@ module.exports = {
     /**
      * Method to get a default sponsor ID
      */
-    getDefaultSponsor: async (req, res) => {
+    getDefaultSponsor: async(req, res) => {
         let responseData = {}
 
         try {
             // First try to find the admin user with ID 678f9a82a2dac325900fc47e
-            const adminUser = await userDbHandler.getOneByQuery(
-                { _id: "678f9a82a2dac325900fc47e" },
-                { sponsorID: 1, username: 1 }
-            )
+            const adminUser = await userDbHandler.getOneByQuery({ _id: "678f9a82a2dac325900fc47e" }, { sponsorID: 1, username: 1 })
 
             if (adminUser && adminUser.sponsorID) {
                 responseData.msg = "Admin sponsor found"
@@ -684,10 +682,7 @@ module.exports = {
             }
 
             // If admin user doesn't have a sponsorID, find any user with is_default=true
-            const defaultUser = await userDbHandler.getOneByQuery(
-                { is_default: true, sponsorID: { $exists: true, $ne: '' } },
-                { sponsorID: 1, username: 1 }
-            )
+            const defaultUser = await userDbHandler.getOneByQuery({ is_default: true, sponsorID: { $exists: true, $ne: '' } }, { sponsorID: 1, username: 1 })
 
             if (defaultUser && defaultUser.sponsorID) {
                 responseData.msg = "Default sponsor found"
@@ -698,10 +693,7 @@ module.exports = {
             }
 
             // If no default user with sponsorID, find any user with a sponsorID
-            const anyUser = await userDbHandler.getOneByQuery(
-                { sponsorID: { $exists: true, $ne: '' } },
-                { sponsorID: 1, username: 1 }
-            )
+            const anyUser = await userDbHandler.getOneByQuery({ sponsorID: { $exists: true, $ne: '' } }, { sponsorID: 1, username: 1 })
 
             if (anyUser && anyUser.sponsorID) {
                 responseData.msg = "Sponsor found"
@@ -799,8 +791,8 @@ module.exports = {
 
     //         // Perform the token transfer via the smart contract
     //         const tx = await contract.methods
-    //             .transferTokens(userAddress, userAmount) // Assuming the smart contract has a `transferTokens` function
-    //             .send({ from: ownerAddress }); // The admin wallet address that will sign the transaction
+    //            .transferTokens(userAddress, userAmount) // Assuming the smart contract has a `transferTokens` function
+    //            .send({ from: ownerAddress }); // The admin wallet address that will sign the transaction
 
     //         if (!tx.status) {
     //             responseData.msg = 'Failed to transfer tokens!';
@@ -860,7 +852,7 @@ module.exports = {
 
 
 
-    signup: async (req, res) => {
+    signup: async(req, res) => {
         let reqObj = req.body;
         log.info('Received request for User Signup:', reqObj);
         let responseData = {};
@@ -870,14 +862,14 @@ module.exports = {
 
             // Check if username
 
-            let checkUsername = await userDbHandler.getByQuery({ username: reqObj?.userAddress });
+            let checkUsername = await userDbHandler.getByQuery({ username: reqObj ?.userAddress });
 
 
             if (checkUsername.length) {
                 responseData.msg = `user already exists!`;
                 return responseHelper.error(res, responseData);
             }
-            let trace_id = reqObj?.referralId;
+            let trace_id = reqObj ?.referralId;
             let refer_id = null;
 
             // If a valid referral ID is provided, find the referring user
@@ -942,18 +934,18 @@ module.exports = {
             let submitData = {
                 refer_id: refer_id,
                 placement_id: placement_id,
-                username: reqObj?.userAddress || reqObj?.email?.toLowerCase(), // Use email as username if userAddress is not provided
+                username: reqObj ?.userAddress || reqObj ?.email ?.toLowerCase(), // Use email as username if userAddress is not provided
                 trace_id: trace_id,
                 sponsorID: sponsorID, // Add the generated sponsor ID
-                email: reqObj?.email?.toLowerCase(), // Store email
-                password: reqObj?.password, // Password will be encrypted by the pre-save hook in the user model
-                name: reqObj?.name, // Store name
-                phone_number: reqObj?.phone_number, // Store phone number
-                country: reqObj?.country // Store country
+                email: reqObj ?.email ?.toLowerCase(), // Store email
+                password: reqObj ?.password, // Password will be encrypted by the pre-save hook in the user model
+                name: reqObj ?.name, // Store name
+                phone_number: reqObj ?.phone_number, // Store phone number
+                country: reqObj ?.country // Store country
             };
 
             // If this is the admin/default user, set refer_id to "admin"
-            if (reqObj?.userAddress === "0x4379df369c1F5e336662aF35ffe549F857A05EcF" || reqObj?.is_default) {
+            if (reqObj ?.userAddress === "0x4379df369c1F5e336662aF35ffe549F857A05EcF" || reqObj ?.is_default) {
                 submitData.refer_id = "admin";
                 submitData.is_default = true;
             }
@@ -1225,7 +1217,7 @@ module.exports = {
     //         return responseHelper.error(res, responseData);
     //     }
     // },
-    signupLR: async (req, res) => {
+    signupLR: async(req, res) => {
         let reqObj = req.body;
         log.info('Recieved request for User Signup:', reqObj);
         let responseData = {};
@@ -1233,22 +1225,20 @@ module.exports = {
         try {
             let query = {};
             if (config.loginByType == 'email') {
-                query.username = reqObj?.email.toLowerCase();
+                query.username = reqObj ?.email.toLowerCase();
+            } else if (config.loginByType == 'address') {
+                query.username = reqObj ?.address.toLowerCase();
+            } else {
+                query.username = reqObj ?.username;
             }
-            else if (config.loginByType == 'address') {
-                query.username = reqObj?.address.toLowerCase();
-            }
-            else {
-                query.username = reqObj?.username;
-            }
-            let refer_id = reqObj?.refer_id;
-            let position = reqObj?.position;
+            let refer_id = reqObj ?.refer_id;
+            let position = reqObj ?.position;
             if (!refer_id) {
                 const defaultUser = await userDbHandler.getOneByQuery({ is_default: true }, { _id: 1 });
                 refer_id = defaultUser._id;
             }
 
-            let placement_id = reqObj?.placement_id ? reqObj?.placement_id : refer_id;
+            let placement_id = reqObj ?.placement_id ? reqObj ?.placement_id : refer_id;
 
             if (position) {
                 placement_id = await getTerminalId(refer_id, position);
@@ -1258,8 +1248,8 @@ module.exports = {
 
 
             let checkUsername = await userDbHandler.getByQuery(query);
-            let checkEmail = await userDbHandler.getByQuery({ email: reqObj?.email });
-            let checkPhoneNumber = await userDbHandler.getByQuery({ phone_number: reqObj?.phone_number });
+            let checkEmail = await userDbHandler.getByQuery({ email: reqObj ?.email });
+            let checkPhoneNumber = await userDbHandler.getByQuery({ phone_number: reqObj ?.phone_number });
             let referUser = await userDbHandler.getById(refer_id);
 
             /* NOT REQUIRED
@@ -1282,11 +1272,11 @@ module.exports = {
                 responseData.msg = `${config.loginByName} already exist!`;
                 return responseHelper.error(res, responseData);
             }
-            if (reqObj?.email && config.loginByType != 'address' && checkEmail.length >= config.emailCheck) {
+            if (reqObj ?.email && config.loginByType != 'address' && checkEmail.length >= config.emailCheck) {
                 responseData.msg = 'Email already exist!';
                 return responseHelper.error(res, responseData);
             }
-            if (reqObj?.phone_number && config.loginByType != 'address' && checkPhoneNumber.length >= config.phoneCheck) {
+            if (reqObj ?.phone_number && config.loginByType != 'address' && checkPhoneNumber.length >= config.phoneCheck) {
                 responseData.msg = 'Phone number already exist!';
                 return responseHelper.error(res, responseData);
             }
@@ -1299,12 +1289,12 @@ module.exports = {
                 refer_id: refer_id,
                 placement_id: placement_id,
                 username: query.username,
-                email: reqObj?.email?.toLowerCase(),
-                address: reqObj?.address?.toLowerCase(),
-                password: reqObj?.password,
-                name: reqObj?.name,
+                email: reqObj ?.email ?.toLowerCase(),
+                address: reqObj ?.address ?.toLowerCase(),
+                password: reqObj ?.password,
+                name: reqObj ?.name,
 
-                phone_number: reqObj?.phone_number
+                phone_number: reqObj ?.phone_number
             }
 
             if (position) {
@@ -1350,8 +1340,7 @@ module.exports = {
                     responseData.msg = 'Your account has been created successfully! Please verify your email. Verification link has been sent on your registered email Id';
                     return responseHelper.success(res, responseData);
                 }
-            }
-            else {
+            } else {
                 responseData.msg = "Your account has been created successfully!";
                 return responseHelper.success(res, responseData);
             }
@@ -1364,7 +1353,7 @@ module.exports = {
     /**
      * Method to handle forgot password by email
      */
-    forgotPassword: async (req, res) => {
+    forgotPassword: async(req, res) => {
         let reqBody = req.body;
         log.info('Recieved request for User forgot password:', reqBody);
         let userEmail = reqBody.email;
@@ -1447,7 +1436,7 @@ module.exports = {
             return responseHelper.error(res, responseData);
         }
     },
-    resetPassword: async (req, res) => {
+    resetPassword: async(req, res) => {
         let reqBody = req.body;
         let resetPasswordToken = reqBody.token;
         log.info('Recieved request for password reset====>:', resetPasswordToken, reqBody);
@@ -1499,7 +1488,7 @@ module.exports = {
     /**
      * Method to handle email token verification
      */
-    verifyEmail: async (req, res) => {
+    verifyEmail: async(req, res) => {
         let emailToken = req.emailToken;
         log.info('Received request for email verification ::', emailToken);
         let responseData = {};
@@ -1538,7 +1527,7 @@ module.exports = {
     /**
      * Method to handle resend email verification link
      */
-    resendEmailVerification: async (req, res) => {
+    resendEmailVerification: async(req, res) => {
         let reqBody = req.body;
         log.info('Received request for handling resend email verification link:', reqBody);
         let responseData = {};

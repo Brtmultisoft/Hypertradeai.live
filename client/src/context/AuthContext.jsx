@@ -109,6 +109,13 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       setLoading(true);
+
+      // Clear any existing tokens or session data before login
+      localStorage.removeItem('token');
+      localStorage.removeItem('token_time');
+      localStorage.removeItem('user_data');
+      delete axios.defaults.headers.common['Authorization'];
+
       const res = await axios.post('/user/login', {
         userAddress: credentials.email, // Backend accepts email as userAddress
         password: credentials.password
@@ -124,6 +131,12 @@ export const AuthProvider = ({ children }) => {
 
         // Get current timestamp for token creation time
         const currentTime = Date.now().toString();
+
+        // Make sure force_relogin_time is null to prevent immediate session expiration
+        if (userData.force_relogin_time) {
+          userData.force_relogin_time = null;
+          userData.force_relogin_type = null;
+        }
 
         // Save token and token time to localStorage
         localStorage.setItem('token', newToken);
@@ -143,6 +156,8 @@ export const AuthProvider = ({ children }) => {
 
         // Set authorization header for future requests
         axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+
+        console.log('Login successful, token stored and headers set');
 
         return {
           success: true,
