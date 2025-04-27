@@ -1,0 +1,30 @@
+/* QR Scanner Styles */
+.qr-reader-element {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.qr-reader-element video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.qr-reader-element section {
+  width: 100% !important;
+  height: 100% !important;
+  padding-top: 0 !important;
+}
+
+.qr-reader-element section > div {
+  padding-top: 0 !important;
+  height: 100% !important;
+}
+
+#qr-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

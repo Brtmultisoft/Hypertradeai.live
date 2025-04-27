@@ -173,6 +173,8 @@ const Dashboard = () => {
     setLoadingCrypto(true);
     setCryptoError(null);
     try {
+      // Clear cache to force a fresh fetch
+      CryptoService.clearCache();
       const data = await CryptoService.getPrices();
       setCryptoPrices(data);
     } catch (error) {
@@ -203,6 +205,16 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData(); // This will also fetch the latest user data
     fetchCryptoPrices();
+
+    // Set up interval to refresh crypto prices every 60 seconds
+    const priceRefreshInterval = setInterval(() => {
+      fetchCryptoPrices();
+    }, 60000); // 60 seconds
+
+    // Clean up interval on component unmount
+    return () => {
+      clearInterval(priceRefreshInterval);
+    };
   }, []);
 
   // Sample chart data (replace with actual data from API)
@@ -1170,9 +1182,8 @@ const Dashboard = () => {
               )}
 
               {/* Crypto List */}
-              {!loadingCrypto && CRYPTO_ASSETS.map((asset, index) => {
+              {!loadingCrypto && CRYPTO_ASSETS.map((asset) => {
                 const cryptoData = cryptoPrices.find(crypto => crypto.id === asset.id) || {};
-                const isLastItem = index === CRYPTO_ASSETS.length - 1;
 
                 // Mock balances - in a real app, these would come from the user's wallet
                 const walletBalance = selectedWallet === 'main'
@@ -1189,78 +1200,213 @@ const Dashboard = () => {
                 };
 
                 const balance = mockBalances[asset.id] || 0;
-                const usdValue = balance * (cryptoData.current_price || 0);
+                const currentPrice = cryptoData.current_price || 0;
+                const usdValue = balance * currentPrice;
+                const priceChange = cryptoData.price_change_percentage_24h || 0;
+                const isPriceUp = priceChange >= 0;
 
                 return (
-                  <Box
+                  <Card
                     key={asset.id}
+                    elevation={0}
                     sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      py: 2,
-                      borderBottom: !isLastItem ? `1px solid ${theme.palette.divider}` : 'none',
+                      mb: 2,
+                      borderRadius: 2,
+                      backgroundColor: mode === 'dark' ? 'rgba(30, 35, 41, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                      border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
+                      boxShadow: mode === 'dark' ? '0 4px 12px rgba(0, 0, 0, 0.1)' : '0 4px 12px rgba(0, 0, 0, 0.03)',
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: mode === 'dark' ? '0 6px 16px rgba(0, 0, 0, 0.15)' : '0 6px 16px rgba(0, 0, 0, 0.06)',
+                      },
                       cursor: 'pointer',
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box
-                        component="img"
-                        src={asset.image}
-                        alt={asset.name}
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          mr: 2,
-                          borderRadius: '50%',
-                        }}
-                        onError={(e) => {
-                          e.target.src = `https://via.placeholder.com/40x40/${asset.fallbackColor.replace('#', '')}/FFFFFF?text=${asset.fallbackText}`;
-                        }}
-                      />
-                      <Box>
-                        <Typography variant="body1" fontWeight="medium">
-                          {asset.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {asset.symbol.toUpperCase()}
-                        </Typography>
+                    <CardContent sx={{ p: 2 }}>
+                      {/* Top Section - Coin Info and Balance */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: balance > 0 ? 1.5 : 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Box
+                            component="img"
+                            src={cryptoData.image || asset.image}
+                            alt={asset.name}
+                            sx={{
+                              width: 40,
+                              height: 40,
+                              mr: 2,
+                              borderRadius: '50%',
+                              border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}`,
+                              padding: 0.5,
+                              backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.8)',
+                            }}
+                            onError={(e) => {
+                              e.target.src = `https://via.placeholder.com/40x40/${asset.fallbackColor.replace('#', '')}/FFFFFF?text=${asset.fallbackText}`;
+                            }}
+                          />
+                          <Box>
+                            <Typography variant="body1" fontWeight="bold">
+                              {asset.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {asset.symbol.toUpperCase()}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        {/* Balance Display */}
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography variant="body1" fontWeight="bold">
+                            {balance.toLocaleString(undefined, {
+                              minimumFractionDigits: asset.id === 'tether' || asset.id === 'usd-coin' ? 2 : balance < 1 ? 4 : 2,
+                              maximumFractionDigits: asset.id === 'tether' || asset.id === 'usd-coin' ? 2 : balance < 1 ? 4 : 2
+                            })} {asset.symbol.toUpperCase()}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            ≈ ${usdValue.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </Typography>
+                        </Box>
                       </Box>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="body1" fontWeight="bold">
-                        {balance.toLocaleString(undefined, {
-                          minimumFractionDigits: asset.id === 'tether' || asset.id === 'usd-coin' ? 2 :
-                                                 balance < 1 ? 4 : 2,
-                          maximumFractionDigits: asset.id === 'tether' || asset.id === 'usd-coin' ? 2 :
-                                                 balance < 1 ? 4 : 2
-                        })}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        ${usdValue.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
-                        })}
-                      </Typography>
-                    </Box>
-                  </Box>
+
+                      {/* Live Price Section */}
+                      <Box
+                        sx={{
+                          pt: balance > 0 ? 1.5 : 0,
+                          borderTop: balance > 0 ? `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}` : 'none',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Typography variant="body2" color="text.secondary" fontWeight="medium">
+                            Live Price:
+                          </Typography>
+                        </Box>
+
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography variant="body2" fontWeight="bold">
+                            ${currentPrice.toLocaleString(undefined, {
+                              minimumFractionDigits: currentPrice < 1 ? 4 : 2,
+                              maximumFractionDigits: currentPrice < 1 ? 4 : 2
+                            })}
+                          </Typography>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              color: isPriceUp ? '#0ecb81' : '#f6465d',
+                            }}
+                          >
+                            {isPriceUp ? (
+                              <ArrowUpwardIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                            ) : (
+                              <ArrowDownwardIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                            )}
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontWeight: 'bold',
+                                color: 'inherit',
+                              }}
+                            >
+                              {Math.abs(priceChange).toFixed(2)}%
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
                 );
               })}
 
               {/* Price Update Indicator */}
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  mt: 2,
+                  mb: 1,
+                  position: 'relative',
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    px: 2,
+                    py: 0.75,
+                    borderRadius: 5,
+                    backgroundColor: mode === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)',
+                    border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}`,
+                    boxShadow: mode === 'dark' ? '0 4px 12px rgba(0, 0, 0, 0.2)' : '0 4px 12px rgba(0, 0, 0, 0.03)',
+                  }}
+                >
                   {loadingCrypto ? (
-                    <>
-                      <CircularProgress size={12} sx={{ mr: 1 }} />
-                      Updating prices...
-                    </>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <CircularProgress size={14} sx={{ mr: 1, color: theme.palette.primary.main }} />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 'medium',
+                          color: theme.palette.primary.main,
+                        }}
+                      >
+                        Updating live prices...
+                      </Typography>
+                    </Box>
                   ) : (
-                    <>
-                      Prices updated {new Date().toLocaleTimeString()}
-                    </>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <RefreshIcon
+                        sx={{
+                          fontSize: 14,
+                          mr: 1,
+                          color: '#0ecb81',
+                          animation: 'pulse 2s infinite',
+                          '@keyframes pulse': {
+                            '0%': { opacity: 0.6 },
+                            '50%': { opacity: 1 },
+                            '100%': { opacity: 0.6 },
+                          },
+                        }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 'medium',
+                          color: theme.palette.text.primary,
+                        }}
+                      >
+                        Live prices • Updated {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </Typography>
+                    </Box>
                   )}
-                </Typography>
+                </Box>
+
+                <Tooltip title="Refresh prices">
+                  <IconButton
+                    size="small"
+                    onClick={handleRefresh}
+                    disabled={loadingCrypto}
+                    sx={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.1)' : 'rgba(51, 117, 187, 0.05)',
+                      '&:hover': {
+                        backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.2)' : 'rgba(51, 117, 187, 0.1)',
+                      }
+                    }}
+                  >
+                    <RefreshIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
             </Box>
           </Box>
@@ -1275,15 +1421,15 @@ const Dashboard = () => {
                 No NFTs found
               </Typography>
               <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3, maxWidth: 300 }}>
-                Your NFT collection will appear here
+              Coming soon....
               </Typography>
-              <Button
+              {/* <Button
                 variant="outlined"
                 color="primary"
                 size="small"
               >
                 Browse NFTs
-              </Button>
+              </Button> */}
             </Box>
           </Box>
         )}

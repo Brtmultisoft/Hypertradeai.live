@@ -1,8 +1,96 @@
 import axios from 'axios';
 import api from './api';
 
-// CoinGecko API base URL (for fallback only)
+// CoinGecko API base URL
 const API_URL = 'https://api.coingecko.com/api/v3';
+
+// Alternative API endpoints in case CoinGecko fails
+const ALTERNATIVE_APIS = [{
+        name: 'CoinCap',
+        url: 'https://api.coincap.io/v2/assets',
+        transform: (data) => {
+            return data.data.map(coin => ({
+                id: coin.id,
+                symbol: coin.symbol.toLowerCase(),
+                name: coin.name,
+                current_price: parseFloat(coin.priceUsd),
+                price_change_percentage_24h: parseFloat(coin.changePercent24Hr),
+                image: `https://assets.coincap.io/assets/icons/${coin.symbol.toLowerCase()}@2x.png`
+            }));
+        }
+    },
+    {
+        name: 'CryptoCompare',
+        url: 'https://min-api.cryptocompare.com/data/pricemultifull',
+        params: {
+            fsyms: 'BTC,ETH,BNB,MATIC,USDC,USDT',
+            tsyms: 'USD'
+        },
+        transform: (data) => {
+            const result = [];
+            const raw = data.RAW;
+            const display = data.DISPLAY;
+
+            if (raw) {
+                if (raw.BTC) result.push({
+                    id: 'bitcoin',
+                    symbol: 'btc',
+                    name: 'Bitcoin',
+                    current_price: raw.BTC.USD.PRICE,
+                    price_change_percentage_24h: raw.BTC.USD.CHANGEPCT24HOUR,
+                    image: `https://www.cryptocompare.com${display.BTC.USD.IMAGEURL}`
+                });
+
+                if (raw.ETH) result.push({
+                    id: 'ethereum',
+                    symbol: 'eth',
+                    name: 'Ethereum',
+                    current_price: raw.ETH.USD.PRICE,
+                    price_change_percentage_24h: raw.ETH.USD.CHANGEPCT24HOUR,
+                    image: `https://www.cryptocompare.com${display.ETH.USD.IMAGEURL}`
+                });
+
+                if (raw.BNB) result.push({
+                    id: 'binancecoin',
+                    symbol: 'bnb',
+                    name: 'BNB',
+                    current_price: raw.BNB.USD.PRICE,
+                    price_change_percentage_24h: raw.BNB.USD.CHANGEPCT24HOUR,
+                    image: `https://www.cryptocompare.com${display.BNB.USD.IMAGEURL}`
+                });
+
+                if (raw.MATIC) result.push({
+                    id: 'matic-network',
+                    symbol: 'matic',
+                    name: 'Polygon',
+                    current_price: raw.MATIC.USD.PRICE,
+                    price_change_percentage_24h: raw.MATIC.USD.CHANGEPCT24HOUR,
+                    image: `https://www.cryptocompare.com${display.MATIC.USD.IMAGEURL}`
+                });
+
+                if (raw.USDC) result.push({
+                    id: 'usd-coin',
+                    symbol: 'usdc',
+                    name: 'USD Coin',
+                    current_price: raw.USDC.USD.PRICE,
+                    price_change_percentage_24h: raw.USDC.USD.CHANGEPCT24HOUR,
+                    image: `https://www.cryptocompare.com${display.USDC.USD.IMAGEURL}`
+                });
+
+                if (raw.USDT) result.push({
+                    id: 'tether',
+                    symbol: 'usdt',
+                    name: 'Tether',
+                    current_price: raw.USDT.USD.PRICE,
+                    price_change_percentage_24h: raw.USDT.USD.CHANGEPCT24HOUR,
+                    image: `https://www.cryptocompare.com${display.USDT.USD.IMAGEURL}`
+                });
+            }
+
+            return result;
+        }
+    }
+];
 
 // List of crypto assets we want to display
 const CRYPTO_IDS = [
@@ -18,10 +106,10 @@ const CRYPTO_IDS = [
 let priceCache = {
     data: null,
     timestamp: 0,
-    expiryTime: 5 * 60 * 1000 // 5 minutes in milliseconds
+    expiryTime: 60 * 1000 // 1 minute in milliseconds (reduced for more frequent updates)
 };
 
-// Fallback data in case the API is unavailable
+// Fallback data in case all APIs are unavailable
 const FALLBACK_PRICES = [{
         id: 'bitcoin',
         symbol: 'btc',
@@ -84,8 +172,9 @@ const CryptoService = {
                 return priceCache.data;
             }
 
-            // Try direct CoinGecko API first (will fail with CORS in browser)
+            // Try CoinGecko API first
             try {
+                console.log('Fetching prices from CoinGecko API...');
                 const response = await axios.get(`${API_URL}/coins/markets`, {
                     params: {
                         vs_currency: 'usd',
@@ -101,17 +190,49 @@ const CryptoService = {
                 // Update cache
                 priceCache.data = response.data;
                 priceCache.timestamp = now;
+                console.log('Successfully fetched prices from CoinGecko');
 
                 return response.data;
-            } catch (error) {
-                console.warn('Direct CoinGecko API failed, using fallback data:', error);
+            } catch (coinGeckoError) {
+                console.warn('CoinGecko API failed, trying alternative APIs:', coinGeckoError);
 
-                // If all else fails, return fallback data
-                console.log('Using hardcoded fallback data');
+                // Try alternative APIs one by one
+                for (const api of ALTERNATIVE_APIS) {
+                    try {
+                        console.log(`Trying ${api.name} API...`);
+                        const response = await axios.get(api.url, {
+                            params: api.params
+                        });
 
-                // Update cache with fallback data
+                        // Transform the data to match our expected format
+                        const transformedData = api.transform(response.data);
+
+                        // Filter to only include the coins we want
+                        const filteredData = transformedData.filter(coin =>
+                            CRYPTO_IDS.includes(coin.id)
+                        );
+
+                        if (filteredData.length > 0) {
+                            console.log(`Successfully fetched prices from ${api.name}`);
+
+                            // Update cache
+                            priceCache.data = filteredData;
+                            priceCache.timestamp = now;
+
+                            return filteredData;
+                        }
+                    } catch (alternativeApiError) {
+                        console.warn(`${api.name} API failed:`, alternativeApiError);
+                    }
+                }
+
+                // If all APIs fail, use fallback data
+                console.log('All APIs failed, using fallback data');
+
+                // Update cache with fallback data but with shorter expiry
                 priceCache.data = FALLBACK_PRICES;
                 priceCache.timestamp = now;
+                priceCache.expiryTime = 30 * 1000; // Try again in 30 seconds
 
                 return FALLBACK_PRICES;
             }
@@ -181,8 +302,7 @@ const CryptoService = {
 };
 
 // Crypto asset data with reliable image URLs and fallback colors
-export const CRYPTO_ASSETS = [
-    {
+export const CRYPTO_ASSETS = [{
         id: 'tether',
         symbol: 'usdt',
         name: 'Tether',
@@ -230,7 +350,7 @@ export const CRYPTO_ASSETS = [
         fallbackColor: '#2775CA',
         fallbackText: 'USDC'
     }
-  
+
 ];
 
 export default CryptoService;

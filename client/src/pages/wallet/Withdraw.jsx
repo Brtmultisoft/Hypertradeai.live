@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './QrScanner.css';
 import {
   Box,
   Typography,
@@ -19,15 +20,11 @@ import {
   Snackbar,
   Checkbox,
   FormControlLabel,
-  Divider,
   Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Fade,
-  Backdrop,
-  Modal,
   useMediaQuery,
 } from '@mui/material';
 import {
@@ -39,7 +36,6 @@ import {
   Refresh as RefreshIcon,
   Close as CloseIcon,
   CameraAlt as CameraIcon,
-  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import { QrReader } from 'react-qr-reader';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
@@ -53,7 +49,6 @@ const Withdraw = () => {
   const { mode } = useAppTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const videoRef = useRef(null);
 
   // Form state
   const [activeTab, setActiveTab] = useState(0);
@@ -272,22 +267,12 @@ const Withdraw = () => {
   const handleOpenScanner = () => {
     setScannerOpen(true);
 
-    // Request camera permission
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(() => {
-          setHasPermission(true);
-          setScannerError('');
-        })
-        .catch(error => {
-          console.error('Error accessing camera:', error);
-          setHasPermission(false);
-          setScannerError('Unable to access camera. Please check your camera permissions.');
-        });
-    } else {
-      setScannerError('Camera access is not supported in this browser.');
-      setHasPermission(false);
-    }
+    // Reset error state
+    setScannerError('');
+
+    // We'll set permission in the QrReader component directly
+    // This approach works better with the react-qr-reader library
+    setHasPermission(true);
   };
 
   // Handle QR scanner close
@@ -320,11 +305,7 @@ const Withdraw = () => {
     }
   };
 
-  // Handle QR scan error
-  const handleScanError = (error) => {
-    console.error('QR scan error:', error);
-    setScannerError('Error scanning QR code. Please try again.');
-  };
+
 
   return (
     <Box sx={{ width: '100%', pb: 4 }}>
@@ -683,12 +664,14 @@ const Withdraw = () => {
           onClose={handleCloseScanner}
           maxWidth="sm"
           fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              backgroundColor: mode === 'dark' ? '#1E2329' : '#FFFFFF',
-              backgroundImage: 'none',
-              overflow: 'hidden',
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 3,
+                backgroundColor: mode === 'dark' ? '#1E2329' : '#FFFFFF',
+                backgroundImage: 'none',
+                overflow: 'hidden',
+              }
             }
           }}
         >
@@ -720,20 +703,35 @@ const Withdraw = () => {
                 </Button>
               </Box>
             ) : (
-              <Box sx={{ position: 'relative', height: 300 }}>
+              <Box
+                sx={{
+                  position: 'relative',
+                  height: 350,
+                  overflow: 'hidden',
+                  backgroundColor: '#000',
+                }}
+              >
                 <QrReader
-                  constraints={{ facingMode: 'environment' }}
+                  constraints={{
+                    facingMode: 'environment',
+                    width: { min: 640, ideal: 1280, max: 1920 },
+                    height: { min: 480, ideal: 720, max: 1080 },
+                    aspectRatio: 1.777777778,
+                    frameRate: { max: 30 }
+                  }}
                   onResult={handleScanResult}
-                  scanDelay={500}
+                  scanDelay={300}
+                  videoId="qr-video"
+                  className="qr-reader-element"
+                  containerStyle={{
+                    width: '100%',
+                    height: '100%',
+                  }}
                   videoStyle={{
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
-                  }}
-                  videoContainerStyle={{
-                    width: '100%',
-                    height: '100%',
-                    paddingTop: 0,
+                    transform: isMobile ? 'scaleX(-1)' : 'none', // Mirror for front camera on mobile
                   }}
                   ViewFinder={() => (
                     <Box
@@ -748,6 +746,28 @@ const Withdraw = () => {
                         borderRadius: 2,
                         boxShadow: '0 0 0 4000px rgba(0, 0, 0, 0.5)',
                         zIndex: 10,
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: 20,
+                          height: 20,
+                          borderTop: '2px solid #3375BB',
+                          borderLeft: '2px solid #3375BB',
+                          borderTopLeftRadius: 8,
+                        },
+                        '&::after': {
+                          content: '""',
+                          position: 'absolute',
+                          bottom: 0,
+                          right: 0,
+                          width: 20,
+                          height: 20,
+                          borderBottom: '2px solid #3375BB',
+                          borderRight: '2px solid #3375BB',
+                          borderBottomRightRadius: 8,
+                        }
                       }}
                     />
                   )}
