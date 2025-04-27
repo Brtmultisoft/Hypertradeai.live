@@ -22,6 +22,7 @@ import {
   ListItemIcon,
   ListItemText,
   Snackbar,
+  Fade,
 } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
@@ -43,6 +44,13 @@ import {
   CreditCard as CreditCardIcon,
   Redeem as RedeemIcon,
   Close as CloseIcon,
+  Share as ShareIcon,
+  PersonAdd as PersonAddIcon,
+  WhatsApp as WhatsAppIcon,
+  Facebook as FacebookIcon,
+  Twitter as TwitterIcon,
+  Telegram as TelegramIcon,
+  Email as EmailIcon,
 } from '@mui/icons-material';
 import EarningsChart from '../../components/dashboard/EarningsChart';
 import TeamGrowthChart from '../../components/dashboard/TeamGrowthChart';
@@ -74,6 +82,10 @@ const Dashboard = () => {
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [walletMenuAnchor, setWalletMenuAnchor] = useState(null);
 
+  // State for share menu
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [shareMenuAnchor, setShareMenuAnchor] = useState(null);
+
   // State for crypto prices
   const [cryptoPrices, setCryptoPrices] = useState([]);
   const [loadingCrypto, setLoadingCrypto] = useState(false);
@@ -102,6 +114,52 @@ const Dashboard = () => {
     setWalletMenuAnchor(null);
   };
 
+  // Handle share menu close
+  const handleShareMenuClose = () => {
+    setShareMenuOpen(false);
+    setShareMenuAnchor(null);
+  };
+
+  // Handle share via specific platform
+  const handleShare = (platform) => {
+    const referralCode = userData?.sponsorID;
+    const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
+    const shareText = 'Join HypeTrade AI using my referral link:';
+
+    let shareUrl = '';
+
+    switch(platform) {
+      case 'whatsapp':
+        shareUrl = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + referralLink)}`;
+        break;
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}`;
+        break;
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(referralLink)}`;
+        break;
+      case 'telegram':
+        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(shareText)}`;
+        break;
+      case 'email':
+        shareUrl = `mailto:?subject=${encodeURIComponent('Join HypeTrade AI')}&body=${encodeURIComponent(shareText + ' ' + referralLink)}`;
+        break;
+      default:
+        // Copy to clipboard as fallback
+        navigator.clipboard.writeText(referralLink)
+          .then(() => {
+            showSnackbar('Referral link copied to clipboard!', 'success');
+          });
+        handleShareMenuClose();
+        return;
+    }
+
+    // Open share URL in a new window
+    window.open(shareUrl, '_blank');
+    showSnackbar('Thanks for sharing!', 'success');
+    handleShareMenuClose();
+  };
+
   // Handle manual refresh
   const handleRefresh = () => {
     fetchDashboardData();
@@ -127,7 +185,7 @@ const Dashboard = () => {
   };
 
   // Handle snackbar close
-  const handleSnackbarClose = (event, reason) => {
+  const handleSnackbarClose = (_, reason) => {
     if (reason === 'clickaway') {
       return;
     }
@@ -192,38 +250,525 @@ const Dashboard = () => {
         </Alert>
       </Snackbar>
 
+      {/* Enhanced Share Menu */}
+      <Menu
+        anchorEl={shareMenuAnchor}
+        open={shareMenuOpen}
+        onClose={handleShareMenuClose}
+        slots={{ transition: Fade }}
+        slotProps={{
+          transition: { timeout: 300 },
+          paper: {
+            sx: {
+              mt: 1,
+              width: 280,
+              borderRadius: 3,
+              overflow: 'hidden',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+              border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}`,
+              background: mode === 'dark'
+                ? 'linear-gradient(135deg, rgba(30, 35, 41, 0.95) 0%, rgba(26, 29, 35, 0.95) 100%)'
+                : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 247, 250, 0.95) 100%)',
+              backdropFilter: 'blur(10px)',
+            }
+          }
+        }}
+      >
+        <Box sx={{ p: 2, pb: 1 }}>
+          <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+            Share Your Referral Link
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+            Invite friends and earn rewards when they join!
+          </Typography>
+        </Box>
+
+        <Box sx={{ px: 1, pb: 1 }}>
+          <Grid container spacing={1}>
+            <Grid item xs={4}>
+              <Box
+                onClick={() => handleShare('whatsapp')}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  p: 1,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    transform: 'translateY(-2px)',
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(37, 211, 102, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <WhatsAppIcon sx={{ color: '#25D366' }} />
+                </Box>
+                <Typography variant="caption" align="center">WhatsApp</Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Box
+                onClick={() => handleShare('facebook')}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  p: 1,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    transform: 'translateY(-2px)',
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(24, 119, 242, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <FacebookIcon sx={{ color: '#1877F2' }} />
+                </Box>
+                <Typography variant="caption" align="center">Facebook</Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Box
+                onClick={() => handleShare('twitter')}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  p: 1,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    transform: 'translateY(-2px)',
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(29, 161, 242, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <TwitterIcon sx={{ color: '#1DA1F2' }} />
+                </Box>
+                <Typography variant="caption" align="center">Twitter</Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Box
+                onClick={() => handleShare('telegram')}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  p: 1,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    transform: 'translateY(-2px)',
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(0, 136, 204, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <TelegramIcon sx={{ color: '#0088cc' }} />
+                </Box>
+                <Typography variant="caption" align="center">Telegram</Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Box
+                onClick={() => handleShare('email')}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  p: 1,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    transform: 'translateY(-2px)',
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <EmailIcon sx={{ color: theme.palette.text.secondary }} />
+                </Box>
+                <Typography variant="caption" align="center">Email</Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Box
+                onClick={() => {
+                  const referralCode = userData?.sponsorID;
+                  const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
+
+                  navigator.clipboard.writeText(referralLink)
+                    .then(() => {
+                      showSnackbar('Referral link copied to clipboard!', 'success');
+                      handleShareMenuClose();
+                    });
+                }}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  p: 1,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    transform: 'translateY(-2px)',
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(51, 117, 187, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <ContentCopyIcon sx={{ color: theme.palette.primary.main }} />
+                </Box>
+                <Typography variant="caption" align="center">Copy Link</Typography>
+              </Box>
+            </Grid>
+          </Grid>
+        </Box>
+
+        <Divider sx={{ my: 1 }} />
+
+        <Box sx={{ p: 2, pt: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Your referral code: <Box component="span" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>{userData?.sponsorID}</Box>
+          </Typography>
+        </Box>
+      </Menu>
+
       {dashboardError && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {dashboardError}
         </Alert>
       )}
 
-      {/* Search Bar - Trust Wallet Style */}
-      <Box
+      {/* Referral Link Box - Enhanced Design */}
+      <Card
+        elevation={0}
         sx={{
           mb: 2,
-          px: { xs: 1, sm: 2 },
-          display: 'flex',
-          alignItems: 'center',
-          borderRadius: { xs: 4, sm: 8 },
-          backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-          height: 48,
-          width: '100%'
+          mt: 2,
+          borderRadius: { xs: 2, sm: 3 },
+          border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.2)' : 'rgba(51, 117, 187, 0.1)'}`,
+          background: mode === 'dark'
+            ? 'linear-gradient(135deg, rgba(51, 117, 187, 0.1) 0%, rgba(51, 117, 187, 0.05) 100%)'
+            : 'linear-gradient(135deg, rgba(51, 117, 187, 0.05) 0%, rgba(255, 255, 255, 0.8) 100%)',
+          overflow: 'hidden',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: mode === 'dark'
+              ? 'radial-gradient(circle at top right, rgba(51, 117, 187, 0.15), transparent 70%)'
+              : 'radial-gradient(circle at top right, rgba(51, 117, 187, 0.1), transparent 70%)',
+            zIndex: 0,
+          },
         }}
       >
-        <SearchIcon sx={{ ml: { xs: 1, sm: 2 }, color: theme.palette.text.secondary }} />
-        <InputBase
-          placeholder="Search"
+        <Box
           sx={{
-            ml: 1,
-            flex: 1,
-            color: theme.palette.text.primary,
-            '& .MuiInputBase-input': {
-              p: 1,
-            }
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            position: 'relative',
+            zIndex: 1,
           }}
-        />
-      </Box>
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                backgroundColor: `${theme.palette.primary.main}20`,
+                color: theme.palette.primary.main,
+                mr: 2,
+                boxShadow: `0 0 10px ${theme.palette.primary.main}30`,
+              }}
+            >
+              <PersonAddIcon />
+            </Box>
+            <Box>
+              <Typography
+                variant="subtitle2"
+                fontWeight="medium"
+                sx={{
+                  color: theme.palette.text.primary,
+                }}
+              >
+                Your Referral Link
+              </Typography>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.8,
+                  width: '100%',
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    backgroundColor: mode === 'dark' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 2,
+                    py: 0.8,
+                    px: 1.5,
+                    width: '100%',
+                    border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)'}`,
+                    boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.1)',
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    noWrap
+                    sx={{
+                      color: theme.palette.text.primary,
+                      flex: 1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      fontSize: '0.85rem',
+                      fontFamily: 'monospace',
+                      letterSpacing: '0.3px',
+                    }}
+                  >
+                    {userData?.sponsorID ? `${window.location.origin}/register?ref=${userData.sponsorID}` : 'Loading referral link...'}
+                  </Typography>
+                </Box>
+
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.15)' : 'rgba(51, 117, 187, 0.08)',
+                      borderRadius: 1.5,
+                      px: 1,
+                      py: 0.3,
+                      border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.3)' : 'rgba(51, 117, 187, 0.15)'}`,
+                      boxShadow: mode === 'dark' ? '0 2px 4px rgba(0, 0, 0, 0.2)' : '0 1px 3px rgba(0, 0, 0, 0.05)',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: theme.palette.primary.main,
+                        fontWeight: 'medium',
+                        fontSize: '0.7rem',
+                        letterSpacing: '0.3px',
+                      }}
+                    >
+                      Your ID: <Box
+                        component="span"
+                        sx={{
+                          fontWeight: 'bold',
+                          color: mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
+                        }}
+                      >
+                        {userData?.sponsorID || 'Loading...'}
+                      </Box>
+                    </Typography>
+                  </Box>
+
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: theme.palette.text.secondary,
+                      fontSize: '0.7rem',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    Share to earn rewards
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', ml: 1 }}>
+            <Tooltip title="Copy Referral Link">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  const referralCode = userData?.sponsorID;
+                  const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
+
+                  if (!referralCode) {
+                    showSnackbar('Unable to get your referral code. Please refresh the page.', 'error');
+                    return;
+                  }
+
+                  navigator.clipboard.writeText(referralLink)
+                    .then(() => {
+                      showSnackbar(`Referral link copied to clipboard!`, 'success');
+                    })
+                    .catch((error) => {
+                      console.error('Failed to copy: ', error);
+                      showSnackbar('Failed to copy referral link', 'error');
+                    });
+                }}
+                sx={{
+                  mr: 1,
+                  color: theme.palette.primary.main,
+                  backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+                  border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.2)' : 'rgba(51, 117, 187, 0.1)'}`,
+                  '&:hover': {
+                    backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.2)' : 'rgba(51, 117, 187, 0.1)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 4px 8px rgba(0, 0, 0, 0.1)`,
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Share Referral Link">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  const referralCode = userData?.sponsorID;
+                  const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
+
+                  if (!referralCode) {
+                    showSnackbar('Unable to get your referral code. Please refresh the page.', 'error');
+                    return;
+                  }
+
+                  // Check if Web Share API is available
+                  if (navigator.share) {
+                    navigator.share({
+                      title: 'Join HypeTrade AI',
+                      text: 'Join HypeTrade AI using my referral link:',
+                      url: referralLink,
+                    })
+                      .then(() => {
+                        showSnackbar('Thanks for sharing!', 'success');
+                      })
+                      .catch((error) => {
+                        console.error('Error sharing:', error);
+                        // Fallback to clipboard if sharing fails
+                        navigator.clipboard.writeText(referralLink)
+                          .then(() => {
+                            showSnackbar('Referral link copied to clipboard!', 'success');
+                          });
+                      });
+                  } else {
+                    // Fallback for browsers that don't support the Web Share API
+                    // Open a popup with share options
+                    setShareMenuAnchor(e.currentTarget);
+                    setShareMenuOpen(true);
+                  }
+                }}
+                sx={{
+                  backgroundColor: theme.palette.primary.main,
+                  color: '#fff',
+                  '&:hover': {
+                    backgroundColor: theme.palette.primary.dark,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 4px 8px rgba(51, 117, 187, 0.3)`,
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <ShareIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      </Card>
 
       {/* Wallet Selector - Trust Wallet Style */}
       <Box sx={{ mb: 2, px: { xs: 1, sm: 2 }, width: '100%' }}>
@@ -282,7 +827,7 @@ const Dashboard = () => {
                     });
                 }}
               >
-                <ContentCopyIcon fontSize="small" />
+                {/* <ContentCopyIcon fontSize="small" /> */}
               </IconButton>
             </Tooltip>
             <Tooltip title="Refresh Balance">
@@ -1081,9 +1626,7 @@ const Dashboard = () => {
                   alignItems: 'center',
                   cursor: 'pointer',
                 }}
-                onClick={() => {
-                  // Use userData from useData hook which is always up-to-date
-                  // The API returns username as the referral code
+                onClick={(e) => {
                   const referralCode = userData?.sponsorID;
                   const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
 
@@ -1092,14 +1635,30 @@ const Dashboard = () => {
                     return;
                   }
 
-                  navigator.clipboard.writeText(referralLink)
-                    .then(() => {
-                      showSnackbar(`Referral link with code "${referralCode}" copied to clipboard!`, 'success');
+                  // Check if Web Share API is available
+                  if (navigator.share) {
+                    navigator.share({
+                      title: 'Join HypeTrade AI',
+                      text: 'Join HypeTrade AI using my referral link:',
+                      url: referralLink,
                     })
-                    .catch((error) => {
-                      console.error('Failed to copy: ', error);
-                      showSnackbar('Failed to copy referral link', 'error');
-                    });
+                      .then(() => {
+                        showSnackbar('Thanks for sharing!', 'success');
+                      })
+                      .catch((error) => {
+                        console.error('Error sharing:', error);
+                        // Fallback to clipboard if sharing fails
+                        navigator.clipboard.writeText(referralLink)
+                          .then(() => {
+                            showSnackbar('Referral link copied to clipboard!', 'success');
+                          });
+                      });
+                  } else {
+                    // Fallback for browsers that don't support the Web Share API
+                    // Open a popup with share options
+                    setShareMenuAnchor(e.currentTarget);
+                    setShareMenuOpen(true);
+                  }
                 }}
               >
                 <Box
@@ -1110,14 +1669,27 @@ const Dashboard = () => {
                     width: 48,
                     height: 48,
                     borderRadius: '50%',
-                    backgroundColor: `${theme.palette.primary.main}15`,
-                    color: theme.palette.primary.main,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                    color: '#FFFFFF',
                     mb: 1,
+                    boxShadow: `0 4px 10px ${theme.palette.primary.main}40`,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 6px 15px ${theme.palette.primary.main}60`,
+                    }
                   }}
                 >
-                  <PeopleIcon />
+                  <ShareIcon />
                 </Box>
-                <Typography variant="caption" align="center">
+                <Typography
+                  variant="caption"
+                  align="center"
+                  sx={{
+                    fontWeight: 'medium',
+                    color: theme.palette.primary.main
+                  }}
+                >
                   Invite
                 </Typography>
               </Box>

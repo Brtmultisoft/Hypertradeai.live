@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -21,6 +21,14 @@ import {
   FormControlLabel,
   Divider,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Fade,
+  Backdrop,
+  Modal,
+  useMediaQuery,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -29,7 +37,11 @@ import {
   Send as SendIcon,
   CheckCircle as CheckCircleIcon,
   Refresh as RefreshIcon,
+  Close as CloseIcon,
+  CameraAlt as CameraIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
+import { QrReader } from 'react-qr-reader';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 import { useTheme as useAppTheme } from '../../context/ThemeContext';
 import useData from '../../hooks/useData';
@@ -40,15 +52,27 @@ const Withdraw = () => {
   const theme = useMuiTheme();
   const { mode } = useAppTheme();
   const navigate = useNavigate();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const videoRef = useRef(null);
+
+  // Form state
   const [activeTab, setActiveTab] = useState(0);
   const [amount, setAmount] = useState('');
   const [address, setAddress] = useState('');
   const [errors, setErrors] = useState({});
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  // UI state
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   const [refreshing, setRefreshing] = useState(false);
+
+  // QR Scanner state
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerError, setScannerError] = useState('');
+  const [hasPermission, setHasPermission] = useState(null);
+
   const { dashboardData, fetchDashboardData } = useData();
 
   // Use real wallet data from dashboardData
@@ -244,6 +268,64 @@ const Withdraw = () => {
       });
   };
 
+  // Handle QR scanner open
+  const handleOpenScanner = () => {
+    setScannerOpen(true);
+
+    // Request camera permission
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(() => {
+          setHasPermission(true);
+          setScannerError('');
+        })
+        .catch(error => {
+          console.error('Error accessing camera:', error);
+          setHasPermission(false);
+          setScannerError('Unable to access camera. Please check your camera permissions.');
+        });
+    } else {
+      setScannerError('Camera access is not supported in this browser.');
+      setHasPermission(false);
+    }
+  };
+
+  // Handle QR scanner close
+  const handleCloseScanner = () => {
+    setScannerOpen(false);
+  };
+
+  // Handle QR scan result
+  const handleScanResult = (result) => {
+    if (result) {
+      // Extract address from QR code
+      let scannedAddress = result?.text || '';
+
+      // Clean up the address if needed (remove protocol, etc.)
+      if (scannedAddress.includes(':')) {
+        scannedAddress = scannedAddress.split(':').pop();
+      }
+
+      // Set the address and validate it
+      setAddress(scannedAddress);
+      validateAddress(scannedAddress);
+
+      // Close the scanner
+      handleCloseScanner();
+
+      // Show success message
+      setSnackbarMessage('Address scanned successfully!');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    }
+  };
+
+  // Handle QR scan error
+  const handleScanError = (error) => {
+    console.error('QR scan error:', error);
+    setScannerError('Error scanning QR code. Please try again.');
+  };
+
   return (
     <Box sx={{ width: '100%', pb: 4 }}>
       {/* Header */}
@@ -256,12 +338,13 @@ const Withdraw = () => {
           top: 0,
           backgroundColor: theme.palette.background.paper,
           zIndex: 10,
+          boxShadow: mode === 'dark' ? '0 4px 20px rgba(0, 0, 0, 0.3)' : '0 4px 20px rgba(0, 0, 0, 0.1)',
         }}
       >
         <IconButton onClick={handleBack} edge="start" sx={{ mr: 2 }}>
           <ArrowBackIcon />
         </IconButton>
-        <Typography variant="h6">Withdraw</Typography>
+        <Typography variant="h6" fontWeight="bold">Withdraw</Typography>
       </Box>
 
       {/* Currency Selection Tabs */}
@@ -275,12 +358,15 @@ const Withdraw = () => {
           px: 2,
           '& .MuiTabs-indicator': {
             backgroundColor: theme.palette.primary.main,
+            height: 3,
+            borderRadius: '3px 3px 0 0',
           },
           '& .MuiTab-root': {
             textTransform: 'none',
             fontWeight: 600,
-            fontSize: '0.9rem',
+            fontSize: '0.95rem',
             minWidth: 'auto',
+            transition: 'all 0.2s ease',
             '&.Mui-selected': {
               color: theme.palette.primary.main,
             },
@@ -299,9 +385,16 @@ const Withdraw = () => {
           elevation={0}
           sx={{
             mb: 3,
-            borderRadius: 2,
+            borderRadius: 3,
             border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
             position: 'relative',
+            background: mode === 'dark'
+              ? 'linear-gradient(135deg, rgba(30, 35, 41, 0.95) 0%, rgba(26, 29, 35, 0.95) 100%)'
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 247, 250, 0.95) 100%)',
+            boxShadow: mode === 'dark'
+              ? '0 8px 16px rgba(0, 0, 0, 0.3)'
+              : '0 8px 16px rgba(0, 0, 0, 0.05)',
+            overflow: 'hidden',
           }}
         >
           {refreshing && (
@@ -315,39 +408,44 @@ const Withdraw = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: 'rgba(0, 0, 0, 0.1)',
-                borderRadius: 2,
+                backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                borderRadius: 3,
                 zIndex: 1,
+                backdropFilter: 'blur(4px)',
               }}
             >
-              <CircularProgress size={30} />
+              <CircularProgress size={30} color="primary" />
             </Box>
           )}
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Box
                   component="img"
                   src={balances[activeTab].icon}
                   alt={balances[activeTab].currency}
                   sx={{
-                    width: 40,
-                    height: 40,
+                    width: 48,
+                    height: 48,
                     mr: 2,
                     borderRadius: '50%',
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                    border: `2px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.8)'}`,
+                    p: 0.5,
+                    backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.8)',
                   }}
                   onError={(e) => {
                     e.target.src = balances[activeTab].placeholder;
                   }}
                 />
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary">
+                  <Typography variant="subtitle2" color="text.secondary" fontWeight="medium">
                     Available Balance
                   </Typography>
-                  <Typography variant="h6" fontWeight="bold">
+                  <Typography variant="h5" fontWeight="bold" sx={{ my: 0.5 }}>
                     {balances[activeTab].balance} {balances[activeTab].currency}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary">
                     ≈ ${balances[activeTab].usdValue.toFixed(2)} USD
                   </Typography>
                 </Box>
@@ -357,7 +455,13 @@ const Withdraw = () => {
                   onClick={handleRefreshBalance}
                   disabled={refreshing}
                   size="small"
-                  sx={{ mt: 1 }}
+                  sx={{
+                    mt: 1,
+                    backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    '&:hover': {
+                      backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                    }
+                  }}
                 >
                   <RefreshIcon fontSize="small" />
                 </IconButton>
@@ -370,59 +474,25 @@ const Withdraw = () => {
         <Paper
           elevation={0}
           sx={{
-            p: 2,
-            borderRadius: 2,
+            p: 3,
+            borderRadius: 3,
             border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
             mb: 3,
+            background: mode === 'dark'
+              ? 'linear-gradient(135deg, rgba(30, 35, 41, 0.95) 0%, rgba(26, 29, 35, 0.95) 100%)'
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 247, 250, 0.95) 100%)',
+            boxShadow: mode === 'dark'
+              ? '0 8px 16px rgba(0, 0, 0, 0.3)'
+              : '0 8px 16px rgba(0, 0, 0, 0.05)',
           }}
         >
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="h6" fontWeight="bold" color="text.primary" sx={{ mb: 3 }}>
             Withdraw {balances[activeTab].currency}
           </Typography>
 
-          {/* Amount Field */}
-          <FormControl fullWidth error={!!errors.amount} sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Amount
-            </Typography>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder={`Enter ${balances[activeTab].currency} amount`}
-              value={amount}
-              onChange={handleAmountChange}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Button
-                      variant="text"
-                      color="primary"
-                      size="small"
-                      onClick={handleMaxAmount}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      MAX
-                    </Button>
-                    <Typography variant="body2" sx={{ ml: 1 }}>
-                      {balances[activeTab].currency}
-                    </Typography>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            {amount && !errors.amount && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                ≈ ${getAmountUsdValue()} USD
-              </Typography>
-            )}
-            {errors.amount && (
-              <FormHelperText>{errors.amount}</FormHelperText>
-            )}
-          </FormControl>
-
-          {/* Address Field */}
+          {/* Address Field - Now on top */}
           <FormControl fullWidth error={!!errors.address} sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <Typography variant="body2" color="text.secondary" fontWeight="medium" sx={{ mb: 1 }}>
               Recipient Address
             </Typography>
             <TextField
@@ -431,44 +501,146 @@ const Withdraw = () => {
               placeholder={`Enter ${balances[activeTab].currency} address`}
               value={address}
               onChange={handleAddressChange}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton edge="end">
-                      <QrCodeIcon />
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  backgroundColor: mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.8)',
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: theme.palette.primary.main,
+                  },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: theme.palette.primary.main,
+                    borderWidth: 2,
+                  },
+                },
+              }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title="Scan QR Code">
+                        <IconButton edge="end" onClick={handleOpenScanner} sx={{ color: theme.palette.primary.main }}>
+                          <QrCodeIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  ),
+                }
               }}
             />
             {errors.address && (
-              <FormHelperText>{errors.address}</FormHelperText>
+              <FormHelperText sx={{ color: theme.palette.error.main, fontWeight: 'medium', ml: 0, mt: 1 }}>
+                {errors.address}
+              </FormHelperText>
+            )}
+          </FormControl>
+
+          {/* Amount Field */}
+          <FormControl fullWidth error={!!errors.amount} sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" fontWeight="medium" sx={{ mb: 1 }}>
+              Amount
+            </Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder={`Enter ${balances[activeTab].currency} amount`}
+              value={amount}
+              onChange={handleAmountChange}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  backgroundColor: mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.8)',
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: theme.palette.primary.main,
+                  },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: theme.palette.primary.main,
+                    borderWidth: 2,
+                  },
+                },
+              }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="small"
+                        onClick={handleMaxAmount}
+                        sx={{
+                          textTransform: 'none',
+                          borderRadius: 1.5,
+                          px: 2,
+                          py: 0.5,
+                          mr: 1,
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        MAX
+                      </Button>
+                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                        {balances[activeTab].currency}
+                      </Typography>
+                    </InputAdornment>
+                  ),
+                }
+              }}
+            />
+            {amount && !errors.amount && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                ≈ ${getAmountUsdValue()} USD
+              </Typography>
+            )}
+            {errors.amount && (
+              <FormHelperText sx={{ color: theme.palette.error.main, fontWeight: 'medium', ml: 0, mt: 1 }}>
+                {errors.amount}
+              </FormHelperText>
             )}
           </FormControl>
 
           {/* Network Fee */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Box
+            sx={{
+              mb: 3,
+              p: 2,
+              borderRadius: 2,
+              backgroundColor: mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.03)',
+              border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
+            }}
+          >
+            <Typography variant="body2" color="text.secondary" fontWeight="medium" sx={{ mb: 1 }}>
               Network Fee
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="body2">
+              <Typography variant="body1" fontWeight="medium">
                 {networkFee} {balances[activeTab].currency}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="body2" color="text.secondary">
                 ≈ ${networkFeeUsd} USD
               </Typography>
             </Box>
           </Box>
 
           {/* Terms and Conditions */}
-          <Box sx={{ mb: 3 }}>
+          <Box
+            sx={{
+              mb: 3,
+              p: 2,
+              borderRadius: 2,
+              backgroundColor: mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.03)',
+              border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
+            }}
+          >
             <FormControlLabel
               control={
                 <Checkbox
                   checked={agreedToTerms}
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
                   color="primary"
+                  sx={{
+                    color: theme.palette.primary.main,
+                  }}
                 />
               }
               label={
@@ -491,43 +663,155 @@ const Withdraw = () => {
             sx={{
               py: 1.5,
               borderRadius: 2,
+              fontWeight: 'bold',
+              fontSize: '1rem',
+              boxShadow: '0 4px 12px rgba(51, 117, 187, 0.3)',
+              '&:hover': {
+                boxShadow: '0 6px 16px rgba(51, 117, 187, 0.4)',
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.2s ease',
             }}
           >
             {submittingWithdrawal ? 'Processing...' : `Withdraw ${balances[activeTab].currency}`}
           </Button>
         </Paper>
 
-        {/* Snackbar for notifications */}
-        <Snackbar
-          open={snackbarOpen}
-          autoHideDuration={6000}
-          onClose={handleSnackbarClose}
-          message={snackbarMessage}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        {/* QR Code Scanner Dialog */}
+        <Dialog
+          open={scannerOpen}
+          onClose={handleCloseScanner}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              backgroundColor: mode === 'dark' ? '#1E2329' : '#FFFFFF',
+              backgroundImage: 'none',
+              overflow: 'hidden',
+            }
+          }}
         >
-          <Alert
-            onClose={handleSnackbarClose}
-            severity={snackbarSeverity}
-            sx={{ width: '100%' }}
-            icon={snackbarSeverity === 'success' ? <CheckCircleIcon /> : undefined}
-          >
-            {snackbarMessage}
-          </Alert>
-        </Snackbar>
+          <DialogTitle sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+            p: 2,
+          }}>
+            <Typography variant="h6" fontWeight="bold">Scan QR Code</Typography>
+            <IconButton onClick={handleCloseScanner} size="small">
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+
+          <DialogContent sx={{ p: 0 }}>
+            {hasPermission === false ? (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography color="error" sx={{ mb: 2 }}>
+                  {scannerError || 'Camera permission denied'}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  onClick={handleOpenScanner}
+                  startIcon={<CameraIcon />}
+                >
+                  Try Again
+                </Button>
+              </Box>
+            ) : (
+              <Box sx={{ position: 'relative', height: 300 }}>
+                <QrReader
+                  constraints={{ facingMode: 'environment' }}
+                  onResult={handleScanResult}
+                  scanDelay={500}
+                  videoStyle={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                  videoContainerStyle={{
+                    width: '100%',
+                    height: '100%',
+                    paddingTop: 0,
+                  }}
+                  ViewFinder={() => (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: 200,
+                        height: 200,
+                        border: '2px solid #3375BB',
+                        borderRadius: 2,
+                        boxShadow: '0 0 0 4000px rgba(0, 0, 0, 0.5)',
+                        zIndex: 10,
+                      }}
+                    />
+                  )}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    p: 2,
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    color: '#FFFFFF',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="body2">
+                    Position the QR code within the frame
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+          </DialogContent>
+
+          <DialogActions sx={{
+            p: 2,
+            borderTop: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+            justifyContent: 'center',
+          }}>
+            <Button
+              onClick={handleCloseScanner}
+              variant="outlined"
+              color="primary"
+              sx={{
+                borderRadius: 2,
+                px: 3,
+              }}
+            >
+              Cancel
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Warning */}
         <Alert
           severity="warning"
           icon={<InfoIcon />}
           sx={{
-            borderRadius: 2,
+            borderRadius: 3,
             mb: 3,
+            p: 2,
+            boxShadow: mode === 'dark' ? '0 4px 12px rgba(0, 0, 0, 0.3)' : '0 4px 12px rgba(0, 0, 0, 0.05)',
+            backgroundColor: mode === 'dark' ? 'rgba(237, 108, 2, 0.1)' : 'rgba(237, 108, 2, 0.05)',
+            border: `1px solid ${mode === 'dark' ? 'rgba(237, 108, 2, 0.2)' : 'rgba(237, 108, 2, 0.1)'}`,
             '& .MuiAlert-message': {
               width: '100%',
+            },
+            '& .MuiAlert-icon': {
+              color: '#ED6C02',
+              opacity: 0.9,
             }
           }}
         >
-          <Typography variant="body2">
+          <Typography variant="body2" fontWeight="medium">
             Make sure the recipient address is correct and supports {balances[activeTab].currency} on the {balances[activeTab].currency} network. Sending to an incorrect address may result in permanent loss of funds.
           </Typography>
         </Alert>
@@ -536,32 +820,81 @@ const Withdraw = () => {
         <Paper
           elevation={0}
           sx={{
-            p: 2,
-            borderRadius: 2,
+            p: 3,
+            borderRadius: 3,
             border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+            background: mode === 'dark'
+              ? 'linear-gradient(135deg, rgba(30, 35, 41, 0.95) 0%, rgba(26, 29, 35, 0.95) 100%)'
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 247, 250, 0.95) 100%)',
+            boxShadow: mode === 'dark'
+              ? '0 8px 16px rgba(0, 0, 0, 0.3)'
+              : '0 8px 16px rgba(0, 0, 0, 0.05)',
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
+            <Typography variant="h6" fontWeight="bold" color="text.primary">
               Recent Withdrawals
             </Typography>
             <Button
-              variant="text"
+              variant="outlined"
               color="primary"
               size="small"
               onClick={() => navigate('/transaction-history')}
-              sx={{ textTransform: 'none' }}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 2,
+                fontWeight: 'medium',
+                px: 2,
+              }}
             >
               View All
             </Button>
           </Box>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              py: 4,
+              backgroundColor: mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)',
+              borderRadius: 2,
+              border: `1px dashed ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+            }}
+          >
             <Typography variant="body2" color="text.secondary" align="center">
               No recent withdrawals found
             </Typography>
           </Box>
         </Paper>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={handleSnackbarClose}
+          message={snackbarMessage}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          sx={{
+            '& .MuiSnackbarContent-root': {
+              borderRadius: 2,
+            }
+          }}
+        >
+          <Alert
+            onClose={handleSnackbarClose}
+            severity={snackbarSeverity}
+            sx={{
+              width: '100%',
+              borderRadius: 2,
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+              fontWeight: 'medium',
+            }}
+            icon={snackbarSeverity === 'success' ? <CheckCircleIcon /> : undefined}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
       </Box>
     </Box>
   );

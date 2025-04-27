@@ -28,14 +28,17 @@ import {
 } from '@mui/icons-material';
 
 import useAuth from '../../hooks/useAuth';
+import { useData } from '../../context/DataContext';
 import ThemeToggle from '../../components/common/ThemeToggle';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 import { useTheme as useAppTheme } from '../../context/ThemeContext';
 
 const Header = ({ onToggleSidebar }) => {
   const theme = useMuiTheme();
+  const { mode } = useAppTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user, logout } = useAuth();
+  const { userData } = useData();
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
 
@@ -117,20 +120,65 @@ const Header = ({ onToggleSidebar }) => {
                 alt="HyperTrade"
                 sx={{ height: 32, mr: 1 }}
               />
-              <Typography
-                component={Link}
-                to="/dashboard"
-                variant="h6"
-                color="inherit"
-                noWrap
+              <Box
                 sx={{
-                  textDecoration: 'none',
-                  color: theme.palette.primary.main,
-                  fontWeight: 'bold',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 0.5,
                 }}
               >
-                HypeTrade AI
-              </Typography>
+                <Typography
+                  component={Link}
+                  to="/dashboard"
+                  variant="h6"
+                  color="inherit"
+                  noWrap
+                  sx={{
+                    textDecoration: 'none',
+                    color: theme.palette.primary.main,
+                    fontWeight: 'bold',
+                    lineHeight: 1.2,
+                    letterSpacing: '0.5px',
+                    textShadow: mode === 'dark' ? '0 0 8px rgba(51, 117, 187, 0.3)' : 'none',
+                  }}
+                >
+                  HypeTrade AI
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.15)' : 'rgba(51, 117, 187, 0.08)',
+                    borderRadius: 1.5,
+                    px: 1,
+                    py: 0.3,
+                    border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.3)' : 'rgba(51, 117, 187, 0.15)'}`,
+                    boxShadow: mode === 'dark' ? '0 2px 4px rgba(0, 0, 0, 0.2)' : '0 1px 3px rgba(0, 0, 0, 0.05)',
+                    minWidth: 80,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: theme.palette.primary.main,
+                      fontWeight: 'medium',
+                      fontSize: '0.7rem',
+                      letterSpacing: '0.3px',
+                    }}
+                  >
+                    ID: <Box
+                      component="span"
+                      sx={{
+                        fontWeight: 'bold',
+                        color: mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
+                      }}
+                    >
+                      {userData?.sponsorID || 'Loading...'}
+                    </Box>
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
 
             {/* Right side - Actions */}
@@ -174,7 +222,7 @@ const Header = ({ onToggleSidebar }) => {
               </Button> */}
                   {/* Theme Toggle */}
                   <ThemeToggle />
-                  
+
               {/* Notifications */}
               <IconButton color="inherit" size="small" onClick={handleNotificationsMenuOpen}>
                 <Badge badgeContent={4} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem' } }}>
@@ -205,7 +253,7 @@ const Header = ({ onToggleSidebar }) => {
                 </Tooltip>
               </Box>
 
-          
+
 
             </Box>
           </Box>
@@ -220,20 +268,65 @@ const Header = ({ onToggleSidebar }) => {
                 flexGrow: 1,
               }}
             >
-              <Typography
-                component={Link}
-                to="/dashboard"
-                variant="h6"
-                color="inherit"
-                noWrap
+              <Box
                 sx={{
-                  textDecoration: 'none',
-                  color: theme.palette.primary.main,
-                  fontWeight: 'bold',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 0.5,
                 }}
               >
-                HypeTrade AI
-              </Typography>
+                <Typography
+                  component={Link}
+                  to="/dashboard"
+                  variant="h6"
+                  color="inherit"
+                  noWrap
+                  sx={{
+                    textDecoration: 'none',
+                    color: theme.palette.primary.main,
+                    fontWeight: 'bold',
+                    lineHeight: 1.2,
+                    letterSpacing: '0.5px',
+                    textShadow: mode === 'dark' ? '0 0 8px rgba(51, 117, 187, 0.3)' : 'none',
+                  }}
+                >
+                  HypeTrade AI
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.15)' : 'rgba(51, 117, 187, 0.08)',
+                    borderRadius: 1.5,
+                    px: 1,
+                    py: 0.3,
+                    border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.3)' : 'rgba(51, 117, 187, 0.15)'}`,
+                    boxShadow: mode === 'dark' ? '0 2px 4px rgba(0, 0, 0, 0.2)' : '0 1px 3px rgba(0, 0, 0, 0.05)',
+                    minWidth: 80,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: theme.palette.primary.main,
+                      fontWeight: 'medium',
+                      fontSize: '0.7rem',
+                      letterSpacing: '0.3px',
+                    }}
+                  >
+                    ID: <Box
+                      component="span"
+                      sx={{
+                        fontWeight: 'bold',
+                        color: mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
+                      }}
+                    >
+                      {userData?.sponsorID || 'Loading...'}
+                    </Box>
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
 
             {/* Desktop Actions */}
@@ -321,10 +414,12 @@ const Header = ({ onToggleSidebar }) => {
           onClose={handleMenuClose}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          PaperProps={{
-            sx: {
-              borderRadius: 2,
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 2,
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+              }
             }
           }}
         >
@@ -346,11 +441,13 @@ const Header = ({ onToggleSidebar }) => {
           onClose={handleNotificationsMenuClose}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          PaperProps={{
-            sx: {
-              borderRadius: 2,
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-              maxWidth: 320,
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 2,
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+                maxWidth: 320,
+              }
             }
           }}
         >
