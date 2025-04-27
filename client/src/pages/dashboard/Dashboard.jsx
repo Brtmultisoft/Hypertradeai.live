@@ -60,6 +60,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 import { useTheme as useAppTheme } from '../../context/ThemeContext';
 import CryptoService, { CRYPTO_ASSETS } from '../../services/crypto.service';
+import UserService from '../../services/user.service';
 
 const Dashboard = () => {
   const theme = useMuiTheme();
@@ -95,6 +96,10 @@ const Dashboard = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+
+  // State for daily profit activation
+  const [activatingDailyProfit, setActivatingDailyProfit] = useState(false);
+  const [dailyProfitActivated, setDailyProfitActivated] = useState(false);
 
   // Handle tab change
   const handleTabChange = (_, newValue) => {
@@ -201,10 +206,71 @@ const Dashboard = () => {
     setSnackbarOpen(true);
   };
 
+  // Handle daily profit activation
+  const handleActivateDailyProfit = async () => {
+    try {
+      setActivatingDailyProfit(true);
+
+      // Call the API to activate daily profit
+      const response = await UserService.activateDailyProfit();
+
+      // Check if the response indicates already activated
+      if (response && response.status === false && response.message && response.message.includes('already activated today')) {
+        // Show info message
+        showSnackbar('Daily profit already activated today.', 'info');
+        setDailyProfitActivated(true);
+      } else {
+        // Show success message
+        showSnackbar('Daily profit activated successfully!', 'success');
+        setDailyProfitActivated(true);
+      }
+
+      // Navigate to live trading page in both cases
+      navigate('/live-trading');
+    } catch (error) {
+      console.error('Error activating daily profit:', error);
+
+      // Check if the error response indicates already activated
+      if (error && error.response && error.response.data) {
+        const data = error.response.data;
+        if (data.status === false && data.message && data.message.includes('already activated today')) {
+          // Show info message
+          showSnackbar('Daily profit already activated today.', 'info');
+          // Update state
+          setDailyProfitActivated(true);
+          // Still navigate to live trading page
+          navigate('/live-trading');
+          return;
+        }
+      }
+
+      // For other errors, show error message
+      showSnackbar(error.message || 'Failed to activate daily profit. Please try again.', 'error');
+    } finally {
+      setActivatingDailyProfit(false);
+    }
+  };
+
+  // Check daily profit activation status
+  const checkDailyProfitStatus = async () => {
+    try {
+      const response = await UserService.checkDailyProfitStatus();
+      if (response && response.data && response.data.isActivatedToday) {
+        setDailyProfitActivated(true);
+      } else {
+        setDailyProfitActivated(false);
+      }
+    } catch (error) {
+      console.error('Error checking daily profit status:', error);
+      setDailyProfitActivated(false);
+    }
+  };
+
   // Fetch user data and crypto prices on component mount
   useEffect(() => {
     fetchDashboardData(); // This will also fetch the latest user data
     fetchCryptoPrices();
+    checkDailyProfitStatus(); // Check if daily profit is already activated
 
     // Set up interval to refresh crypto prices every 60 seconds
     const priceRefreshInterval = setInterval(() => {
@@ -1597,22 +1663,32 @@ const Dashboard = () => {
                 </Box>
 
                 <Button
-                  variant="contained"
-                  color="primary"
+                  variant={dailyProfitActivated ? "contained" : "contained"}
+                  color={dailyProfitActivated ? "primary" : "success"}
                   size="large"
-                  onClick={() => navigate('/live-trading')}
+                  onClick={dailyProfitActivated ? () => navigate('/live-trading') : handleActivateDailyProfit}
+                  disabled={activatingDailyProfit}
                   sx={{
-                    backgroundColor: '#3375BB',
-                    backgroundImage: 'linear-gradient(135deg, #3375BB 0%, #2A5F9E 100%)',
+                    backgroundColor: dailyProfitActivated ? '#F0B90B' : '#0ECB81',
                     px: 4,
                     py: 1.5,
-                    borderRadius: 6,
-                    fontWeight: 600,
+                    borderRadius: 2,
+                    fontWeight: 'bold',
                     textTransform: 'none',
-                    fontSize: '1rem',
-                    boxShadow: '0 8px 16px rgba(51, 117, 187, 0.3)',
+                    fontSize: dailyProfitActivated ? '1.1rem' : '1rem',
+                    letterSpacing: dailyProfitActivated ? '0.5px' : 'normal',
+                    boxShadow: dailyProfitActivated
+                      ? '0 8px 20px rgba(240, 185, 11, 0.3)'
+                      : '0 8px 16px rgba(14, 203, 129, 0.2)',
                     position: 'relative',
                     overflow: 'hidden',
+                    transition: 'all 0.3s ease',
+                    animation: dailyProfitActivated ? 'pulse 2s infinite' : 'none',
+                    '@keyframes pulse': {
+                      '0%': { transform: 'scale(1)' },
+                      '50%': { transform: 'scale(1.03)' },
+                      '100%': { transform: 'scale(1)' },
+                    },
                     '&::before': {
                       content: '""',
                       position: 'absolute',
@@ -1620,7 +1696,7 @@ const Dashboard = () => {
                       left: '-100%',
                       width: '100%',
                       height: '100%',
-                      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
                       animation: 'shine 2s infinite',
                       '@keyframes shine': {
                         '0%': { left: '-100%' },
@@ -1628,13 +1704,57 @@ const Dashboard = () => {
                       },
                     },
                     '&:hover': {
-                      backgroundColor: '#2A5F9E',
+                      backgroundColor: dailyProfitActivated ? '#F8D12F' : '#0BA572',
                       transform: 'translateY(-3px)',
-                      boxShadow: '0 12px 20px rgba(51, 117, 187, 0.4)',
+                      boxShadow: dailyProfitActivated
+                        ? '0 12px 24px rgba(240, 185, 11, 0.4)'
+                        : '0 12px 20px rgba(14, 203, 129, 0.3)',
                     },
                   }}
                 >
-                  Activate Daily Profit
+                  {activatingDailyProfit ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <CircularProgress size={20} sx={{ color: '#fff', mr: 1 }} />
+                      Activating...
+                    </Box>
+                  ) : dailyProfitActivated ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box
+                        component="span"
+                        sx={{
+                          display: 'inline-block',
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          backgroundColor: '#0ECB81',
+                          mr: 1.5,
+                          animation: 'blink 1.5s infinite',
+                          '@keyframes blink': {
+                            '0%': { opacity: 0.5 },
+                            '50%': { opacity: 1 },
+                            '100%': { opacity: 0.5 },
+                          }
+                        }}
+                      />
+                      Trading Started for Today
+                      <Box
+                        component="span"
+                        sx={{
+                          ml: 1.5,
+                          fontSize: '1.2rem',
+                          animation: 'bounce 1s infinite',
+                          '@keyframes bounce': {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '50%': { transform: 'translateX(3px)' },
+                          }
+                        }}
+                      >
+                        →
+                      </Box>
+                    </Box>
+                  ) : (
+                    'Activate Daily Profit'
+                  )}
                 </Button>
               </Box>
             </Box>
