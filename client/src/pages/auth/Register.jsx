@@ -127,8 +127,6 @@ const Register = () => {
     confirmPassword: {
       required: true,
       requiredMessage: 'Please confirm your password',
-      validate: (value, allValues) =>
-        value !== allValues.password ? 'Passwords do not match' : null,
     },
   };
 
@@ -147,6 +145,20 @@ const Register = () => {
     navigate('/login');
   };
 
+  // Custom handleChange function to validate confirmPassword when password changes
+  const customHandleChange = (e) => {
+    const { name } = e.target;
+
+    // Call the original handleChange function
+    handleChange(e);
+
+    // If password field is changed and confirmPassword has a value, validate confirmPassword
+    if (name === 'password' && values.confirmPassword) {
+      // Mark confirmPassword as touched to show validation error
+      setFieldTouched('confirmPassword', true);
+    }
+  };
+
   // Initialize form
   const {
     values,
@@ -157,6 +169,7 @@ const Register = () => {
     handleBlur,
     handleSubmit,
     resetForm,
+    setFieldTouched,
   } = useForm(
     {
       name: '',
@@ -433,7 +446,7 @@ const Register = () => {
             name="password"
             type={showPassword ? 'text' : 'password'}
             value={values.password}
-            onChange={handleChange}
+            onChange={customHandleChange}
             onBlur={handleBlur}
             error={touched.password && Boolean(errors.password)}
             helperText={touched.password && errors.password}
