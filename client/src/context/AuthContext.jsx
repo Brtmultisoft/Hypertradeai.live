@@ -1,21 +1,164 @@
 import { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import api from '../services/api';
 
 // Create the context
 export const AuthContext = createContext();
+
+// Session timeout in milliseconds (30 minutes)
+const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 // Create the provider component
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
-  const [loading, setLoading] = useState(false); // Start with loading false
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [sessionTimeRemaining, setSessionTimeRemaining] = useState(null);
 
-  // Use a ref to track if we've already tried to load the user
+  // Use refs to track session activity and timeout
   const hasTriedToLoadUser = useRef(false);
+  const sessionTimeoutRef = useRef(null);
+  const lastActivityRef = useRef(Date.now());
 
   // Set up axios defaults
-  axios.defaults.baseURL = import.meta.env.VITE_API_URL
+  axios.defaults.baseURL = import.meta.env.VITE_API_URL;
+
+  // Logout function - defined early so it can be used in resetSessionTimeout
+  const logout = useCallback(() => {
+    console.log('Logout function called - clearing all auth state');
+
+    // Check if this was an admin-initiated login
+    const wasAdminLogin = sessionStorage.getItem('admin_login') === 'true';
+
+    // 1. Clear all localStorage items related to authentication
+    localStorage.removeItem('token');
+    localStorage.removeItem('user_data');
+    localStorage.removeItem('token_time');
+
+    // 2. Clear all sessionStorage items
+    sessionStorage.clear();
+
+    // 3. Set a flag to prevent redirect loops
+    sessionStorage.setItem('clean_logout', 'true');
+
+    // 4. Reset all state variables
+    setToken(null);
+    setUser(null);
+    setError(null);
+    setLoading(false);
+    setSessionTimeRemaining(null);
+
+    // 5. Reset all refs
+    hasTriedToLoadUser.current = true;
+
+    // 6. Clear session timeout
+    if (sessionTimeoutRef.current) {
+      clearTimeout(sessionTimeoutRef.current);
+      sessionTimeoutRef.current = null;
+    }
+
+    // 7. Clear axios headers
+    delete axios.defaults.headers.common['Authorization'];
+
+    // 8. Cancel all pending requests and clear cache
+    api.utils.cancelRequests();
+    api.utils.clearCache();
+
+    // 9. Force a complete page reload to clear any lingering state
+    if (wasAdminLogin) {
+      // If this was an admin login, close the tab or redirect to admin login
+      window.close(); // Try to close the tab
+      // If window.close() doesn't work (most browsers block it), redirect to login
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 100);
+    } else {
+      // Normal logout, redirect to login page
+      window.location.href = '/login';
+    }
+  }, []);
+
+  // Function to reset session timeout
+  const resetSessionTimeout = useCallback(() => {
+    // Clear any existing timeout
+    if (sessionTimeoutRef.current) {
+      clearTimeout(sessionTimeoutRef.current);
+    }
+
+    // Only set timeout if user is logged in
+    if (token) {
+      // Update last activity timestamp
+      lastActivityRef.current = Date.now();
+
+      // Calculate new expiry time
+      const newExpiry = Date.now() + SESSION_TIMEOUT;
+
+      // Update session time remaining every minute
+      const updateInterval = setInterval(() => {
+        if (token) {
+          const remaining = newExpiry - Date.now();
+          setSessionTimeRemaining(remaining > 0 ? remaining : 0);
+
+          // Clear interval if session expired or user logged out
+          if (remaining <= 0 || !token) {
+            clearInterval(updateInterval);
+          }
+        } else {
+          clearInterval(updateInterval);
+        }
+      }, 60000); // Update every minute
+
+      // Set new timeout
+      sessionTimeoutRef.current = setTimeout(() => {
+        // Check if there's been activity since timeout was set
+        const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+
+        if (timeSinceLastActivity >= SESSION_TIMEOUT) {
+          console.log('Session timeout - logging out');
+          // Clear the update interval
+          clearInterval(updateInterval);
+          // Session expired, log out user
+          logout();
+        } else {
+          // User has been active, reset timeout
+          clearInterval(updateInterval);
+          resetSessionTimeout();
+        }
+      }, SESSION_TIMEOUT);
+    }
+  }, [token, logout]);
+
+  // Set up activity listeners to track user activity
+  useEffect(() => {
+    if (token) {
+      // Track user activity
+      const activityEvents = ['mousedown', 'keypress', 'scroll', 'touchstart'];
+
+      const handleUserActivity = () => {
+        lastActivityRef.current = Date.now();
+      };
+
+      // Add event listeners
+      activityEvents.forEach(event => {
+        window.addEventListener(event, handleUserActivity);
+      });
+
+      // Initialize session timeout
+      resetSessionTimeout();
+
+      // Clean up event listeners on unmount
+      return () => {
+        activityEvents.forEach(event => {
+          window.removeEventListener(event, handleUserActivity);
+        });
+
+        if (sessionTimeoutRef.current) {
+          clearTimeout(sessionTimeoutRef.current);
+        }
+      };
+    }
+  }, [token, resetSessionTimeout]);
 
   // Add token to axios headers if it exists
   useEffect(() => {
@@ -190,60 +333,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout function - completely clears all auth state
-  const logout = () => {
-    console.log('Logout function called - clearing all auth state');
-
-    // Check if this was an admin-initiated login
-    const wasAdminLogin = sessionStorage.getItem('admin_login') === 'true';
-    console.log('Was admin login:', wasAdminLogin);
-
-    // 1. Clear all localStorage items related to authentication
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-
-    // 2. Clear all sessionStorage items
-    sessionStorage.clear();
-
-    // 3. Set a flag to prevent redirect loops
-    sessionStorage.setItem('clean_logout', 'true');
-
-    // 4. Reset all state variables
-    setToken(null);
-    setUser(null);
-    setError(null);
-    setLoading(false);
-
-    // 5. Reset all refs
-    hasTriedToLoadUser.current = true;
-
-    // 6. Clear all axios headers
-    delete axios.defaults.headers.common['Authorization'];
-    axios.defaults.headers.common = {};
-
-    // 7. Clear any pending requests
-    // This helps prevent 401 errors from in-flight requests
-    if (window._axiosSource) {
-      window._axiosSource.cancel('Logout initiated');
-    }
-
-    console.log('User logged out successfully - all state cleared');
-
-    // 8. Force a complete page reload to clear any lingering state
-    // This is the most reliable way to clear everything
-    if (wasAdminLogin) {
-      // If this was an admin login, close the tab or redirect to admin login
-      console.log('Closing admin login tab or redirecting to admin login');
-      window.close(); // Try to close the tab
-      // If window.close() doesn't work (most browsers block it), redirect to login
-      setTimeout(() => {
-        window.location.href = '/login';
-      }, 100);
-    } else {
-      // Normal logout, redirect to login page
-      window.location.href = '/login';
-    }
-  };
+  // The logout function is now defined at the top of the component
 
   // Forgot password function
   const forgotPassword = async (email) => {
@@ -324,6 +414,8 @@ export const AuthProvider = ({ children }) => {
     loading,
     error,
     isAuthenticated: !!token,
+    sessionTimeRemaining,
+    resetSessionTimeout, // Expose this so components can manually reset the timeout
     login,
     register,
     logout,

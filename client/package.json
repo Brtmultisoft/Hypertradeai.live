@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "analyze": "vite build --mode analyze",
+    "build:prod": "vite build --mode production"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -35,7 +37,9 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
+    "rollup-plugin-visualizer": "^5.12.0",
     "terser": "^5.39.0",
-    "vite": "^6.3.1"
+    "vite": "^6.3.1",
+    "vite-plugin-compression2": "^0.11.0"
   }
 }

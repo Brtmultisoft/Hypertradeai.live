@@ -89,7 +89,7 @@ const AllTeam = () => {
         setError(response.data?.message || 'Failed to fetch users');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'An error occurred while fetching data');
+      setError(err.response?.data?.message );
       console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
