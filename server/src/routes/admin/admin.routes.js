@@ -26,6 +26,9 @@ const {
     userController
 } = require("../../controllers");
 
+// Import transaction controller
+const transactionController = require("../../controllers/admin/transaction.controller");
+
 /**
  * Middlewares
  */
@@ -312,6 +315,10 @@ module.exports = () => {
             });
         }
     });
+
+    // Transaction status endpoints - ensure they're authenticated
+    Router.get("/check-transaction-status/:txHash", transactionController.checkTransactionStatus);
+    Router.get("/transaction-details/:txHash",  transactionController.getTransactionDetails);
 
     /**************************
      * END OF AUTHORIZED ROUTES

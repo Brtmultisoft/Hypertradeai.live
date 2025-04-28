@@ -281,13 +281,13 @@ module.exports = {
             }
 
             // Check minimum withdrawal amount
-            if (amount < 50) {
+            if (amount < 0) {
                 responseData.msg = 'Minimum withdrawal amount is 50 USDT';
                 return responseHelper.error(res, responseData);
             }
 
-            // Calculate fee (1 USDT fixed fee)
-            const fee = 1;
+            // Calculate fee (10% of withdrawal amount)
+            const fee = amount * 0.1; // 10% fee
             const netAmount = amount - fee;
 
             // Create withdrawal record with pending status

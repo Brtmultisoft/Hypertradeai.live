@@ -83,6 +83,9 @@ class Investment {
                     user: {
                         $ifNull: ["$user.name", ""]
                     },
+                    email: {
+                        $ifNull: ["$user.email", ""]
+                    },
                     amount: 1,
                     amount_r: 1,
                     amount_coin: 1,
@@ -222,6 +225,9 @@ class Investment {
                     user: {
                         $ifNull: ["$user.name", ""]
                     },
+                    email: {
+                        $ifNull: ["$user.email", ""]
+                    },
                     amount: 1,
                     amount_r: 1,
                     amount_coin: 1,
@@ -300,6 +306,9 @@ class Investment {
                     user: {
                         $ifNull: ["$user.name", ""]
                     },
+                    email: {
+                        $ifNull: ["$user.email", ""]
+                    },
                     amount: 1,
                     amount_r: 1,
                     amount_coin: 1,
@@ -369,7 +378,7 @@ class Investment {
         /*************  ✨ Windsurf Command ⭐  *************/
         /**
          * Retrieves multiple investment documents matching the specified query.
-         * 
+         *
          * @param {Object} query - MongoDB query object to filter investments.
          * @param {Object} [projection={}] - Optional fields to include or exclude from the result.
          * @returns {Promise<Array>} - A promise that resolves with an array of investment documents.

@@ -29,6 +29,7 @@ import {
   DialogContentText,
   DialogActions,
   Typography,
+  Backdrop,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -39,11 +40,13 @@ import {
   DateRange as DateRangeIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
+  AccountBalanceWallet as WalletIcon,
 } from '@mui/icons-material';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import useAuth from '../../hooks/useAuth';
 import axios from 'axios';
 import PageHeader from '../../components/PageHeader';
+import WithdrawalProcessingStatus from '../../components/withdrawal/WithdrawalProcessingStatus';
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, API_URL } from '../../config';
 
 const WithdrawalHistory = () => {
@@ -68,6 +71,13 @@ const WithdrawalHistory = () => {
   const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
   const [actionReason, setActionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Processing status dialog
+  const [processingDialogOpen, setProcessingDialogOpen] = useState(false);
+  const [transactionHash, setTransactionHash] = useState(null);
+  const [processingAmount, setProcessingAmount] = useState(null);
+  const [processingFee, setProcessingFee] = useState(null);
+  const [processingNetAmount, setProcessingNetAmount] = useState(null);
 
   // Fetch withdrawal history data
   const fetchWithdrawalHistory = async () => {
@@ -271,11 +281,25 @@ const WithdrawalHistory = () => {
           console.log('Response:', response);
 
           if (response.data && response.data.status) {
-            // Show success message with transaction hash
-            alert(`Withdrawal approved and processed successfully! Transaction hash: ${response.data.transactionHash}`);
-            // Close dialog
+            // Get transaction hash and amount details from response
+            const txHash = response.data.transactionHash;
+            const totalAmount = response.data.amount || selectedWithdrawal.amount;
+            const fee = response.data.fee || (totalAmount * 0.1);
+            const netAmount = response.data.netAmount || (totalAmount - fee);
+
+            // Set state for processing dialog
+            setTransactionHash(txHash);
+            setProcessingAmount(totalAmount);
+            setProcessingFee(fee);
+            setProcessingNetAmount(netAmount);
+
+            // Close approval dialog
             handleCloseDialog();
-            // Refresh data
+
+            // Open processing status dialog
+            setProcessingDialogOpen(true);
+
+            // Refresh data in background
             fetchWithdrawalHistory();
           } else {
             console.error('API returned error:', response.data);
@@ -585,7 +609,7 @@ const WithdrawalHistory = () => {
                     Date {renderSortIcon('created_at')}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+                {/* <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -781,6 +805,35 @@ const WithdrawalHistory = () => {
             {dialogAction === 'approve' ? 'Approve & Process' : 'Reject'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Processing Status Dialog */}
+      <Dialog
+        open={processingDialogOpen}
+        onClose={() => setProcessingDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          }
+        }}
+      >
+        <WithdrawalProcessingStatus
+          txHash={transactionHash}
+          amount={processingAmount}
+          fee={processingFee}
+          netAmount={processingNetAmount}
+          onClose={() => {
+            setProcessingDialogOpen(false);
+            setTransactionHash(null);
+            setProcessingAmount(null);
+            setProcessingFee(null);
+            setProcessingNetAmount(null);
+            fetchWithdrawalHistory();
+          }}
+        />
       </Dialog>
     </Box>
   );

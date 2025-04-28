@@ -29,6 +29,7 @@ import {
   Savings as SavingsIcon,
   CreditCard as CreditCardIcon,
   SupervisorAccount as SupervisorAccountIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import useAuth from '../../hooks/useAuth';
 
@@ -86,7 +87,7 @@ const Sidebar = ({ open, onClose }) => {
       >
         <Box
           component="img"
-          src="./logo.png"
+          src="../logo.png"
           alt="HypeTrade AI"
           sx={{ height: 40, mr: 1 }}
         />
@@ -180,6 +181,30 @@ const Sidebar = ({ open, onClose }) => {
                 />
               </ListItemIcon>
               <ListItemText primary="All Team" />
+            </ListItemButton>
+            <ListItemButton
+              component={Link}
+              to="/team-structure"
+              selected={isActive('/team-structure')}
+              onClick={handleItemClick}
+              sx={{
+                pl: 4,
+                borderRadius: 1,
+                mb: 0.5,
+                '&.Mui-selected': {
+                  backgroundColor: `${theme.palette.primary.main}20`,
+                  '&:hover': {
+                    backgroundColor: `${theme.palette.primary.main}30`,
+                  },
+                },
+              }}
+            >
+              <ListItemIcon>
+                <AccountTreeIcon
+                  color={isActive('/team-structure') ? 'primary' : 'inherit'}
+                />
+              </ListItemIcon>
+              <ListItemText primary="Team Structure" />
             </ListItemButton>
           </List>
         </Collapse>

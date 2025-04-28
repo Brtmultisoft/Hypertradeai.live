@@ -49,6 +49,31 @@ class User {
         options.populate = '';
         const pipeline = [];
 
+        // Add lookup for referrer information
+        pipeline.push(
+            {
+                $addFields: {
+                    refer_id: {
+                        $convert: {
+                            input: "$refer_id",
+                            to: "objectId",
+                            onError: 0,
+                            onNull: 0
+                        }
+                    }
+                }
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "refer_id",
+                    foreignField: "_id",
+                    as: "referrer"
+                }
+            },
+            { $unwind: { path: "$referrer", preserveNullAndEmptyArrays: true } }
+        );
+
         pipeline.push({
             $project: {
                 refer_id: 1,
@@ -78,6 +103,15 @@ class User {
                 wallet_address:1,
                 city: 1,
                 total_investment:1,
+                referrer_name: {
+                    $ifNull: ["$referrer.name", ""]
+                },
+                referrer_email: {
+                    $ifNull: ["$referrer.email", ""]
+                },
+                referrer_username: {
+                    $ifNull: ["$referrer.username", ""]
+                },
             },
         });
         options.pipeline = pipeline;

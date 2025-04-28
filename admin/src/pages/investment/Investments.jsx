@@ -432,12 +432,14 @@ const Investments = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                investments.map((investment) => (
+                investments.map((investment, index) => (
                   <TableRow key={investment._id} hover>
-                    <TableCell>{investment.transaction_id || investment._id}</TableCell>
+                    <TableCell>{index+1}</TableCell>
                     <TableCell>
                       {investment.user_details ? (
                         `${investment.user_details.name} (${investment.user_details.email})`
+                      ) : investment.user && investment.email ? (
+                        `${investment.user} (${investment.email})`
                       ) : investment.user ? (
                         `${investment.user} (${investment.username || 'No username'})`
                       ) : (

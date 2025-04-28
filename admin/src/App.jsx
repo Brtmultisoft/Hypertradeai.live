@@ -15,6 +15,8 @@ import Dashboard from './pages/dashboard/Dashboard';
 
 // Team Pages
 import AllTeam from './pages/team/AllTeam';
+import EditUser from './pages/team/EditUser';
+import TeamStructure from './pages/team/TeamStructure';
 
 // Investment Pages
 import Investments from './pages/investment/Investments';
@@ -58,6 +60,8 @@ function App() {
 
             {/* Team Routes */}
             <Route path="/all-team" element={<AllTeam />} />
+            <Route path="/team-structure" element={<TeamStructure />} />
+            <Route path="/edit-user/:id" element={<EditUser />} />
 
             {/* Investment Routes */}
             <Route path="/investments" element={<Investments />} />
@@ -76,7 +80,7 @@ function App() {
 
           {/* Default Route */}
           <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
-          
+
           {/* 404 Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -340,10 +340,10 @@ const DirectIncomeHistory = () => {
                     }}
                     onClick={() => handleSort('from_user_id')}
                   >
-                    From User {renderSortIcon('from_user_id')}
+                     User ID {renderSortIcon('from_user_id')}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>
+                {/* <TableCell sx={{ fontWeight: 'bold' }}>
                   <Box
                     sx={{
                       display: 'flex',
@@ -354,7 +354,7 @@ const DirectIncomeHistory = () => {
                   >
                     Investment ID {renderSortIcon('investment_id')}
                   </Box>
-                </TableCell>
+                </TableCell> */}
                 <TableCell sx={{ fontWeight: 'bold' }}>
                   <Box
                     sx={{
@@ -379,7 +379,7 @@ const DirectIncomeHistory = () => {
                     Date {renderSortIcon('created_at')}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+                {/* <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -404,6 +404,8 @@ const DirectIncomeHistory = () => {
                     <TableCell>
                       {income.user_details ? (
                         `${income.user_details.name} (${income.user_details.email})`
+                      ) : income.user && income.user_email ? (
+                        `${income.user} (${income.user_email})`
                       ) : (
                         income.user_id
                       )}
@@ -411,24 +413,26 @@ const DirectIncomeHistory = () => {
                     <TableCell>
                       {income.from_user_details ? (
                         `${income.from_user_details.name} (${income.from_user_details.email})`
+                      ) : income.user_from && income.user_from_email ? (
+                        `${income.user_from} (${income.user_from_email})`
                       ) : (
-                        income.from_user_id
+                        income.user_id
                       )}
                     </TableCell>
-                    <TableCell>{income.investment_id || 'N/A'}</TableCell>
+                    {/* <TableCell>{income.investment_id || 'N/A'}</TableCell> */}
                     <TableCell>{formatCurrency(income.amount || 0)}</TableCell>
                     <TableCell>{formatDate(income.created_at)}</TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
                           color="primary"
-                          // onClick={() => handleViewIncome(income._id)}
+                          onClick={() => handleViewIncome(income._id)}
                         >
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    </TableCell>
+                    </TableCell> */}
                   </TableRow>
                 ))
               )}

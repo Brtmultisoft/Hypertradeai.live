@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -41,10 +42,12 @@ import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, API_URL } from '../../config';
 
 const AllTeam = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { getToken } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_PAGE_SIZE);
   const [searchTerm, setSearchTerm] = useState('');
@@ -89,7 +92,7 @@ const AllTeam = () => {
         setError(response.data?.message || 'Failed to fetch users');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'An error occurred while fetching data');
+      setError(err.response?.data?.message );
       console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
@@ -100,6 +103,17 @@ const AllTeam = () => {
   useEffect(() => {
     fetchUsers();
   }, [page, rowsPerPage, sortField, sortDirection, filterReferrer]);
+
+  // Auto-clear success message after 5 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   // Handle search
   const handleSearch = () => {
@@ -113,14 +127,14 @@ const AllTeam = () => {
   };
 
   // Handle search on Enter key press
-  const handleSearchKeyPress = (event) => {
+  const handleSearchKeyDown = (event) => {
     if (event.key === 'Enter') {
       handleSearch();
     }
   };
 
   // Handle page change
-  const handleChangePage = (event, newPage) => {
+  const handleChangePage = (_, newPage) => {
     setPage(newPage);
   };
 
@@ -146,11 +160,12 @@ const AllTeam = () => {
     setPage(0);
   };
 
-  // Handle login as user
+  // Handle login as user with a single click
   const handleLoginAsUser = async (userId) => {
     try {
       setLoading(true);
       setError(null); // Clear any previous errors
+      setSuccessMessage(null); // Clear any previous success messages
 
       // Get the admin token
       const token = getToken();
@@ -161,116 +176,93 @@ const AllTeam = () => {
 
       console.log(`Creating login request for user ID: ${userId}`);
 
-      // First, check if there's an existing user session and close it
+      // Close any existing login windows
       try {
-        // Find any existing user login windows
         const existingLoginWindow = window.localStorage.getItem('admin_user_login_window');
         if (existingLoginWindow) {
-          console.log('Found existing user login window, attempting to close it');
           try {
-            // Try to close the existing window if it's still open
             const windowRef = window.open('', existingLoginWindow);
             if (windowRef && !windowRef.closed) {
               windowRef.close();
             }
           } catch (closeError) {
             console.warn('Error closing existing window:', closeError);
-            // Continue even if we can't close the window
           }
         }
-
-        // Clear any stored window references
         window.localStorage.removeItem('admin_user_login_window');
       } catch (sessionError) {
         console.warn('Error checking for existing sessions:', sessionError);
-        // Continue even if there's an error checking for existing sessions
       }
 
       // Generate a unique ID for this login attempt
       const loginAttemptId = `login_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-
-      // Store the login attempt ID
       window.localStorage.setItem('admin_login_attempt_id', loginAttemptId);
 
       // Make the API request to create a login request
-      let response;
-      try {
-        // First try with the clear_existing parameter and login attempt ID
-        response = await axios.post(
-          `${API_URL}/admin/user-login-request`,
-          {
-            user_id: userId,
-            clear_existing: true, // Tell the server to clear any existing sessions
-            login_attempt_id: loginAttemptId // Include the login attempt ID
+      const response = await axios.post(
+        `${API_URL}/admin/user-login-request`,
+        {
+          user_id: userId,
+          clear_existing: true, // Tell the server to clear any existing sessions
+          login_attempt_id: loginAttemptId // Include the login attempt ID
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-      } catch (apiError) {
-        console.warn('Error with clear_existing parameter, trying without it:', apiError);
-
-        // If that fails, try without the clear_existing parameter
-        // This handles backward compatibility with older server versions
-        response = await axios.post(
-          `${API_URL}/admin/user-login-request`,
-          {
-            user_id: userId,
-            login_attempt_id: loginAttemptId // Still include the login attempt ID
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-      }
+        }
+      );
 
       console.log('Login request response:', response.data);
 
-      if (response.data && response.data.status) {
-        // Check if the URL is in the response
-        if (response.data.result && response.data.result.url) {
-          const loginUrl = response.data.result.url;
-          console.log(`Opening login URL: ${loginUrl}`);
+      if (response.data && response.data.status && response.data.result && response.data.result.url) {
+        // Make sure the URL has the clear=1 parameter to force session clearing
+        let loginUrl = response.data.result.url;
+        if (!loginUrl.includes('clear=1')) {
+          loginUrl = loginUrl.includes('?')
+            ? `${loginUrl}&clear=1`
+            : `${loginUrl}?clear=1`;
+        }
+        console.log(`Opening login URL: ${loginUrl}`);
 
-          // Generate a unique window name to ensure a new tab is always opened
-          const windowName = `user_login_${Date.now()}`;
+        // Generate a unique window name
+        const windowName = `user_login_${Date.now()}`;
+        window.localStorage.setItem('admin_user_login_window', windowName);
 
-          // Store the window name for future reference
-          window.localStorage.setItem('admin_user_login_window', windowName);
+        // Try a direct approach first - open the URL directly with clear=1 parameter
+        // This should handle the session clearing and login in one step
+        const newWindow = window.open(loginUrl, '_blank', 'noopener,noreferrer');
 
-          // Open the login URL in a new tab with specific options
-          const newWindow = window.open(loginUrl, windowName, 'noopener,noreferrer');
-
-          // Check if the window was successfully opened
-          if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-            console.error('Failed to open new window. Popup might be blocked.');
-            setError('Failed to open login window. Please allow popups for this site.');
-          } else {
-            // Set up a listener to detect when the window is closed
-            const checkWindowClosed = setInterval(() => {
-              if (newWindow.closed) {
-                clearInterval(checkWindowClosed);
-                window.localStorage.removeItem('admin_user_login_window');
-                console.log('User login window was closed');
-              }
-            }, 1000);
-          }
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+          setError('Failed to open login window. Please allow popups for this site.');
+          setLoading(false);
         } else {
-          console.error('Login URL not found in response:', response.data);
-          setError('Login URL not found in response');
+          // Set up a listener to detect when the window is closed
+          const checkWindowClosed = setInterval(() => {
+            if (newWindow.closed) {
+              clearInterval(checkWindowClosed);
+              window.localStorage.removeItem('admin_user_login_window');
+              console.log('User login window was closed');
+            }
+          }, 1000);
+
+          // Show success message
+          const username = response.data.result.username || 'selected user';
+          setSuccessMessage(`Successfully opened login session for ${username}. A new tab should have opened with the user already logged in.`);
+
+          // Set loading to false after a short delay
+          setTimeout(() => {
+            setLoading(false);
+          }, 500);
         }
       } else {
-        console.error('Failed to create login request:', response.data);
+        console.error('Failed to create login request or URL not found:', response.data);
         setError(response.data?.msg || 'Failed to create login request');
+        setLoading(false);
       }
     } catch (err) {
       console.error('Error creating login request:', err);
       setError(err.response?.data?.msg || 'An error occurred while creating login request');
-    } finally {
       setLoading(false);
     }
   };
@@ -310,7 +302,7 @@ const AllTeam = () => {
               placeholder="Search by name, email, username..."
               value={searchTerm}
               onChange={handleSearchChange}
-              onKeyPress={handleSearchKeyPress}
+              onKeyDown={handleSearchKeyDown}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -369,6 +361,12 @@ const AllTeam = () => {
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
+        </Alert>
+      )}
+
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
+          {successMessage}
         </Alert>
       )}
 
@@ -525,12 +523,21 @@ const AllTeam = () => {
                     </TableCell>
                     <TableCell>
                       {user.refer_id ? (
-                        <Chip
-                          label={user.refer_id}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
+                        user.referrer_email ? (
+                          <Chip
+                            label={`${user.referrer_name || 'User'} (${user.referrer_email})`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Chip
+                            label={user.refer_id}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        )
                       ) : (
                         <Chip
                           label="Admin"
@@ -559,7 +566,7 @@ const AllTeam = () => {
                         <IconButton
                           size="small"
                           color="secondary"
-                          // onClick={() => handleEditUser(user._id)}
+                          onClick={() => navigate(`/edit-user/${user._id}`)}
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>

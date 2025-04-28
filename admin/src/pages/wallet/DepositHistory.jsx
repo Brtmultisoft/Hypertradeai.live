@@ -386,7 +386,7 @@ const DepositHistory = () => {
                     Date {renderSortIcon('created_at')}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+                {/* <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -426,7 +426,7 @@ const DepositHistory = () => {
                       />
                     </TableCell>
                     <TableCell>{formatDate(deposit.created_at)}</TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
@@ -436,7 +436,7 @@ const DepositHistory = () => {
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    </TableCell>
+                    </TableCell> */}
                   </TableRow>
                 ))
               )}

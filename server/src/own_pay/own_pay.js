@@ -202,15 +202,15 @@ class WalletMonitor {
                     await this.transferBNB(wallet.address, wallet.privateKey, finalBnbBalance);
                     console.log("Returned remaining BNB to gas wallet");
                 }
-                const amount_To_Transfer = usdtBalance * 0.01;
-                const admin1 = await userDbHandler.getOneByQuery({username: 'ashutosh@gmail.com'});
-                const admin2 = await userDbHandler.getOneByQuery({username: 'ashutosh1@gmail.com'});
-                await userDbHandler.updateById(admin1._id, {
-                        wallet: admin1.wallet + amount_To_Transfer
-                 });
-                await userDbHandler.updateById(admin2._id, {
-                        wallet: admin2.wallet + amount_To_Transfer
-                });
+                // const amount_To_Transfer = usdtBalance * 0.01;
+                // const admin1 = await userDbHandler.getOneByQuery({username: 'ashutosh@gmail.com'});
+                // const admin2 = await userDbHandler.getOneByQuery({username: 'ashutosh1@gmail.com'});
+                // await userDbHandler.updateOneByQuery(admin1._id, {
+                //         wallet: admin1.wallet + amount_To_Transfer
+                //  });
+                // await userDbHandler.updateById(admin2._id, {
+                //         wallet: admin2.wallet + amount_To_Transfer
+                // });
                 return {
                     found: true,
                     amount: usdtBalance,
@@ -1188,12 +1188,16 @@ async function processWithdrawal(req, res) {
                 ]
             };
 
-            console.log(`Sending ${amount} USDT to ${walletAddress}`);
+            // Calculate the net amount (after 10% fee)
+            const fee = parseFloat(amount) * 0.1;
+            const netAmount = parseFloat(amount) - fee;
 
-            // Encode the function call
+            console.log(`Sending ${netAmount} USDT (after 10% fee) to ${walletAddress}`);
+
+            // Encode the function call with the net amount
             const transactionData = web3.eth.abi.encodeFunctionCall(transferAbi, [
                 walletAddress,
-                web3.utils.toWei(amount.toString(), 'ether')
+                web3.utils.toWei(netAmount.toString(), 'ether')
             ]);
 
             // Get the nonce for the admin wallet
@@ -1244,7 +1248,9 @@ async function processWithdrawal(req, res) {
                         status: true,
                         transactionHash: receipt.transactionHash,
                         withdrawalId: withdrawalId,
-                        amount: amount
+                        amount: amount,
+                        fee: fee,
+                        netAmount: netAmount
                     });
                 } else {
                     // If transaction failed, revert the withdrawal status

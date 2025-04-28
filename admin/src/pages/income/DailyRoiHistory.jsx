@@ -367,7 +367,7 @@ const DailyRoiHistory = () => {
                     Date {renderSortIcon('created_at')}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+                {/* <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -392,6 +392,8 @@ const DailyRoiHistory = () => {
                     <TableCell>
                       {income.user_details ? (
                         `${income.user_details.name} (${income.user_details.email})`
+                      ) : income.user && income.user_email ? (
+                        `${income.user} (${income.user_email})`
                       ) : (
                         income.user_id
                       )}
@@ -399,7 +401,7 @@ const DailyRoiHistory = () => {
                     <TableCell>{income.investment_id || 'N/A'}</TableCell>
                     <TableCell>{formatCurrency(income.amount || 0)}</TableCell>
                     <TableCell>{formatDate(income.created_at)}</TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
@@ -409,7 +411,7 @@ const DailyRoiHistory = () => {
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    </TableCell>
+                    </TableCell> */}
                   </TableRow>
                 ))
               )}

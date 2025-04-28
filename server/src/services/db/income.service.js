@@ -116,11 +116,17 @@ class Income {
 					user: {
 						$ifNull: ["$user.name", ""]
 					},
+					user_email: {
+						$ifNull: ["$user.email", ""]
+					},
 					username_from: {
 						$ifNull: ["$user_from.username", ""]
 					},
 					user_from: {
 						$ifNull: ["$user_from.name", ""]
+					},
+					user_from_email: {
+						$ifNull: ["$user_from.email", ""]
 					},
 					amount: 1,
 					wamt: 1,

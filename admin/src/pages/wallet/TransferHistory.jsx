@@ -383,7 +383,7 @@ const TransferHistory = () => {
                     }}
                     onClick={() => handleSort('transaction_id')}
                   >
-                    Transaction ID {renderSortIcon('transaction_id')}
+                    SR. No. {renderSortIcon('transaction_id')}
                   </Box>
                 </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>
@@ -458,7 +458,7 @@ const TransferHistory = () => {
                     Date {renderSortIcon('created_at')}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+                {/* <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -478,9 +478,9 @@ const TransferHistory = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                transfers.map((transfer) => (
+                transfers.map((transfer,index) => (
                   <TableRow key={transfer._id} hover>
-                    <TableCell>{transfer.transaction_id || transfer._id}</TableCell>
+                    <TableCell>{index + 1}</TableCell>
                     <TableCell>
                       {transfer.from_wallet === 'admin' ? (
                         'Admin'
@@ -520,7 +520,7 @@ const TransferHistory = () => {
                       </Box>
                     </TableCell>
                     <TableCell>{formatDate(transfer.created_at)}</TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
@@ -530,7 +530,7 @@ const TransferHistory = () => {
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    </TableCell>
+                    </TableCell> */}
                   </TableRow>
                 ))
               )}

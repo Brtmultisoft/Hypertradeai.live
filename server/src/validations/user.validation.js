@@ -29,6 +29,8 @@ module.exports = {
 		phone_number: Joi.string().optional().allow("").min(10).max(12).label("Phone Number"),
 		avatar: Joi.string().optional().allow("").label('Profile Photo'),
 		status: Joi.boolean().optional().label("Status"),
+		wallet: Joi.string().optional().allow("").label('wallet'),
+		wallet_topup : Joi.string().optional().allow("").label('wallet_topup'),
 		old_password: Joi.string().optional().min(8).allow("").label('Password'),
 		password: Joi.string().optional().allow("").min(8).max(20).custom(password).label('Password'),
 		confirm_password: Joi.string().optional().allow("").min(8).max(20).valid(Joi.ref('password')).error(new Error('Confirm password and password must be same')),

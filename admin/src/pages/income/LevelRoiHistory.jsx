@@ -424,7 +424,7 @@ const LevelRoiHistory = () => {
                     Date {renderSortIcon('created_at')}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+                {/* <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -449,15 +449,19 @@ const LevelRoiHistory = () => {
                     <TableCell>
                       {income.user_details ? (
                         `${income.user_details.name} (${income.user_details.email})`
+                      ) : income.user && income.user_email ? (
+                        `${income.user} (${income.user_email})`
                       ) : (
                         income.user_id
                       )}
                     </TableCell>
                     <TableCell>
-                      {income.extra.fromUser ? (
-                        `${income.extra.fromUser} (${income.extra.fromUser})`
+                      {income.extra.fromUser && income.extra.fromUserEmail ? (
+                        `${income.extra.fromUser} (${income.extra.fromUserEmail})`
+                      ) : income.user_from && income.user_from_email ? (
+                        `${income.user_from} (${income.user_from_email})`
                       ) : (
-                        income.from_user_id
+                        income.user_id_from || income.from_user_id || 'N/A'
                       )}
                     </TableCell>
                     <TableCell>
@@ -469,7 +473,7 @@ const LevelRoiHistory = () => {
                     </TableCell>
                     <TableCell>{formatCurrency(income.amount || 0)}</TableCell>
                     <TableCell>{formatDate(income.created_at)}</TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
@@ -479,7 +483,7 @@ const LevelRoiHistory = () => {
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    </TableCell>
+                    </TableCell> */}
                   </TableRow>
                 ))
               )}
