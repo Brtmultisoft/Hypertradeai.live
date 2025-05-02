@@ -425,15 +425,15 @@ const LiveTrading = () => {
 
   // We'll move this useEffect after the fetchAllCryptoImages function is defined
 
-  // Function to fetch real price data from Binance API
+  // Function to fetch real price data from Binance API - optimized to use ticker/price endpoint
   const updateBasePriceFromAPI = useCallback(async () => {
     try {
       // Get the current pair
       const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
       if (!currentPair) return;
 
-      // Fetch current trading pair price from Binance public API
-      const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${currentTradingPair}`);
+      // Use the lightweight ticker/price endpoint instead of 24hr
+      const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${currentTradingPair}`);
 
       if (!response.ok) {
         throw new Error(`Binance API error: ${response.status}`);
@@ -441,29 +441,11 @@ const LiveTrading = () => {
 
       const data = await response.json();
 
-      // Extract the relevant data from Binance API response
-      const realData = {
-        current_price: parseFloat(data.lastPrice),
-        market_cap: parseFloat(data.quoteVolume) * 10, // Estimate market cap based on volume
-        total_volume: parseFloat(data.quoteVolume),
-        high_24h: parseFloat(data.highPrice),
-        low_24h: parseFloat(data.lowPrice),
-        price_change_percentage_24h: parseFloat(data.priceChangePercent)
-      };
+      // Extract the price from Binance API response
+      const newPrice = parseFloat(data.price);
 
       // Update the current base price with real data
-      const newPrice = parseFloat(realData.current_price);
       setCurrentBasePrice(newPrice);
-
-      // Update trading pair data with real market data
-      const updatedPair = {
-        ...currentPair,
-        marketCap: realData.market_cap,
-        totalVolume: realData.total_volume,
-        high24h: realData.high_24h,
-        low24h: realData.low_24h,
-        priceChange24h: realData.price_change_percentage_24h
-      };
 
       // Update millisecond prices for more dynamic display
       setMillisecondPrices(prev => {
@@ -473,6 +455,12 @@ const LiveTrading = () => {
         }
         return newPrices;
       });
+
+      // Set flash effect to indicate price update
+      setFlash(true);
+
+      // Reset flash after animation completes
+      setTimeout(() => setFlash(false), 500);
     } catch (error) {
       console.error(`Error fetching ${currentTradingPair} price from Binance API:`, error);
 
@@ -493,7 +481,7 @@ const LiveTrading = () => {
         return newPrices;
       });
     }
-  }, [currentTradingPair, currentBasePrice]);
+  }, [currentTradingPair, currentBasePrice, tradingPairs]);
 
   // Change trading pair automatically with visual effects
   const changeTradingPair = useCallback(() => {
@@ -839,52 +827,29 @@ const LiveTrading = () => {
     }
   }, [tradingActive, currentBasePrice, currentTradingPair]);
 
-  // Function to fetch real-time millisecond price changes from Binance
-  const simulateMillisecondPriceChanges = useCallback(async () => {
+  // Function to simulate millisecond price changes with reduced API calls
+  const simulateMillisecondPriceChanges = useCallback(() => {
     if (!tradingActive || !currentTradingPair) return;
 
-    try {
-      // Fetch current trading pair price from Binance public API
-      const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${currentTradingPair}`);
+    // Use the current base price as reference instead of making API calls
+    // This significantly reduces API load while still providing realistic price movements
+    const basePrice = currentBasePrice;
 
-      if (!response.ok) {
-        throw new Error(`Binance API error: ${response.status}`);
+    if (basePrice <= 0) return;
+
+    // Generate a small random change (±0.01%)
+    const randomChange = basePrice * (0.0001 * (Math.random() - 0.5));
+    const newPrice = basePrice + randomChange;
+
+    // Update millisecond prices
+    setMillisecondPrices(prev => {
+      const newPrices = [...prev, newPrice];
+      if (newPrices.length > 100) {
+        return newPrices.slice(-100);
       }
-
-      const data = await response.json();
-      const realTimePrice = parseFloat(data.price);
-
-      // Update millisecond prices with real data
-      setMillisecondPrices(prev => {
-        const newPrices = [...prev, realTimePrice];
-        if (newPrices.length > 100) {
-          return newPrices.slice(-100);
-        }
-        return newPrices;
-      });
-    } catch (error) {
-      console.error(`Error fetching millisecond price for ${currentTradingPair}:`, error);
-
-      // Fallback to simulated price changes if API fails
-      if (millisecondPrices.length === 0) return;
-
-      // Get the latest price
-      const latestPrice = millisecondPrices[millisecondPrices.length - 1];
-
-      // Generate a small random change (±0.01%)
-      const randomChange = latestPrice * (0.0001 * (Math.random() - 0.5));
-      const newPrice = latestPrice + randomChange;
-
-      // Update millisecond prices
-      setMillisecondPrices(prev => {
-        const newPrices = [...prev, newPrice];
-        if (newPrices.length > 100) {
-          return newPrices.slice(-100);
-        }
-        return newPrices;
-      });
-    }
-  }, [tradingActive, currentTradingPair, millisecondPrices]);
+      return newPrices;
+    });
+  }, [tradingActive, currentTradingPair, currentBasePrice]);
 
   // Function to fetch all cryptocurrency images - using mock data
   const fetchAllCryptoImages = useCallback(async () => {
@@ -1914,11 +1879,29 @@ const LiveTrading = () => {
       }
     }, [millisecondPrices]);
 
-    // Fetch 24h market data from Binance API
+    // Fetch 24h market data from Binance API - optimized to reduce API calls
     useEffect(() => {
+      // Create a shared state for 24hr data that can be used across components
+      if (!window.binance24hrData) {
+        window.binance24hrData = {};
+      }
+
       const fetchMarketData = async () => {
         try {
-          // Fetch data from Binance API
+          // Check if we already have recent data for this pair (less than 30 seconds old)
+          const cachedData = window.binance24hrData[currentTradingPair];
+          const now = Date.now();
+
+          if (cachedData && (now - cachedData.timestamp < 30000)) {
+            // Use cached data if it's recent
+            setVolume24h(cachedData.volume);
+            setHigh24h(cachedData.high);
+            setLow24h(cachedData.low);
+            setChange24h(cachedData.change);
+            return;
+          }
+
+          // Fetch data from Binance API if no recent cache exists
           const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${currentTradingPair}`);
 
           if (!response.ok) {
@@ -1928,10 +1911,24 @@ const LiveTrading = () => {
           const data = await response.json();
 
           // Update state with real data from Binance
-          setVolume24h(parseFloat(data.quoteVolume));
-          setHigh24h(parseFloat(data.highPrice));
-          setLow24h(parseFloat(data.lowPrice));
-          setChange24h(parseFloat(data.priceChangePercent).toFixed(2));
+          const volume = parseFloat(data.quoteVolume);
+          const high = parseFloat(data.highPrice);
+          const low = parseFloat(data.lowPrice);
+          const change = parseFloat(data.priceChangePercent).toFixed(2);
+
+          setVolume24h(volume);
+          setHigh24h(high);
+          setLow24h(low);
+          setChange24h(change);
+
+          // Cache the data with timestamp
+          window.binance24hrData[currentTradingPair] = {
+            volume,
+            high,
+            low,
+            change,
+            timestamp: now
+          };
         } catch (error) {
           console.error(`Error fetching market data for ${currentTradingPair}:`, error);
 
@@ -1957,8 +1954,8 @@ const LiveTrading = () => {
       // Initial fetch
       fetchMarketData();
 
-      // Set up interval to fetch data every 5 seconds
-      const interval = setInterval(fetchMarketData, 5000);
+      // Set up interval to fetch data every 30 seconds (reduced frequency)
+      const interval = setInterval(fetchMarketData, 30000);
 
       // Clean up interval on component unmount
       return () => clearInterval(interval);
@@ -2296,110 +2293,125 @@ const LiveTrading = () => {
     );
   };
 
-  // Enhanced Trading Pairs Component
-  const TradingPairs = () => {
-    // State to store real price data from Binance
-    const [pairPrices, setPairPrices] = useState({});
-
-    // Function to fetch real price data from Binance API
-    const fetchPairPrices = useCallback(async () => {
-      try {
-        // Fetch all ticker prices from Binance
-        const response = await fetch('https://api.binance.com/api/v3/ticker/24hr');
-
-        if (!response.ok) {
-          throw new Error(`Binance API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Create a map of pair symbol to price data
-        const priceMap = {};
-
-        // Process each trading pair
-        tradingPairs.forEach(pair => {
-          // Find the matching data from Binance
-          const binanceData = data.find(item => item.symbol === pair.symbol);
-
-          if (binanceData) {
-            priceMap[pair.symbol] = {
-              price: parseFloat(binanceData.lastPrice).toFixed(2),
-              change: parseFloat(binanceData.priceChangePercent).toFixed(2),
-              imageUrl: `https://assets.coingecko.com/coins/images/${
-                pair.id === 'bitcoin' ? '1' :
-                pair.id === 'ethereum' ? '279' :
-                pair.id === 'binancecoin' ? '825' :
-                pair.id === 'solana' ? '4128' :
-                pair.id === 'cardano' ? '975' :
-                pair.id === 'ripple' ? '44' :
-                pair.id === 'polkadot' ? '12171' :
-                pair.id === 'dogecoin' ? '5' :
-                pair.id === 'polygon' ? '4713' :
-                pair.id === 'avalanche' ? '12559' : '1'
-              }/large/${pair.id || 'bitcoin'}.png`
-            };
+        // Function to fetch real price data from Binance API - optimized to use ticker/price endpoint
+        const [pairPrices, setPairPrices] = useState({});
+        const fetchPairPrices = useCallback(async () => {
+          try {
+            // Use the more lightweight ticker/price endpoint instead of 24hr
+            const response = await fetch('https://api.binance.com/api/v3/ticker/price');
+    
+            if (!response.ok) {
+              throw new Error(`Binance API error: ${response.status}`);
+            }
+    
+            const data = await response.json();
+    
+            // Create a map of pair symbol to price data
+            const priceMap = {};
+    
+            // Process only our trading pairs
+            tradingPairs.forEach(pair => {
+              // Find the matching data from Binance
+              const binanceData = data.find(item => item.symbol === pair.symbol);
+    
+              if (binanceData) {
+                // If we already have this pair's data, just update the price
+                if (pairPrices[pair.symbol]) {
+                  priceMap[pair.symbol] = {
+                    ...pairPrices[pair.symbol],
+                    price: parseFloat(binanceData.price).toFixed(2)
+                  };
+                } else {
+                  // For new pairs, set up the full data structure
+                  priceMap[pair.symbol] = {
+                    price: parseFloat(binanceData.price).toFixed(2),
+                    change: "0.00", // We'll update this less frequently
+                    imageUrl: `https://assets.coingecko.com/coins/images/${
+                      pair.id === 'bitcoin' ? '1' :
+                      pair.id === 'ethereum' ? '279' :
+                      pair.id === 'binancecoin' ? '825' :
+                      pair.id === 'solana' ? '4128' :
+                      pair.id === 'cardano' ? '975' :
+                      pair.id === 'ripple' ? '44' :
+                      pair.id === 'polkadot' ? '12171' :
+                      pair.id === 'dogecoin' ? '5' :
+                      pair.id === 'polygon' ? '4713' :
+                      pair.id === 'avalanche' ? '12559' : '1'
+                    }/large/${pair.id || 'bitcoin'}.png`
+                  };
+                }
+              }
+            });
+    
+            // Update state with the price data
+            setPairPrices(prev => ({...prev, ...priceMap}));
+          } catch (error) {
+            console.error('Error fetching prices from Binance:', error);
           }
-        });
-
-        // Update state with the price data
-        setPairPrices(priceMap);
-      } catch (error) {
-        console.error('Error fetching prices from Binance:', error);
-      }
-    }, []);
-
-    // Fetch prices on component mount and every 5 seconds
+        }, [pairPrices, tradingPairs]);
+            // Fetch prices on component mount and every 5 seconds
     useEffect(() => {
       // Fetch immediately on mount
       fetchPairPrices();
 
       // Set up interval to fetch prices every 5 seconds
-      const interval = setInterval(fetchPairPrices, 5000);
+      const priceInterval = setInterval(fetchPairPrices, 5000);
 
-      // Clean up interval on unmount
-      return () => clearInterval(interval);
+      // Set up interval to fetch 24hr data every 30 seconds
+      // const dataInterval = setInterval(fetch24HrData, 30000);
+
+      // Clean up intervals on unmount
+      return () => {
+        clearInterval(priceInterval);
+        // clearInterval(dataInterval);
+      };
     }, [fetchPairPrices]);
+  // Enhanced Trading Pairs Component
+  const TradingPairs = () => {
+    // State to store real price data from Binance
+    
 
-    // Function to get real price data for a pair
+
+
+    // Function to fetch 24hr data less frequently
+    // const fetch24HrData = useCallback(async () => {
+    //   try {
+    //     // Only fetch data for the current trading pair to reduce load
+    //     const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${currentTradingPair}`);
+
+    //     if (!response.ok) {
+    //       throw new Error(`Binance API error: ${response.status}`);
+    //     }
+
+    //     const data = await response.json();
+
+    //     // Update the current pair's 24hr data
+    //     setPairPrices(prev => ({
+    //       ...prev,
+    //       [currentTradingPair]: {
+    //         ...prev[currentTradingPair],
+    //         change: parseFloat(data.priceChangePercent).toFixed(2)
+    //       }
+    //     }));
+    //   } catch (error) {
+    //     console.error('Error fetching 24hr data from Binance:', error);
+    //   }
+    // }, [currentTradingPair]);
+
+
+
+    // Function to get real price data for a pair - optimized to avoid individual API calls
     const getPairData = (pair) => {
       // Check if we have real data from Binance
       if (pairPrices[pair.symbol]) {
         return pairPrices[pair.symbol];
       }
 
-      // If we don't have real data yet, fetch it immediately
-      fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${pair.symbol}`)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`Binance API error: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          // Update the price map with the new data
-          setPairPrices(prev => ({
-            ...prev,
-            [pair.symbol]: {
-              price: parseFloat(data.lastPrice).toFixed(2),
-              change: parseFloat(data.priceChangePercent).toFixed(2),
-              imageUrl: `https://assets.coingecko.com/coins/images/${
-                pair.id === 'bitcoin' ? '1' :
-                pair.id === 'ethereum' ? '279' :
-                pair.id === 'binancecoin' ? '825' :
-                pair.id === 'solana' ? '4128' :
-                pair.id === 'cardano' ? '975' :
-                pair.id === 'ripple' ? '44' :
-                pair.id === 'polkadot' ? '12171' :
-                pair.id === 'dogecoin' ? '5' :
-                pair.id === 'polygon' ? '4713' :
-                pair.id === 'avalanche' ? '12559' : '1'
-              }/large/${pair.id || 'bitcoin'}.png`
-            }
-          }));
-        })
-        .catch(error => {
-          console.error(`Error fetching price for ${pair.symbol}:`, error);
-        });
+      // If we don't have data yet, trigger a fetch for all pairs
+      // but don't wait for it - this avoids multiple individual API calls
+      if (Object.keys(pairPrices).length === 0) {
+        fetchPairPrices();
+      }
 
       // Return a placeholder with the correct image while we wait for real data
       return {
