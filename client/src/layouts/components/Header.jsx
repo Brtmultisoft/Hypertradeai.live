@@ -426,10 +426,10 @@ const Header = ({ onToggleSidebar }) => {
           <MenuItem component={Link} to="/profile" onClick={handleMenuClose}>
             Profile
           </MenuItem>
-          {/* <MenuItem component={Link} to="/settings" onClick={handleMenuClose}>
+          <MenuItem component={Link} to="/settings" onClick={handleMenuClose}>
             <SettingsIcon fontSize="small" sx={{ mr: 1 }} />
             Settings
-          </MenuItem> */}
+          </MenuItem>
           <MenuItem onClick={handleLogout}>Logout</MenuItem>
         </Menu>
 
