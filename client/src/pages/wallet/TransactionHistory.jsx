@@ -167,9 +167,9 @@ const TransactionHistory = () => {
     switch (statusCode) {
       case 0:
         return 'Pending';
-      case 1:
-        return 'Approved';
       case 2:
+        return 'Approved';
+      case 1:
         return 'Rejected';
       default:
         return 'Unknown';
@@ -184,9 +184,9 @@ const TransactionHistory = () => {
     switch (statusCode) {
       case 0:
         return 'warning';
-      case 1:
-        return 'success';
       case 2:
+        return 'success';
+      case 1:
         return 'error';
       default:
         return 'default';
@@ -262,15 +262,14 @@ const TransactionHistory = () => {
 
   // Refetch data when filters change
   useEffect(() => {
-    if (page > 0 || rowsPerPage !== 10 || filterStatus !== 'all' || startDate || endDate) {
-      if (filterType === 'all' || filterType === 'deposits') {
-        fetchDeposits();
-      }
-      if (filterType === 'all' || filterType === 'withdrawals') {
-        fetchWithdrawals();
-      }
+    // Always fetch data when filters change, regardless of their values
+    if (filterType === 'all' || filterType === 'deposits') {
+      fetchDeposits();
     }
-  }, [page, rowsPerPage, filterType, filterStatus, fetchDeposits, fetchWithdrawals]);
+    if (filterType === 'all' || filterType === 'withdrawals') {
+      fetchWithdrawals();
+    }
+  }, [page, rowsPerPage, filterType, filterStatus, startDate, endDate, fetchDeposits, fetchWithdrawals]);
 
   const loading = loadingDeposits || loadingWithdrawals;
   const error = depositError || withdrawalError;
@@ -368,14 +367,14 @@ const TransactionHistory = () => {
                     </InputAdornment>
                   }
                 >
-                  <MenuItem value="all">All Statuses</MenuItem>
+                  <MenuItem value="all">All Status</MenuItem>
                   <MenuItem value="0">Pending</MenuItem>
-                  <MenuItem value="1">Approved</MenuItem>
+                  <MenuItem value="2">Approved</MenuItem>
                   <MenuItem value="2">Rejected</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-           
+
           </Grid>
 
           <Divider sx={{ my: 2 }} />

@@ -1,7 +1,7 @@
 import React from 'react';
 import { IconButton, Tooltip } from '@mui/material';
-import Brightness4Icon from '@mui/icons-material/Brightness4';
-import Brightness7Icon from '@mui/icons-material/Brightness7';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import { useTheme } from '../../context/ThemeContext';
 
 const ThemeToggle = () => {
@@ -10,7 +10,7 @@ const ThemeToggle = () => {
   return (
     <Tooltip title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
       <IconButton onClick={toggleTheme} color="inherit" size="small">
-        {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+        {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
       </IconButton>
     </Tooltip>
   );

@@ -389,16 +389,17 @@ module.exports = {
                 return responseHelper.error(res, responseData);
             }
 
-            // Search for users by username, name, or email
+            // Search for users by username, name, email, or sponsorID
             const users = await userDbHandler.getByQuery(
                 {
                     $or: [
                         { username: { $regex: query, $options: 'i' } },
                         { name: { $regex: query, $options: 'i' } },
-                        { email: { $regex: query, $options: 'i' } }
+                        { email: { $regex: query, $options: 'i' } },
+                        { sponsorID: { $regex: query, $options: 'i' } }
                     ]
                 },
-                { _id: 1, username: 1, name: 1, email: 1, wallet: 1, wallet_topup: 1 }
+                { _id: 1, username: 1, name: 1, email: 1, wallet: 1, wallet_topup: 1, sponsorID: 1, total_investment: 1 }
             );
 
             responseData.msg = `Found ${users.length} users matching '${query}'`;

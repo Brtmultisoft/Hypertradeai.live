@@ -370,7 +370,7 @@ const Withdraw = () => {
         </IconButton>
         <Typography variant="h6" fontWeight="bold">Withdraw</Typography>
       </Box>
-
+       
       {/* Currency Selection Tabs */}
       <Tabs
         value={activeTab}
@@ -401,7 +401,30 @@ const Withdraw = () => {
           <Tab key={item.currency} label={item.currency} />
         ))}
       </Tabs>
-
+      {/* Warning */}
+      <Alert
+          severity="warning"
+          icon={<InfoIcon />}
+          sx={{
+            borderRadius: 3,
+            mb: 3,
+            p: 2,
+            boxShadow: mode === 'dark' ? '0 4px 12px rgba(0, 0, 0, 0.3)' : '0 4px 12px rgba(0, 0, 0, 0.05)',
+            backgroundColor: mode === 'dark' ? 'rgba(237, 108, 2, 0.1)' : 'rgba(237, 108, 2, 0.05)',
+            border: `1px solid ${mode === 'dark' ? 'rgba(237, 108, 2, 0.2)' : 'rgba(237, 108, 2, 0.1)'}`,
+            '& .MuiAlert-message': {
+              width: '100%',
+            },
+            '& .MuiAlert-icon': {
+              color: '#ED6C02',
+              opacity: 0.9,
+            }
+          }}
+        >
+          <Typography variant="body2" fontWeight="medium">
+            Make sure the recipient address is correct and supports {balances[activeTab].currency} on the {balances[activeTab].currency} network. Sending to an incorrect address may result in permanent loss of funds. A 10% fee will be deducted from your withdrawal amount.
+          </Typography>
+        </Alert>
       {/* Main Content */}
       <Box sx={{ px: 2 }}>
         {/* Balance Card */}
@@ -441,6 +464,7 @@ const Withdraw = () => {
               <CircularProgress size={30} color="primary" />
             </Box>
           )}
+          
           <CardContent sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -893,33 +917,10 @@ const Withdraw = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Warning */}
-        <Alert
-          severity="warning"
-          icon={<InfoIcon />}
-          sx={{
-            borderRadius: 3,
-            mb: 3,
-            p: 2,
-            boxShadow: mode === 'dark' ? '0 4px 12px rgba(0, 0, 0, 0.3)' : '0 4px 12px rgba(0, 0, 0, 0.05)',
-            backgroundColor: mode === 'dark' ? 'rgba(237, 108, 2, 0.1)' : 'rgba(237, 108, 2, 0.05)',
-            border: `1px solid ${mode === 'dark' ? 'rgba(237, 108, 2, 0.2)' : 'rgba(237, 108, 2, 0.1)'}`,
-            '& .MuiAlert-message': {
-              width: '100%',
-            },
-            '& .MuiAlert-icon': {
-              color: '#ED6C02',
-              opacity: 0.9,
-            }
-          }}
-        >
-          <Typography variant="body2" fontWeight="medium">
-            Make sure the recipient address is correct and supports {balances[activeTab].currency} on the {balances[activeTab].currency} network. Sending to an incorrect address may result in permanent loss of funds. A 10% fee will be deducted from your withdrawal amount.
-          </Typography>
-        </Alert>
+        
 
         {/* Recent Withdrawals */}
-        <Paper
+        {/* <Paper
           elevation={0}
           sx={{
             p: 3,
@@ -968,7 +969,7 @@ const Withdraw = () => {
               No recent withdrawals found
             </Typography>
           </Box>
-        </Paper>
+        </Paper> */}
 
         {/* Snackbar for notifications */}
         <Snackbar

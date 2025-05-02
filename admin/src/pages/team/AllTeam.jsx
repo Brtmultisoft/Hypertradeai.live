@@ -71,21 +71,27 @@ const AllTeam = () => {
           page: page + 1,
           limit: rowsPerPage,
           search: searchTerm,
-          sort_field: sortField,
-          sort_direction: sortDirection,
-          referrer: filterReferrer,
+          sort_by: `${sortField}:${sortDirection}`,
+          referrer_email: filterReferrer,
         },
       });
-      console.log(response.data)
-      if (response.data.result && response.data.result.list) {
-        setUsers(response.data.result.list || []);
-        setTotalUsers(response.data.result.total || 0);
+      console.log('API Response:', response.data)
+      console.log('Search term:', searchTerm)
+      console.log('Sort params:', { field: sortField, direction: sortDirection })
+      if (response.data.result || response.data.data) {
+        // Handle different response structures
+        const result = response.data.result || response.data.data;
+        const users = result.docs || result.list || [];
+        const total = result.totalDocs || result.total || 0;
+        console.log('Users:', users);
+        setUsers(users);
+        setTotalUsers(total);
 
         // Extract unique referrers for filter dropdown
-        if (response.data.result.list) {
-          const uniqueReferrers = [...new Set(response.data.result.docs
-            .filter(user => user.referred_by)
-            .map(user => user.referred_by))];
+        if (users.length > 0) {
+          const uniqueReferrers = [...new Set(users
+            .filter(user => user.referrer_email)
+            .map(user => user.referrer_email))];
           setReferrers(uniqueReferrers);
         }
       } else {
@@ -117,6 +123,7 @@ const AllTeam = () => {
 
   // Handle search
   const handleSearch = () => {
+    console.log('Searching with term:', searchTerm);
     setPage(0);
     fetchUsers();
   };
@@ -299,7 +306,7 @@ const AllTeam = () => {
             <TextField
               fullWidth
               variant="outlined"
-              placeholder="Search by name, email, username..."
+              placeholder="Search by name, email, username, sponsor ID..."
               value={searchTerm}
               onChange={handleSearchChange}
               onKeyDown={handleSearchKeyDown}
@@ -384,6 +391,18 @@ const AllTeam = () => {
           <Table sx={{ minWidth: 1100 }}>
             <TableHead>
               <TableRow>
+              <TableCell sx={{ fontWeight: 'bold' }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleSort('sponsorID')}
+                  >
+                    Sponsor ID {renderSortIcon('sponsorID')}
+                  </Box>
+                </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>
                   <Box
                     sx={{
@@ -486,7 +505,7 @@ const AllTeam = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 3 }}>
                     <CircularProgress size={40} />
                     <Box sx={{ mt: 1 }}>
                       Loading users...
@@ -495,13 +514,14 @@ const AllTeam = () => {
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 3 }}>
                     <Box>No users found</Box>
                   </TableCell>
                 </TableRow>
               ) : (
                 users.map((user) => (
                   <TableRow key={user._id} hover>
+                    <TableCell>{user.sponsorID || 'N/A'}</TableCell>
                     <TableCell>
                       <Button
                         color="primary"

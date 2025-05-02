@@ -499,7 +499,7 @@ const Deposit = () => {
         </Paper>
 
         {/* Recent Deposits */}
-        <Paper
+        {/* <Paper
           elevation={0}
           sx={{
             p: 2,
@@ -527,7 +527,7 @@ const Deposit = () => {
               No recent deposits found
             </Typography>
           </Box>
-        </Paper>
+        </Paper> */}
       </Box>
     </Box>
   );

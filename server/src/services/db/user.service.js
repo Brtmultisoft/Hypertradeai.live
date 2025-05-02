@@ -30,13 +30,13 @@ class User {
             params = {
                 $and: [
                     { ...statusSearch(data, ['status']), ...dateSearch(data, 'created_at'), ...params },
-                    search(data.search, ['username', 'email', 'name'])
+                    search(data.search, ['username', 'email', 'name', 'sponsorID'])
                 ]
             };
         }
         else {
             params = {
-                ...advancseSearch(data, ['username', 'email', 'name']),
+                ...advancseSearch(data, ['username', 'email', 'name', 'sponsorID']),
                 ...dateSearch(data, 'created_at'),
                 ...statusSearch(data, ['status']),
                 ...params
@@ -45,7 +45,7 @@ class User {
 
         let filter = params;
         const options = pick(data, ['sort_by', 'limit', 'page']);
-        options.sort_fields = ['email', 'name', 'created_at'];
+        options.sort_fields = ['email', 'name', 'created_at', 'username', 'sponsorID', 'wallet', 'wallet_topup', 'total_investment'];
         options.populate = '';
         const pipeline = [];
 
@@ -81,6 +81,7 @@ class User {
                 position: 1,
                 trace_id:1,
                 level:1,
+                sponsorID: 1,
                 username: 1,
                 email: 1,
                 name: 1,
