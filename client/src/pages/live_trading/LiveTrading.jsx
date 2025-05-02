@@ -122,13 +122,20 @@ const rotateAnimation = keyframes`
   }
 `;
 
-// Trading pairs with CoinGecko IDs and supported exchanges
+// Trading pairs with Binance symbols and supported exchanges
 const tradingPairs = [
   {
     symbol: 'BTCUSDT',
     name: 'BTC/USDT',
     fullName: 'Bitcoin',
     id: 'bitcoin',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate', 'coinbase']
+  },
+  {
+    symbol: 'ETHUSDT',
+    name: 'ETH/USDT',
+    fullName: 'Ethereum',
+    id: 'ethereum',
     supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate', 'coinbase']
   },
   {
@@ -139,18 +146,18 @@ const tradingPairs = [
     supportedExchanges: ['binance', 'kucoin', 'gate']
   },
   {
-    symbol: 'ETHUSDT',
-    name: 'ETH/USDT',
-    fullName: 'Ethereum',
-    id: 'ethereum',
-    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate', 'coinbase']
-  },
-  {
     symbol: 'SOLUSDT',
     name: 'SOL/USDT',
     fullName: 'Solana',
     id: 'solana',
     supportedExchanges: ['binance', 'kucoin', 'okx', 'crypto']
+  },
+  {
+    symbol: 'XRPUSDT',
+    name: 'XRP/USDT',
+    fullName: 'Ripple',
+    id: 'ripple',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate']
   },
   {
     symbol: 'ADAUSDT',
@@ -165,6 +172,27 @@ const tradingPairs = [
     fullName: 'Dogecoin',
     id: 'dogecoin',
     supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx']
+  },
+  {
+    symbol: 'MATICUSDT',
+    name: 'MATIC/USDT',
+    fullName: 'Polygon',
+    id: 'polygon',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate']
+  },
+  {
+    symbol: 'DOTUSDT',
+    name: 'DOT/USDT',
+    fullName: 'Polkadot',
+    id: 'polkadot',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate']
+  },
+  {
+    symbol: 'AVAXUSDT',
+    name: 'AVAX/USDT',
+    fullName: 'Avalanche',
+    id: 'avalanche',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate']
   }
 ];
 
@@ -238,11 +266,12 @@ const LiveTrading = () => {
     {
       id: 'binance',
       name: 'Binance',
-      logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4=',
+      logo:'https://public.bnbstatic.com/20190405/eb2349c3-b2f8-4a93-a286-8f86a62ea9d8.png',
+      // logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4=',
       active: true,
       profit: '+0.0037 USDT',
       highlight: false,
-      fallbackLogo: 'https://ui-avatars.com/api/?name=B&background=random&color=fff&size=100'
+      fallbackLogo: 'https://public.bnbstatic.com/20190405/eb2349c3-b2f8-4a93-a286-8f86a62ea9d8.png'
     },
     {
       id: 'kucoin',
@@ -396,67 +425,44 @@ const LiveTrading = () => {
 
   // We'll move this useEffect after the fetchAllCryptoImages function is defined
 
-  // Function to fetch mock price data (avoiding CORS issues with CoinGecko API)
+  // Function to fetch real price data from Binance API
   const updateBasePriceFromAPI = useCallback(async () => {
     try {
       // Get the current pair
       const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
       if (!currentPair) return;
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Fetch current trading pair price from Binance public API
+      const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${currentTradingPair}`);
 
-      // Generate realistic mock prices based on the cryptocurrency
-      let mockPrice;
-      let mockChange = (Math.random() * 6 - 2).toFixed(2); // -2% to +4%
-
-      switch(currentPair.id) {
-        case 'bitcoin':
-          mockPrice = 45000 + (Math.random() * 2000 - 1000);
-          break;
-        case 'ethereum':
-          mockPrice = 2500 + (Math.random() * 100 - 50);
-          break;
-        case 'binancecoin':
-          mockPrice = 350 + (Math.random() * 20 - 10);
-          break;
-        case 'solana':
-          mockPrice = 120 + (Math.random() * 10 - 5);
-          break;
-        case 'cardano':
-          mockPrice = 0.5 + (Math.random() * 0.05 - 0.025);
-          break;
-        case 'dogecoin':
-          mockPrice = 0.1 + (Math.random() * 0.01 - 0.005);
-          break;
-        default:
-          mockPrice = 100 + (Math.random() * 10 - 5);
+      if (!response.ok) {
+        throw new Error(`Binance API error: ${response.status}`);
       }
 
-      // Create mock data structure similar to what the API would return
-      const mockData = {
-        current_price: mockPrice,
-        market_cap: mockPrice * 1000000000,
-        total_volume: mockPrice * 100000000,
-        high_24h: mockPrice * 1.05,
-        low_24h: mockPrice * 0.95,
-        price_change_percentage_24h: parseFloat(mockChange)
+      const data = await response.json();
+
+      // Extract the relevant data from Binance API response
+      const realData = {
+        current_price: parseFloat(data.lastPrice),
+        market_cap: parseFloat(data.quoteVolume) * 10, // Estimate market cap based on volume
+        total_volume: parseFloat(data.quoteVolume),
+        high_24h: parseFloat(data.highPrice),
+        low_24h: parseFloat(data.lowPrice),
+        price_change_percentage_24h: parseFloat(data.priceChangePercent)
       };
 
-      // Generate mock data silently without console logs
-
-      // Update the current base price with our mock data
-      const newPrice = parseFloat(mockData.current_price.toFixed(2));
+      // Update the current base price with real data
+      const newPrice = parseFloat(realData.current_price);
       setCurrentBasePrice(newPrice);
 
-      // Update trading pair data with mock market data
+      // Update trading pair data with real market data
       const updatedPair = {
         ...currentPair,
-        marketCap: mockData.market_cap,
-        totalVolume: mockData.total_volume,
-        high24h: mockData.high_24h,
-        low24h: mockData.low_24h,
-        priceChange24h: mockData.price_change_percentage_24h
+        marketCap: realData.market_cap,
+        totalVolume: realData.total_volume,
+        high24h: realData.high_24h,
+        low24h: realData.low_24h,
+        priceChange24h: realData.price_change_percentage_24h
       };
 
       // Update millisecond prices for more dynamic display
@@ -468,10 +474,14 @@ const LiveTrading = () => {
         return newPrices;
       });
     } catch (error) {
-      // Fallback to simpler mock data without console logs
-      const fallbackPrice = 100 + (Math.random() * 10 - 5);
-      const newPrice = parseFloat(fallbackPrice.toFixed(2));
+      console.error(`Error fetching ${currentTradingPair} price from Binance API:`, error);
 
+      // Fallback to simpler mock data if API fails
+      const fallbackPrice = currentBasePrice ?
+        currentBasePrice * (1 + (Math.random() * 0.004 - 0.002)) : // ±0.2% change from last price
+        100 + (Math.random() * 10 - 5); // Initial fallback if no price exists
+
+      const newPrice = parseFloat(fallbackPrice.toFixed(2));
       setCurrentBasePrice(newPrice);
 
       // Update millisecond prices
@@ -483,14 +493,14 @@ const LiveTrading = () => {
         return newPrices;
       });
     }
-  }, [currentTradingPair]);
+  }, [currentTradingPair, currentBasePrice]);
 
   // Change trading pair automatically with visual effects
   const changeTradingPair = useCallback(() => {
     // Always run regardless of tradingActive state to ensure pairs change automatically
 
-    // Prioritize popular pairs (BTC, ETH, BNB, SOL, ADA)
-    const popularPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT'];
+    // Prioritize popular pairs (BTC, ETH, BNB, SOL, XRP)
+    const popularPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT'];
 
     // Get current index
     let currentIndex = tradingPairs.findIndex(pair => pair.symbol === currentTradingPair);
@@ -829,26 +839,52 @@ const LiveTrading = () => {
     }
   }, [tradingActive, currentBasePrice, currentTradingPair]);
 
-  // Function to simulate millisecond price changes
-  const simulateMillisecondPriceChanges = useCallback(() => {
-    if (!tradingActive || millisecondPrices.length === 0) return;
+  // Function to fetch real-time millisecond price changes from Binance
+  const simulateMillisecondPriceChanges = useCallback(async () => {
+    if (!tradingActive || !currentTradingPair) return;
 
-    // Get the latest price
-    const latestPrice = millisecondPrices[millisecondPrices.length - 1];
+    try {
+      // Fetch current trading pair price from Binance public API
+      const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${currentTradingPair}`);
 
-    // Generate a small random change (±0.01%)
-    const randomChange = latestPrice * (0.0001 * (Math.random() - 0.5));
-    const newPrice = latestPrice + randomChange;
-
-    // Update millisecond prices
-    setMillisecondPrices(prev => {
-      const newPrices = [...prev, newPrice];
-      if (newPrices.length > 100) {
-        return newPrices.slice(-100);
+      if (!response.ok) {
+        throw new Error(`Binance API error: ${response.status}`);
       }
-      return newPrices;
-    });
-  }, [tradingActive, millisecondPrices]);
+
+      const data = await response.json();
+      const realTimePrice = parseFloat(data.price);
+
+      // Update millisecond prices with real data
+      setMillisecondPrices(prev => {
+        const newPrices = [...prev, realTimePrice];
+        if (newPrices.length > 100) {
+          return newPrices.slice(-100);
+        }
+        return newPrices;
+      });
+    } catch (error) {
+      console.error(`Error fetching millisecond price for ${currentTradingPair}:`, error);
+
+      // Fallback to simulated price changes if API fails
+      if (millisecondPrices.length === 0) return;
+
+      // Get the latest price
+      const latestPrice = millisecondPrices[millisecondPrices.length - 1];
+
+      // Generate a small random change (±0.01%)
+      const randomChange = latestPrice * (0.0001 * (Math.random() - 0.5));
+      const newPrice = latestPrice + randomChange;
+
+      // Update millisecond prices
+      setMillisecondPrices(prev => {
+        const newPrices = [...prev, newPrice];
+        if (newPrices.length > 100) {
+          return newPrices.slice(-100);
+        }
+        return newPrices;
+      });
+    }
+  }, [tradingActive, currentTradingPair, millisecondPrices]);
 
   // Function to fetch all cryptocurrency images - using mock data
   const fetchAllCryptoImages = useCallback(async () => {
@@ -1878,35 +1914,51 @@ const LiveTrading = () => {
       }
     }, [millisecondPrices]);
 
-    // Fetch 24h market data - using mock data to avoid CORS issues
+    // Fetch 24h market data from Binance API
     useEffect(() => {
       const fetchMarketData = async () => {
-        // Get the current pair from our trading pairs data
-        const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
+        try {
+          // Fetch data from Binance API
+          const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${currentTradingPair}`);
 
-        if (currentPair) {
-          // Use the mock data
-          setVolume24h(currentPair.totalVolume || price * 1000);
-          setHigh24h(currentPair.high24h || price * 1.05);
-          setLow24h(currentPair.low24h || price * 0.95);
-          setChange24h(currentPair.priceChange24h?.toFixed(2) || '0.00');
-        } else {
-          // Fallback to calculated values if pair not found
-          setVolume24h(price * 1000);
-          setHigh24h(price * 1.05);
-          setLow24h(price * 0.95);
+          if (!response.ok) {
+            throw new Error(`Binance API error: ${response.status}`);
+          }
 
-          // Generate a random change percentage that's mostly positive
-          const randomChange = (Math.random() * 6 - 1).toFixed(2); // -1% to +5%
-          setChange24h(randomChange);
+          const data = await response.json();
+
+          // Update state with real data from Binance
+          setVolume24h(parseFloat(data.quoteVolume));
+          setHigh24h(parseFloat(data.highPrice));
+          setLow24h(parseFloat(data.lowPrice));
+          setChange24h(parseFloat(data.priceChangePercent).toFixed(2));
+        } catch (error) {
+          console.error(`Error fetching market data for ${currentTradingPair}:`, error);
+
+          // Fallback to calculated values if API fails
+          const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
+
+          if (currentPair) {
+            // Use any existing data we might have
+            setVolume24h(currentPair.totalVolume || price * 1000);
+            setHigh24h(currentPair.high24h || price * 1.05);
+            setLow24h(currentPair.low24h || price * 0.95);
+            setChange24h(currentPair.priceChange24h?.toFixed(2) || '0.00');
+          } else {
+            // Last resort fallback
+            setVolume24h(price * 1000);
+            setHigh24h(price * 1.05);
+            setLow24h(price * 0.95);
+            setChange24h('0.00');
+          }
         }
       };
 
       // Initial fetch
       fetchMarketData();
 
-      // Set up interval with a longer delay to reduce CPU usage
-      const interval = setInterval(fetchMarketData, 15000); // Update less frequently to reduce CPU usage
+      // Set up interval to fetch data every 5 seconds
+      const interval = setInterval(fetchMarketData, 5000);
 
       // Clean up interval on component unmount
       return () => clearInterval(interval);
@@ -2064,15 +2116,15 @@ const LiveTrading = () => {
             <Card
               elevation={0}
               sx={{
-                width: '100%',
+                width: '600px',
                 borderRadius: { xs: 0, sm: 3 },
                 border: { xs: 'none', sm: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}` },
                 backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.9)' : '#ffffff',
-                overflow: 'hidden'
+                overflowX: 'none'
               }}
             >
               <CardContent sx={{ p: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" fontWeight="bold">
                     TRADING EXCHANGES
                   </Typography>
@@ -2089,7 +2141,7 @@ const LiveTrading = () => {
                   >
                     Select Exchanges
                   </Button>
-                </Box>
+                </Box> */}
 
                 <Grid container spacing={2}>
                   {/* Use exchangeObjects state instead of local exchanges state */}
@@ -2166,48 +2218,17 @@ const LiveTrading = () => {
                         </Box>
 
                         {/* Exchange Name */}
-                        <Typography
+                        {/* <Typography
                           variant="subtitle2"
                           fontWeight="bold"
                           align="center"
                           sx={{ mb: 0.5 }}
                         >
                           {exchange.name}
-                        </Typography>
+                        </Typography> */}
 
-                        {/* Exchange Stats */}
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          align="center"
-                          sx={{ mb: 0.5 }}
-                        >
-                          Volume: {exchange.stats?.volume || '$1.0B'}
-                        </Typography>
 
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          align="center"
-                          sx={{ mb: 1 }}
-                        >
-                          Pairs: {exchange.stats?.pairs || '100+'}
-                        </Typography>
 
-                        {/* Profit Indicator */}
-                        <Chip
-                          label={exchange.profit || '+0.00 USDT'}
-                          size="small"
-                          color={exchange.profit?.startsWith('+') ? "success" : "error"}
-                          sx={{
-                            fontWeight: 'bold',
-                            fontSize: '0.7rem',
-                            height: 20,
-                            '& .MuiChip-label': {
-                              px: 1
-                            }
-                          }}
-                        />
 
                         {/* Active Indicator */}
                         {exchange.active && (
@@ -2243,7 +2264,7 @@ const LiveTrading = () => {
           </Grid>
 
             {/* Price Stats */}
-            <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={6} sm={3}>
                 <Typography variant="body2" color="text.secondary">24h Volume</Typography>
                 <Typography variant="body1" fontWeight="medium">
@@ -2268,7 +2289,7 @@ const LiveTrading = () => {
                   ${(price * (Math.random() * 1000000 + 10000000)).toLocaleString('en-US', { maximumFractionDigits: 0 })}
                 </Typography>
               </Grid>
-            </Grid>
+            </Grid> */}
           </Box>
         </CardContent>
       </Card>
@@ -2277,24 +2298,125 @@ const LiveTrading = () => {
 
   // Enhanced Trading Pairs Component
   const TradingPairs = () => {
+    // State to store real price data from Binance
+    const [pairPrices, setPairPrices] = useState({});
+
+    // Function to fetch real price data from Binance API
+    const fetchPairPrices = useCallback(async () => {
+      try {
+        // Fetch all ticker prices from Binance
+        const response = await fetch('https://api.binance.com/api/v3/ticker/24hr');
+
+        if (!response.ok) {
+          throw new Error(`Binance API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Create a map of pair symbol to price data
+        const priceMap = {};
+
+        // Process each trading pair
+        tradingPairs.forEach(pair => {
+          // Find the matching data from Binance
+          const binanceData = data.find(item => item.symbol === pair.symbol);
+
+          if (binanceData) {
+            priceMap[pair.symbol] = {
+              price: parseFloat(binanceData.lastPrice).toFixed(2),
+              change: parseFloat(binanceData.priceChangePercent).toFixed(2),
+              imageUrl: `https://assets.coingecko.com/coins/images/${
+                pair.id === 'bitcoin' ? '1' :
+                pair.id === 'ethereum' ? '279' :
+                pair.id === 'binancecoin' ? '825' :
+                pair.id === 'solana' ? '4128' :
+                pair.id === 'cardano' ? '975' :
+                pair.id === 'ripple' ? '44' :
+                pair.id === 'polkadot' ? '12171' :
+                pair.id === 'dogecoin' ? '5' :
+                pair.id === 'polygon' ? '4713' :
+                pair.id === 'avalanche' ? '12559' : '1'
+              }/large/${pair.id || 'bitcoin'}.png`
+            };
+          }
+        });
+
+        // Update state with the price data
+        setPairPrices(priceMap);
+      } catch (error) {
+        console.error('Error fetching prices from Binance:', error);
+      }
+    }, []);
+
+    // Fetch prices on component mount and every 5 seconds
+    useEffect(() => {
+      // Fetch immediately on mount
+      fetchPairPrices();
+
+      // Set up interval to fetch prices every 5 seconds
+      const interval = setInterval(fetchPairPrices, 5000);
+
+      // Clean up interval on unmount
+      return () => clearInterval(interval);
+    }, [fetchPairPrices]);
+
     // Function to get real price data for a pair
     const getPairData = (pair) => {
-      // Try to find the pair in the global trading pairs data
-      const pairData = window.tradingPairsData?.find(p => p.id === pair.id);
-
-      if (pairData) {
-        return {
-          price: pairData.currentPrice ? pairData.currentPrice.toFixed(2) : (Math.random() * 1000 + 100).toFixed(2),
-          change: pairData.priceChange24h ? pairData.priceChange24h.toFixed(2) : (Math.random() * 10 - 5).toFixed(2),
-          imageUrl: pairData.imageUrl
-        };
+      // Check if we have real data from Binance
+      if (pairPrices[pair.symbol]) {
+        return pairPrices[pair.symbol];
       }
 
-      // Fallback to random data
+      // If we don't have real data yet, fetch it immediately
+      fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${pair.symbol}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Binance API error: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Update the price map with the new data
+          setPairPrices(prev => ({
+            ...prev,
+            [pair.symbol]: {
+              price: parseFloat(data.lastPrice).toFixed(2),
+              change: parseFloat(data.priceChangePercent).toFixed(2),
+              imageUrl: `https://assets.coingecko.com/coins/images/${
+                pair.id === 'bitcoin' ? '1' :
+                pair.id === 'ethereum' ? '279' :
+                pair.id === 'binancecoin' ? '825' :
+                pair.id === 'solana' ? '4128' :
+                pair.id === 'cardano' ? '975' :
+                pair.id === 'ripple' ? '44' :
+                pair.id === 'polkadot' ? '12171' :
+                pair.id === 'dogecoin' ? '5' :
+                pair.id === 'polygon' ? '4713' :
+                pair.id === 'avalanche' ? '12559' : '1'
+              }/large/${pair.id || 'bitcoin'}.png`
+            }
+          }));
+        })
+        .catch(error => {
+          console.error(`Error fetching price for ${pair.symbol}:`, error);
+        });
+
+      // Return a placeholder with the correct image while we wait for real data
       return {
-        price: (Math.random() * 1000 + 100).toFixed(2),
-        change: (Math.random() * 10 - 5).toFixed(2),
-        imageUrl: null
+        price: "Loading...",
+        change: "0.00",
+        imageUrl: `https://assets.coingecko.com/coins/images/${
+          pair.id === 'bitcoin' ? '1' :
+          pair.id === 'ethereum' ? '279' :
+          pair.id === 'binancecoin' ? '825' :
+          pair.id === 'solana' ? '4128' :
+          pair.id === 'cardano' ? '975' :
+          pair.id === 'ripple' ? '44' :
+          pair.id === 'polkadot' ? '12171' :
+          pair.id === 'dogecoin' ? '5' :
+          pair.id === 'polygon' ? '4713' :
+          pair.id === 'avalanche' ? '12559' : '1'
+        }/large/${pair.id || 'bitcoin'}.png`
       };
     };
 
@@ -3106,7 +3228,9 @@ const LiveTrading = () => {
                 {/* Sell Orders */}
                 <Box sx={{ flex: 1, overflow: 'auto', p: 1 }}>
                   {Array.from({ length: 10 }).map((_, index) => {
-                    const price = currentBasePrice + (10 - index) * 50;
+                    // Use real price data with small variations for sell orders (slightly higher than current price)
+                    const priceVariation = (10 - index) * (currentBasePrice * 0.001); // 0.1% steps
+                    const price = currentBasePrice + priceVariation;
                     const amount = Math.random() * 2 + 0.1;
                     const total = price * amount;
                     const depth = 10 - index; // Depth indicator for visualization
@@ -3294,7 +3418,9 @@ const LiveTrading = () => {
             {/* Buy Orders */}
             <Box sx={{ flex: 1, overflow: 'auto', p: 1 }}>
               {Array.from({ length: 10 }).map((_, index) => {
-                const price = currentBasePrice - (index + 1) * 50;
+                // Use real price data with small variations for buy orders (slightly lower than current price)
+                const priceVariation = (index + 1) * (currentBasePrice * 0.001); // 0.1% steps
+                const price = currentBasePrice - priceVariation;
                 const amount = Math.random() * 2 + 0.1;
                 const total = price * amount;
                 const depth = index + 1; // Depth indicator for visualization
