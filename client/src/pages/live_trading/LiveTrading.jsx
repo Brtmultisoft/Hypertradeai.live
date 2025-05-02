@@ -559,100 +559,100 @@ const LiveTrading = () => {
         // First bubble appears after a longer delay to seem more natural
         const initialDelay = Math.floor(Math.random() * 800) + 1000; // 500-1300ms initial delay
 
-        for (let i = 0; i < numBubbles; i++) {
-          setTimeout(() => {
-            // Always positive profit (100% chance) - no losses as requested
+        // for (let i = 0; i < numBubbles; i++) {
+        //   setTimeout(() => {
+        //     // Always positive profit (100% chance) - no losses as requested
 
-            // Generate profit amounts based on daily profit rate
-            let profitAmount;
+        //     // Generate profit amounts based on daily profit rate
+        //     let profitAmount;
 
-            // Special case: first bubble is always larger to signify the pair change
-            if (i === 0) {
-              // First bubble represents a significant portion of the profit per pair change
-              profitAmount = (profitPerPairChange * (Math.random() * 0.3 + 0.7)).toFixed(6); // 70-100% of profit per pair change
-            } else {
-              // Second bubble is smaller
-              profitAmount = (profitPerPairChange * (Math.random() * 0.2 + 0.3)).toFixed(6); // 30-50% of profit per pair change
-            }
+        //     // Special case: first bubble is always larger to signify the pair change
+        //     if (i === 0) {
+        //       // First bubble represents a significant portion of the profit per pair change
+        //       profitAmount = (profitPerPairChange * (Math.random() * 0.3 + 0.7)).toFixed(6); // 70-100% of profit per pair change
+        //     } else {
+        //       // Second bubble is smaller
+        //       profitAmount = (profitPerPairChange * (Math.random() * 0.2 + 0.3)).toFixed(6); // 30-50% of profit per pair change
+        //     }
 
-            // Get a random exchange from the selected ones, but with preference for major exchanges
-            let randomExchangeId;
-            if (Math.random() < 0.8) { // Increased chance for major exchanges during pair changes
-              // 80% chance to pick from major exchanges
-              const majorExchanges = ['binance', 'okx', 'kucoin'].filter(ex => selectedExchanges.includes(ex));
-              if (majorExchanges.length > 0) {
-                randomExchangeId = majorExchanges[Math.floor(Math.random() * majorExchanges.length)];
-              } else {
-                randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
-              }
-            } else {
-              // 20% chance to pick any exchange
-              randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
-            }
+        //     // Get a random exchange from the selected ones, but with preference for major exchanges
+        //     let randomExchangeId;
+        //     if (Math.random() < 0.8) { // Increased chance for major exchanges during pair changes
+        //       // 80% chance to pick from major exchanges
+        //       const majorExchanges = ['binance', 'okx', 'kucoin'].filter(ex => selectedExchanges.includes(ex));
+        //       if (majorExchanges.length > 0) {
+        //         randomExchangeId = majorExchanges[Math.floor(Math.random() * majorExchanges.length)];
+        //       } else {
+        //         randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+        //       }
+        //     } else {
+        //       // 20% chance to pick any exchange
+        //       randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+        //     }
 
-            const exchangeObj = exchangeObjects.find(ex => ex.id === randomExchangeId);
-            const exchangeName = exchangeObj ? exchangeObj.name : randomExchangeId;
+        //     const exchangeObj = exchangeObjects.find(ex => ex.id === randomExchangeId);
+        //     const exchangeName = exchangeObj ? exchangeObj.name : randomExchangeId;
 
-            // Create the bubble - first bubble has a high chance to be a big profit bubble
-            if (i === 0 && Math.random() < 0.7) { // 70% chance for first bubble to be big profit
-              // Create special big profit bubble for the first bubble
-              const bubble = document.createElement('div');
-              bubble.className = `profit-bubble profit big-profit`;
+        //     // Create the bubble - first bubble has a high chance to be a big profit bubble
+        //     if (i === 0 && Math.random() < 0.7) { // 70% chance for first bubble to be big profit
+        //       // Create special big profit bubble for the first bubble
+        //       const bubble = document.createElement('div');
+        //       bubble.className = `profit-bubble profit big-profit`;
 
-              // Format the amount with proper decimal places
-              const formattedAmount = parseFloat(profitAmount).toFixed(4);
+        //       // Format the amount with proper decimal places
+        //       const formattedAmount = parseFloat(profitAmount).toFixed(4);
 
-              // Create amount element with enhanced styling
-              const amountSpan = document.createElement('span');
-              amountSpan.textContent = `+${formattedAmount} USDT`; // Always positive
-              amountSpan.style.fontSize = '18px';
-              bubble.appendChild(amountSpan);
+        //       // Create amount element with enhanced styling
+        //       const amountSpan = document.createElement('span');
+        //       amountSpan.textContent = `+${formattedAmount} USDT`; // Always positive
+        //       amountSpan.style.fontSize = '18px';
+        //       bubble.appendChild(amountSpan);
 
-              // Add exchange name with special formatting
-              const exchangeSpan = document.createElement('span');
-              exchangeSpan.className = 'exchange-name';
-              exchangeSpan.textContent = `⭐ ${exchangeName} ⭐`;
-              exchangeSpan.style.fontSize = '12px';
-              exchangeSpan.style.fontWeight = 'bold';
-              bubble.appendChild(exchangeSpan);
+        //       // Add exchange name with special formatting
+        //       const exchangeSpan = document.createElement('span');
+        //       exchangeSpan.className = 'exchange-name';
+        //       exchangeSpan.textContent = `⭐ ${exchangeName} ⭐`;
+        //       exchangeSpan.style.fontSize = '12px';
+        //       exchangeSpan.style.fontWeight = 'bold';
+        //       bubble.appendChild(exchangeSpan);
 
-              // Center the big profit bubble more
-              const randomX = Math.floor(Math.random() * 40) + 30; // 30% to 70% of screen width
-              bubble.style.left = `${randomX}%`;
-              bubble.style.bottom = '8%';
+        //       // Center the big profit bubble more
+        //       const randomX = Math.floor(Math.random() * 40) + 30; // 30% to 70% of screen width
+        //       bubble.style.left = `${randomX}%`;
+        //       bubble.style.bottom = '8%';
 
-              // Add to the DOM
-              const container = document.getElementById('profit-bubbles-container');
-              if (container) {
-                container.appendChild(bubble);
+        //       // Add to the DOM
+        //       const container = document.getElementById('profit-bubbles-container');
+        //       if (container) {
+        //         container.appendChild(bubble);
 
-                // Remove the bubble after animation completes
-                setTimeout(() => {
-                  if (container.contains(bubble)) {
-                    container.removeChild(bubble);
-                  }
-                }, 10500); // Slightly longer than animation to ensure complete removal
-              }
-            } else {
-              // Regular profit bubble
-              // createProfitBubble(profitAmount, true, exchangeName); // Always positive
-            }
+        //         // Remove the bubble after animation completes
+        //         setTimeout(() => {
+        //           if (container.contains(bubble)) {
+        //             container.removeChild(bubble);
+        //           }
+        //         }, 10500); // Slightly longer than animation to ensure complete removal
+        //       }
+        //     } else {
+        //       // Regular profit bubble
+        //       // createProfitBubble(profitAmount, true, exchangeName); // Always positive
+        //     }
 
-            // Always highlight this exchange for pair changes
-            setExchangeObjects(prev => {
-              return prev.map(exchange => {
-                if (exchange.id === randomExchangeId) {
-                  return {
-                    ...exchange,
-                    highlight: true,
-                    profit: `+${profitAmount} USDT` // Always positive
-                  };
-                }
-                return exchange;
-              });
-            });
-          }, initialDelay + i * Math.floor(Math.random() * 1200 + 2000)); // More natural staggered timing (1000-2200ms between bubbles)
-        }
+        //     // Always highlight this exchange for pair changes
+        //     setExchangeObjects(prev => {
+        //       return prev.map(exchange => {
+        //         if (exchange.id === randomExchangeId) {
+        //           return {
+        //             ...exchange,
+        //             highlight: true,
+        //             profit: `+${profitAmount} USDT` // Always positive
+        //           };
+        //         }
+        //         return exchange;
+        //       });
+        //     });
+        //   }, initialDelay + i * Math.floor(Math.random() * 1200 + 2000)); // More natural staggered timing (1000-2200ms between bubbles)
+        // }
       } catch (error) {
         console.log("Error creating pair change bubbles:", error);
       }
