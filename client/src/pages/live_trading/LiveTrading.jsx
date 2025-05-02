@@ -635,7 +635,7 @@ const LiveTrading = () => {
               }
             } else {
               // Regular profit bubble
-              createProfitBubble(profitAmount, true, exchangeName); // Always positive
+              // createProfitBubble(profitAmount, true, exchangeName); // Always positive
             }
 
             // Always highlight this exchange for pair changes
@@ -1414,7 +1414,7 @@ const LiveTrading = () => {
         // Silently handle any DOM errors
         console.log("Error creating profit bubble:", error);
       }
-    }, avgBubbleInterval * (Math.random() * 0.4 + 0.8)); // Add randomness to interval (80-120% of average)
+    }, 1000); // Changed to 1 second as requested
 
     return () => clearInterval(bubbleInterval);
   }, [tradingActive, selectedExchanges, exchangeObjects, profitPerSecond, dailyProfit]);
