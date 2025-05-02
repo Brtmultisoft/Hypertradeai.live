@@ -288,7 +288,7 @@ const LiveTrading = () => {
   const [showExchangeSelector, setShowExchangeSelector] = useState(false);
   const [flash, setFlash] = useState(false);
   const [totalInvestment, setTotalInvestment] = useState(0);
-  const [dailyProfitRate, setDailyProfitRate] = useState(0.8); // 0.8% daily profit
+  const [dailyProfitRate, setDailyProfitRate] = useState(0.26); // 0.26% daily profit
   const [dailyProfit, setDailyProfit] = useState(0);
   const [accumulatedProfit, setAccumulatedProfit] = useState(0);
   const [totalTrades, setTotalTrades] = useState(0);
