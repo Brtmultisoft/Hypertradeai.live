@@ -1093,13 +1093,13 @@ const LiveTrading = () => {
       if (interval) clearInterval(interval);
     });
 
-    // Set new intervals - some intervals only run when trading is active
+    // Set new intervals - all set to 1 second as requested
     tradingIntervalsRef.current = {
-      // Update price every 15 seconds (increased from 10 seconds)
-      price: setInterval(updateBasePriceFromAPI, 15000),
+      // Update price every 1 second
+      price: setInterval(updateBasePriceFromAPI, 1000),
 
-      // Change pair every 45 seconds (increased from 30 seconds)
-      pair: setInterval(changeTradingPair, 45000),
+      // Change pair every 1 second
+      pair: setInterval(changeTradingPair, 1000),
 
       // Only create these intervals if trading is active
       // Combine orderBook and tradeHistory into a single interval
@@ -1107,9 +1107,9 @@ const LiveTrading = () => {
         // Update order book and trade history in the same interval
         generateOrderBook();
         generateTradeHistory();
-      }, 8000) : null,
+      }, 1000) : null,
 
-      // Reduce frequency of millisecond price changes to improve performance
+      // Millisecond price changes every 1 second
       millisecondPrice: tradingActive ? setInterval(simulateMillisecondPriceChanges, 1000) : null
     };
 
@@ -1169,7 +1169,7 @@ const LiveTrading = () => {
 
       // Update the ref for synchronization
       activeExchangesRef.current = randomExchanges;
-    }, 3000); // Reduced frequency to every 3 seconds to improve performance
+    }, 1000); // Changed to 1 second as requested
 
     return () => clearInterval(exchangeInterval);
   }, [currentTradingPair]);
@@ -1267,7 +1267,7 @@ const LiveTrading = () => {
 
         return updatedExchanges;
       });
-    }, avgHighlightInterval * (Math.random() * 0.4 + 0.8)); // Add randomness to interval (80-120% of average)
+    }, 1000); // Changed to 1 second as requested
 
     return () => clearInterval(interval);
   }, [tradingActive, selectedExchanges, profitPerSecond, dailyProfit]);
