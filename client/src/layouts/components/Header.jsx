@@ -7,7 +7,6 @@ import {
   Typography,
   Menu,
   MenuItem,
-  Badge,
   Box,
   Avatar,
   Tooltip,
@@ -16,15 +15,10 @@ import {
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Notifications as NotificationsIcon,
   AccountCircle,
-  Settings as SettingsIcon,
-  QrCode as QrCodeIcon,
   ArrowDropDown as ArrowDropDownIcon,
   AccountBalanceWallet as WalletIcon,
-  Add as AddIcon,
-  Send as SendIcon,
-  Refresh as RefreshIcon,
+  Share as ShareIcon,
 } from '@mui/icons-material';
 
 import useAuth from '../../hooks/useAuth';
@@ -40,22 +34,13 @@ const Header = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
   const { userData } = useData();
   const [anchorEl, setAnchorEl] = useState(null);
-  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
 
   const handleProfileMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleNotificationsMenuOpen = (event) => {
-    setNotificationsAnchorEl(event.currentTarget);
-  };
-
   const handleMenuClose = () => {
     setAnchorEl(null);
-  };
-
-  const handleNotificationsMenuClose = () => {
-    setNotificationsAnchorEl(null);
   };
 
   const handleLogout = () => {
@@ -220,15 +205,48 @@ const Header = ({ onToggleSidebar }) => {
                 </Box>
                 Main Wallet
               </Button> */}
-                  {/* Theme Toggle */}
-                  <ThemeToggle />
+                  {/* Theme Toggle removed from mobile view */}
 
-              {/* Notifications */}
-              <IconButton color="inherit" size="small" onClick={handleNotificationsMenuOpen}>
-                <Badge badgeContent={4} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem' } }}>
-                  <NotificationsIcon fontSize="small" />
-                </Badge>
-              </IconButton>
+              {/* Referral Button (replaced notification icon) */}
+              <Tooltip title="Copy Referral Link">
+                <IconButton
+                  color="inherit"
+                  size="small"
+                  onClick={() => {
+                    const referralCode = userData?.sponsorID;
+                    const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
+
+                    if (!referralCode) {
+                      // Show error message
+                      return;
+                    }
+
+                    navigator.clipboard.writeText(referralLink)
+                      .then(() => {
+                        // Show success message using snackbar
+                        const event = new CustomEvent('showNotification', {
+                          detail: {
+                            message: 'Referral link copied to clipboard!',
+                            severity: 'success'
+                          }
+                        });
+                        document.dispatchEvent(event);
+                      })
+                      .catch((error) => {
+                        console.error('Failed to copy: ', error);
+                        const event = new CustomEvent('showNotification', {
+                          detail: {
+                            message: 'Failed to copy referral link',
+                            severity: 'error'
+                          }
+                        });
+                        document.dispatchEvent(event);
+                      });
+                  }}
+                >
+                  <ShareIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
                 {/* Profile */}
                 <Box sx={{ ml: 1 }}>
                 <Tooltip title="Account settings">
@@ -369,12 +387,46 @@ const Header = ({ onToggleSidebar }) => {
                 Main Wallet
               </Button>
 
-              {/* Notifications */}
-              <IconButton color="inherit" onClick={handleNotificationsMenuOpen} sx={{ mr: 1 }}>
-                <Badge badgeContent={4} color="error">
-                  <NotificationsIcon />
-                </Badge>
-              </IconButton>
+              {/* Referral Button (replaced notification icon) */}
+              <Tooltip title="Copy Referral Link">
+                <IconButton
+                  color="inherit"
+                  sx={{ mr: 1 }}
+                  onClick={() => {
+                    const referralCode = userData?.sponsorID;
+                    const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
+
+                    if (!referralCode) {
+                      // Show error message
+                      return;
+                    }
+
+                    navigator.clipboard.writeText(referralLink)
+                      .then(() => {
+                        // Show success message using snackbar
+                        const event = new CustomEvent('showNotification', {
+                          detail: {
+                            message: 'Referral link copied to clipboard!',
+                            severity: 'success'
+                          }
+                        });
+                        document.dispatchEvent(event);
+                      })
+                      .catch((error) => {
+                        console.error('Failed to copy: ', error);
+                        const event = new CustomEvent('showNotification', {
+                          detail: {
+                            message: 'Failed to copy referral link',
+                            severity: 'error'
+                          }
+                        });
+                        document.dispatchEvent(event);
+                      });
+                  }}
+                >
+                  <ShareIcon />
+                </IconButton>
+              </Tooltip>
 
               {/* Theme Toggle */}
               <ThemeToggle />
@@ -433,37 +485,7 @@ const Header = ({ onToggleSidebar }) => {
           <MenuItem onClick={handleLogout}>Logout</MenuItem>
         </Menu>
 
-        {/* Notifications Menu */}
-        <Menu
-          anchorEl={notificationsAnchorEl}
-          id="notifications-menu"
-          open={Boolean(notificationsAnchorEl)}
-          onClose={handleNotificationsMenuClose}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          slotProps={{
-            paper: {
-              sx: {
-                borderRadius: 2,
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-                maxWidth: 320,
-              }
-            }
-          }}
-        >
-          <MenuItem onClick={handleNotificationsMenuClose}>
-            New deposit received
-          </MenuItem>
-          <MenuItem onClick={handleNotificationsMenuClose}>
-            Daily ROI credited
-          </MenuItem>
-          <MenuItem onClick={handleNotificationsMenuClose}>
-            New team member joined
-          </MenuItem>
-          <MenuItem onClick={handleNotificationsMenuClose}>
-            Withdrawal processed
-          </MenuItem>
-        </Menu>
+        {/* Notifications Menu removed */}
       </Toolbar>
     </AppBar>
   );
