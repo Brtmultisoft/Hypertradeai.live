@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -21,6 +21,10 @@ import {
   LinearProgress,
   Tooltip,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Snackbar,
   Alert,
   Divider,
@@ -49,6 +53,7 @@ import {
   Analytics,
   Equalizer,
   SwapHoriz,
+  ArrowDropDown,
 } from '@mui/icons-material';
 import './LiveTrading.css';
 import axios from 'axios';
@@ -108,13 +113,29 @@ const pairChangeAnimation = keyframes`
   }
 `;
 
-// Trading pairs with CoinGecko IDs and supported exchanges
+const rotateAnimation = keyframes`
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+`;
+
+// Trading pairs with Binance symbols and supported exchanges
 const tradingPairs = [
   {
     symbol: 'BTCUSDT',
     name: 'BTC/USDT',
     fullName: 'Bitcoin',
     id: 'bitcoin',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate', 'coinbase']
+  },
+  {
+    symbol: 'ETHUSDT',
+    name: 'ETH/USDT',
+    fullName: 'Ethereum',
+    id: 'ethereum',
     supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate', 'coinbase']
   },
   {
@@ -125,18 +146,18 @@ const tradingPairs = [
     supportedExchanges: ['binance', 'kucoin', 'gate']
   },
   {
-    symbol: 'ETHUSDT',
-    name: 'ETH/USDT',
-    fullName: 'Ethereum',
-    id: 'ethereum',
-    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate', 'coinbase']
-  },
-  {
     symbol: 'SOLUSDT',
     name: 'SOL/USDT',
     fullName: 'Solana',
     id: 'solana',
     supportedExchanges: ['binance', 'kucoin', 'okx', 'crypto']
+  },
+  {
+    symbol: 'XRPUSDT',
+    name: 'XRP/USDT',
+    fullName: 'Ripple',
+    id: 'ripple',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate']
   },
   {
     symbol: 'ADAUSDT',
@@ -151,10 +172,82 @@ const tradingPairs = [
     fullName: 'Dogecoin',
     id: 'dogecoin',
     supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx']
+  },
+  {
+    symbol: 'MATICUSDT',
+    name: 'MATIC/USDT',
+    fullName: 'Polygon',
+    id: 'polygon',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate']
+  },
+  {
+    symbol: 'DOTUSDT',
+    name: 'DOT/USDT',
+    fullName: 'Polkadot',
+    id: 'polkadot',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate']
+  },
+  {
+    symbol: 'AVAXUSDT',
+    name: 'AVAX/USDT',
+    fullName: 'Avalanche',
+    id: 'avalanche',
+    supportedExchanges: ['binance', 'kucoin', 'crypto', 'okx', 'gate']
   }
 ];
 
-// No global profit bubble function - removed to fix removeChild errors
+// Function to create profit bubbles with enhanced visuals (only positive profits)
+const createProfitBubble = (amount, isPositive, exchangeName) => {
+  // Create a bubble element - always use profit class
+  const bubble = document.createElement('div');
+  bubble.className = 'profit-bubble profit'; // Always profit, never loss
+
+  // Format the amount with proper decimal places based on value
+  const formattedAmount = parseFloat(amount).toFixed(
+    parseFloat(amount) < 0.001 ? 6 : parseFloat(amount) < 0.01 ? 5 : 4
+  );
+
+  // Create amount element with enhanced styling
+  const amountSpan = document.createElement('span');
+  amountSpan.textContent = `+${formattedAmount} USDT`; // Always positive
+  amountSpan.style.fontSize = '15px';
+  bubble.appendChild(amountSpan);
+
+  // Add exchange name if provided
+  if (exchangeName) {
+    const exchangeSpan = document.createElement('span');
+    exchangeSpan.className = 'exchange-name';
+
+    // Add small icon before exchange name for visual enhancement
+    // Always use up arrow for positive profit
+    exchangeSpan.textContent = `↗ ${exchangeName}`;
+
+    bubble.appendChild(exchangeSpan);
+  }
+
+  // Set random position on the screen with more variation
+  const randomX = Math.floor(Math.random() * 70) + 15; // 15% to 85% of screen width
+  const randomOffset = Math.floor(Math.random() * 5); // Small random offset for natural look
+  bubble.style.left = `${randomX}%`;
+  bubble.style.bottom = `${5 + randomOffset}%`;
+
+  // Add slight random rotation for more natural movement
+  const randomRotation = Math.random() * 6 - 3; // -3 to +3 degrees
+  bubble.style.transform = `rotate(${randomRotation}deg)`;
+
+  // Add to the DOM
+  const container = document.getElementById('profit-bubbles-container');
+  if (container) {
+    container.appendChild(bubble);
+
+    // Remove the bubble after animation completes (increased to match the 8s animation)
+    setTimeout(() => {
+      if (container.contains(bubble)) {
+        container.removeChild(bubble);
+      }
+    }, 8500); // Slightly longer than animation to ensure complete removal
+  }
+};
 
 const LiveTrading = () => {
   const theme = useTheme();
@@ -166,9 +259,65 @@ const LiveTrading = () => {
   const [sessionTime, setSessionTime] = useState(0);
   const [currentBasePrice, setCurrentBasePrice] = useState(45000);
   const [currentTradingPair, setCurrentTradingPair] = useState('BTCUSDT');
+  const [selectedExchanges, setSelectedExchanges] = useState(['binance', 'kucoin', 'crypto', 'okx', 'gate']);
+
+  // State for exchange objects with logos and names
+  const [exchangeObjects, setExchangeObjects] = useState([
+    {
+      id: 'binance',
+      name: 'Binance',
+      logo:'https://public.bnbstatic.com/20190405/eb2349c3-b2f8-4a93-a286-8f86a62ea9d8.png',
+      // logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4=',
+      active: true,
+      profit: '+0.0037 USDT',
+      highlight: false,
+      fallbackLogo: 'https://public.bnbstatic.com/20190405/eb2349c3-b2f8-4a93-a286-8f86a62ea9d8.png'
+    },
+    {
+      id: 'kucoin',
+      name: 'KuCoin',
+      logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIzQkY3NiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI2Ljk4NWMtNi4wNDYgMC0xMC45ODYgNC45NC0xMC45ODYgMTAuOTg1UzkuOTU0IDI2Ljk4NSAxNiAyNi45ODVzMTAuOTg2LTQuOTQgMTAuOTg2LTEwLjk4NVMyMi4wNDYgNS4wMTUgMTYgNS4wMTV6bS0uOTg0IDEyLjk4M2wtMy4wMTMtMy4wMTMgMS40MTQtMS40MTQgMS41OTkgMS41OTkgNS4zOTgtNS4zOTggMS40MTQgMS40MTQtNi44MTIgNi44MTJ6Ii8+PC9zdmc+',
+      active: true,
+      profit: '+0.0055 USDT',
+      highlight: false,
+      fallbackLogo: 'https://ui-avatars.com/api/?name=K&background=random&color=fff&size=100'
+    },
+    {
+      id: 'crypto',
+      name: 'Crypto.com',
+      logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwMzNhZCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjAxOC03LjkwM2wzLjA3LTEuNzc0YS43NzIuNzcyIDAgMCAwIC4zODYtLjY3MlYxMi4zNWEuNzcyLjc3MiAwIDAgMC0uMzg2LS42NzJsLTMuMDctMS43NzRhLjc3Mi43NzIgMCAwIDAtLjc3MiAwbC0zLjA3IDEuNzc0YS43NzIuNzcyIDAgMCAwLS4zODYuNjcydjcuMzAxYzAgLjI3Ny4xNDYuNTM0LjM4Ni42NzJsMy4wNyAxLjc3NGEuNzcyLjc3MiAwIDAgMCAuNzcyIDB6bS0yLjUwMi0yLjQ0NmMwIC4wNjktLjAzNS4xMDQtLjEwNC4xMDRoLS40MTRjLS4wNyAwLS4xMDQtLjAzNS0uMTA0LS4xMDR2LTUuMjA4YzAtLjA3LjAzNC0uMTA0LjEwNC0uMTA0aC40MTRjLjA2OSAwIC4xMDQuMDM1LjEwNC4xMDR2NS4yMDh6bTEuNTU0IDBjMCAuMDY5LS4wMzUuMTA0LS4xMDQuMTA0aC0uNDE0Yy0uMDcgMC0uMTA0LS4wMzUtLjEwNC0uMTA0di01LjIwOGMwLS4wNy4wMzQtLjEwNC4xMDQtLjEwNGguNDE0Yy4wNjkgMCAuMTA0LjAzNS4xMDQuMTA0djUuMjA4em0xLjU1NCAwYzAgLjA2OS0uMDM1LjEwNC0uMTA0LjEwNGgtLjQxNGMtLjA3IDAtLjEwNC0uMDM1LS4xMDQtLjEwNHYtNS4yMDhjMC0uMDcuMDM0LS4xMDQuMTA0LS4xMDRoLjQxNGMuMDY5IDAgLjEwNC4wMzUuMTA0LjEwNHY1LjIwOHoiLz48L3N2Zz4=',
+      active: true,
+      profit: '+0.0042 USDT',
+      highlight: false,
+      fallbackLogo: 'https://ui-avatars.com/api/?name=C&background=random&color=fff&size=100'
+    },
+    {
+      id: 'okx',
+      name: 'OKX',
+      logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIxNmZlYSIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNy4xMDUtMTAuMDI1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXptLTkuNDk1LTkuNDk1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXoiLz48L3N2Zz4=',
+      active: true,
+      profit: '+0.0023 USDT',
+      highlight: false,
+      fallbackLogo: 'https://ui-avatars.com/api/?name=O&background=random&color=fff&size=100'
+    },
+    {
+      id: 'gate',
+      name: 'Gate.io',
+      logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2Y0YjgwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNS40NjYtMTIuNzY2YzAgMy4yNTUgMi42NCA1Ljg5NiA1Ljg5NiA1Ljg5NnM1Ljg5Ni0yLjY0IDUuODk2LTUuODk2LTIuNjQtNS44OTYtNS44OTYtNS44OTYtNS44OTYgMi42NC01Ljg5NiA1Ljg5NnptNS44OTYtMy45M2MyLjE3IDAgMy45MyAxLjc2IDMuOTMgMy45M3MtMS43NiAzLjkzLTMuOTMgMy45My0zLjkzLTEuNzYtMy45My0zLjkzIDEuNzYtMy45MyAzLjkzLTMuOTN6bTAgMS45NjVjLTEuMDg1IDAtMS45NjUuODgtMS45NjUgMS45NjVzLjg4IDEuOTY1IDEuOTY1IDEuOTY1IDEuOTY1LS44OCAxLjk2NS0xLjk2NS0uODgtMS45NjUtMS45NjUtMS45NjV6Ii8+PC9zdmc+',
+      active: true,
+      profit: '-0.0008 USDT',
+      highlight: false,
+      fallbackLogo: 'https://ui-avatars.com/api/?name=G&background=random&color=fff&size=100'
+    }
+  ]);
+
+  // Reference to track active exchanges for synchronization between components
+  const activeExchangesRef = useRef(selectedExchanges);
+  const [showPairSelector, setShowPairSelector] = useState(false);
+  const [showExchangeSelector, setShowExchangeSelector] = useState(false);
   const [flash, setFlash] = useState(false);
   const [totalInvestment, setTotalInvestment] = useState(0);
-  const [dailyProfitRate, setDailyProfitRate] = useState(0.8); // 0.8% daily profit
+  const [dailyProfitRate, setDailyProfitRate] = useState(0.26); // 0.26% daily profit
   const [dailyProfit, setDailyProfit] = useState(0);
   const [accumulatedProfit, setAccumulatedProfit] = useState(0);
   const [totalTrades, setTotalTrades] = useState(0);
@@ -232,89 +381,71 @@ const LiveTrading = () => {
     }
   }, [profileData, user, dailyProfitRate]);
 
-  // Update accumulated profit based on session time
-  useEffect(() => {
-    if (tradingActive && dailyProfit > 0) {
+  // Calculate profit per second for use in multiple places
+  const profitPerSecond = useMemo(() => {
+    if (dailyProfit > 0) {
       // Calculate profit per second (daily profit / seconds in a day)
-      const profitPerSecond = dailyProfit / (24 * 60 * 60);
+      return dailyProfit / (24 * 60 * 60);
+    }
+    return 0;
+  }, [dailyProfit]);
 
-      // Update accumulated profit every second based on session time
-      setAccumulatedProfit(profitPerSecond * sessionTime);
-
-      // Update total trades (1 trade every 5 seconds on average)
-      setTotalTrades(Math.floor(sessionTime / 5));
-    } else {
+  // Update accumulated profit based on session time with precise calculation
+  // Only increasing, never decreasing
+  useEffect(() => {
+    if (!tradingActive || profitPerSecond <= 0) {
       setAccumulatedProfit(0);
       setTotalTrades(0);
+      return;
     }
-  }, [tradingActive, sessionTime, dailyProfit]);
+
+    // Create an interval to update the accumulated profit every second
+    const profitInterval = setInterval(() => {
+      // Get the exact current session time (in case it changed between renders)
+      const currentSessionTime = sessionTime;
+
+      // Calculate the precise accumulated profit
+      const exactProfit = profitPerSecond * currentSessionTime;
+
+      // Update the accumulated profit with the precise value
+      // Always increase, never decrease
+      setAccumulatedProfit(prevProfit => {
+        // Only update if the new profit is higher than the previous
+        return exactProfit > prevProfit ? exactProfit : prevProfit;
+      });
+
+      // Update total trades (1 trade every 5 seconds on average)
+      setTotalTrades(Math.floor(currentSessionTime / 5));
+    }, 1000); // Update every second
+
+    return () => clearInterval(profitInterval);
+  }, [tradingActive, profitPerSecond]);
 
   // Bubble generation removed to fix removeChild errors
 
   // We'll move this useEffect after the fetchAllCryptoImages function is defined
 
-  // Function to fetch mock price data (avoiding CORS issues with CoinGecko API)
+  // Function to fetch real price data from Binance API - optimized to use ticker/price endpoint
   const updateBasePriceFromAPI = useCallback(async () => {
     try {
       // Get the current pair
       const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
       if (!currentPair) return;
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Use the lightweight ticker/price endpoint instead of 24hr
+      const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${currentTradingPair}`);
 
-      // Generate realistic mock prices based on the cryptocurrency
-      let mockPrice;
-      let mockChange = (Math.random() * 6 - 2).toFixed(2); // -2% to +4%
-
-      switch(currentPair.id) {
-        case 'bitcoin':
-          mockPrice = 45000 + (Math.random() * 2000 - 1000);
-          break;
-        case 'ethereum':
-          mockPrice = 2500 + (Math.random() * 100 - 50);
-          break;
-        case 'binancecoin':
-          mockPrice = 350 + (Math.random() * 20 - 10);
-          break;
-        case 'solana':
-          mockPrice = 120 + (Math.random() * 10 - 5);
-          break;
-        case 'cardano':
-          mockPrice = 0.5 + (Math.random() * 0.05 - 0.025);
-          break;
-        case 'dogecoin':
-          mockPrice = 0.1 + (Math.random() * 0.01 - 0.005);
-          break;
-        default:
-          mockPrice = 100 + (Math.random() * 10 - 5);
+      if (!response.ok) {
+        throw new Error(`Binance API error: ${response.status}`);
       }
 
-      // Create mock data structure similar to what the API would return
-      const mockData = {
-        current_price: mockPrice,
-        market_cap: mockPrice * 1000000000,
-        total_volume: mockPrice * 100000000,
-        high_24h: mockPrice * 1.05,
-        low_24h: mockPrice * 0.95,
-        price_change_percentage_24h: parseFloat(mockChange)
-      };
+      const data = await response.json();
 
-      // Generate mock data silently without console logs
+      // Extract the price from Binance API response
+      const newPrice = parseFloat(data.price);
 
-      // Update the current base price with our mock data
-      const newPrice = parseFloat(mockData.current_price.toFixed(2));
+      // Update the current base price with real data
       setCurrentBasePrice(newPrice);
-
-      // Update trading pair data with mock market data
-      const updatedPair = {
-        ...currentPair,
-        marketCap: mockData.market_cap,
-        totalVolume: mockData.total_volume,
-        high24h: mockData.high_24h,
-        low24h: mockData.low_24h,
-        priceChange24h: mockData.price_change_percentage_24h
-      };
 
       // Update millisecond prices for more dynamic display
       setMillisecondPrices(prev => {
@@ -324,11 +455,21 @@ const LiveTrading = () => {
         }
         return newPrices;
       });
-    } catch (error) {
-      // Fallback to simpler mock data without console logs
-      const fallbackPrice = 100 + (Math.random() * 10 - 5);
-      const newPrice = parseFloat(fallbackPrice.toFixed(2));
 
+      // Set flash effect to indicate price update
+      setFlash(true);
+
+      // Reset flash after animation completes
+      setTimeout(() => setFlash(false), 500);
+    } catch (error) {
+      console.error(`Error fetching ${currentTradingPair} price from Binance API:`, error);
+
+      // Fallback to simpler mock data if API fails
+      const fallbackPrice = currentBasePrice ?
+        currentBasePrice * (1 + (Math.random() * 0.004 - 0.002)) : // ±0.2% change from last price
+        100 + (Math.random() * 10 - 5); // Initial fallback if no price exists
+
+      const newPrice = parseFloat(fallbackPrice.toFixed(2));
       setCurrentBasePrice(newPrice);
 
       // Update millisecond prices
@@ -340,24 +481,52 @@ const LiveTrading = () => {
         return newPrices;
       });
     }
-  }, [currentTradingPair]);
+  }, [currentTradingPair, currentBasePrice, tradingPairs]);
 
-  // Change trading pair randomly with visual effects - runs every second
+  // Change trading pair automatically with visual effects
   const changeTradingPair = useCallback(() => {
     // Always run regardless of tradingActive state to ensure pairs change automatically
-    // This ensures pairs change even if trading is not active
 
-    // Get a random index different from the current one
+    // Prioritize popular pairs (BTC, ETH, BNB, SOL, XRP)
+    const popularPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT'];
+
+    // Get current index
     let currentIndex = tradingPairs.findIndex(pair => pair.symbol === currentTradingPair);
     let nextIndex;
 
-    do {
-      nextIndex = Math.floor(Math.random() * tradingPairs.length);
-    } while (nextIndex === currentIndex);
+    // 80% chance to select from popular pairs, 20% chance for any other pair
+    if (Math.random() < 0.8) {
+      // Find the current popular pair index
+      const currentPopularIndex = popularPairs.indexOf(currentTradingPair);
+
+      // Get the next popular pair (cycle through them)
+      const nextPopularIndex = (currentPopularIndex + 1) % popularPairs.length;
+      const nextPopularPair = popularPairs[nextPopularIndex];
+
+      // Find this pair in our trading pairs array
+      nextIndex = tradingPairs.findIndex(pair => pair.symbol === nextPopularPair);
+
+      // If not found, just pick a random popular pair
+      if (nextIndex === -1) {
+        const randomPopularPair = popularPairs[Math.floor(Math.random() * popularPairs.length)];
+        nextIndex = tradingPairs.findIndex(pair => pair.symbol === randomPopularPair);
+      }
+    } else {
+      // Pick a random pair that's not the current one
+      do {
+        nextIndex = Math.floor(Math.random() * tradingPairs.length);
+      } while (nextIndex === currentIndex);
+    }
+
+    // If we still don't have a valid index, just pick a random one
+    if (nextIndex === -1) {
+      do {
+        nextIndex = Math.floor(Math.random() * tradingPairs.length);
+      } while (nextIndex === currentIndex);
+    }
 
     // Use state-based animation for the card
     setFlash(true);
-    // We'll handle this with a separate useEffect instead of setTimeout
 
     // Update the trading pair
     setCurrentTradingPair(tradingPairs[nextIndex].symbol);
@@ -365,7 +534,181 @@ const LiveTrading = () => {
     // Also update the base price to simulate price changes when switching pairs
     const newBasePrice = currentBasePrice * (1 + (Math.random() * 0.04 - 0.02)); // ±2% change
     setCurrentBasePrice(parseFloat(newBasePrice.toFixed(2)));
-  }, [currentTradingPair, currentBasePrice, tradingPairs]);
+
+    // Also update the selected exchanges when the pair changes
+    updateSelectedExchangesForPair(tradingPairs[nextIndex]);
+
+    // Create profit bubbles for the new pair based on daily profit rate
+    if (tradingActive && dailyProfit > 0) {
+      try {
+        // For pair changes, we want to show a significant portion of the daily profit
+        // Each pair change is a significant event in the trading day
+
+        // Calculate how many pair changes might occur in a day (roughly 24-48)
+        const pairChangesPerDay = 36; // Estimated number of pair changes per day
+
+        // Calculate the profit per pair change based on daily profit
+        const profitPerPairChange = dailyProfit / pairChangesPerDay;
+
+        // Determine how many bubbles to create for this pair change
+        // Always at least 1, at most 2 bubbles
+        const numBubbles = 1; // 1-2 bubbles
+
+        // First bubble appears after a longer delay to seem more natural
+        const initialDelay = Math.floor(Math.random() * 800) + 1000; // 500-1300ms initial delay
+
+        // for (let i = 0; i < numBubbles; i++) {
+        //   setTimeout(() => {
+        //     // Always positive profit (100% chance) - no losses as requested
+
+        //     // Generate profit amounts based on daily profit rate
+        //     let profitAmount;
+
+        //     // Special case: first bubble is always larger to signify the pair change
+        //     if (i === 0) {
+        //       // First bubble represents a significant portion of the profit per pair change
+        //       profitAmount = (profitPerPairChange * (Math.random() * 0.3 + 0.7)).toFixed(6); // 70-100% of profit per pair change
+        //     } else {
+        //       // Second bubble is smaller
+        //       profitAmount = (profitPerPairChange * (Math.random() * 0.2 + 0.3)).toFixed(6); // 30-50% of profit per pair change
+        //     }
+
+        //     // Get a random exchange from the selected ones, but with preference for major exchanges
+        //     let randomExchangeId;
+        //     if (Math.random() < 0.8) { // Increased chance for major exchanges during pair changes
+        //       // 80% chance to pick from major exchanges
+        //       const majorExchanges = ['binance', 'okx', 'kucoin'].filter(ex => selectedExchanges.includes(ex));
+        //       if (majorExchanges.length > 0) {
+        //         randomExchangeId = majorExchanges[Math.floor(Math.random() * majorExchanges.length)];
+        //       } else {
+        //         randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+        //       }
+        //     } else {
+        //       // 20% chance to pick any exchange
+        //       randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+        //     }
+
+        //     const exchangeObj = exchangeObjects.find(ex => ex.id === randomExchangeId);
+        //     const exchangeName = exchangeObj ? exchangeObj.name : randomExchangeId;
+
+        //     // Create the bubble - first bubble has a high chance to be a big profit bubble
+        //     if (i === 0 && Math.random() < 0.7) { // 70% chance for first bubble to be big profit
+        //       // Create special big profit bubble for the first bubble
+        //       const bubble = document.createElement('div');
+        //       bubble.className = `profit-bubble profit big-profit`;
+
+        //       // Format the amount with proper decimal places
+        //       const formattedAmount = parseFloat(profitAmount).toFixed(4);
+
+        //       // Create amount element with enhanced styling
+        //       const amountSpan = document.createElement('span');
+        //       amountSpan.textContent = `+${formattedAmount} USDT`; // Always positive
+        //       amountSpan.style.fontSize = '18px';
+        //       bubble.appendChild(amountSpan);
+
+        //       // Add exchange name with special formatting
+        //       const exchangeSpan = document.createElement('span');
+        //       exchangeSpan.className = 'exchange-name';
+        //       exchangeSpan.textContent = `⭐ ${exchangeName} ⭐`;
+        //       exchangeSpan.style.fontSize = '12px';
+        //       exchangeSpan.style.fontWeight = 'bold';
+        //       bubble.appendChild(exchangeSpan);
+
+        //       // Center the big profit bubble more
+        //       const randomX = Math.floor(Math.random() * 40) + 30; // 30% to 70% of screen width
+        //       bubble.style.left = `${randomX}%`;
+        //       bubble.style.bottom = '8%';
+
+        //       // Add to the DOM
+        //       const container = document.getElementById('profit-bubbles-container');
+        //       if (container) {
+        //         container.appendChild(bubble);
+
+        //         // Remove the bubble after animation completes
+        //         setTimeout(() => {
+        //           if (container.contains(bubble)) {
+        //             container.removeChild(bubble);
+        //           }
+        //         }, 10500); // Slightly longer than animation to ensure complete removal
+        //       }
+        //     } else {
+        //       // Regular profit bubble
+        //       // createProfitBubble(profitAmount, true, exchangeName); // Always positive
+        //     }
+
+        //     // Always highlight this exchange for pair changes
+        //     setExchangeObjects(prev => {
+        //       return prev.map(exchange => {
+        //         if (exchange.id === randomExchangeId) {
+        //           return {
+        //             ...exchange,
+        //             highlight: true,
+        //             profit: `+${profitAmount} USDT` // Always positive
+        //           };
+        //         }
+        //         return exchange;
+        //       });
+        //     });
+        //   }, initialDelay + i * Math.floor(Math.random() * 1200 + 2000)); // More natural staggered timing (1000-2200ms between bubbles)
+        // }
+      } catch (error) {
+        console.log("Error creating pair change bubbles:", error);
+      }
+    }
+  }, [currentTradingPair, currentBasePrice, tradingPairs, tradingActive, selectedExchanges, exchangeObjects, profitPerSecond, dailyProfit]);
+
+  // Helper function to update selected exchanges based on the current pair
+  const updateSelectedExchangesForPair = useCallback((pair) => {
+    // Get supported exchanges for this pair
+    const supportedExchanges = pair.supportedExchanges || ['binance', 'kucoin', 'crypto', 'okx', 'gate'];
+
+    // Always include major exchanges if supported
+    const majorExchanges = ['binance', 'okx', 'kucoin'].filter(ex =>
+      supportedExchanges.includes(ex)
+    );
+
+    // Add 1-2 more random exchanges from the remaining supported ones
+    const remainingExchanges = supportedExchanges.filter(ex => !majorExchanges.includes(ex));
+    const numAdditional = Math.floor(Math.random() * 2) + 1; // 1-2 additional exchanges
+
+    let selectedExchanges = [...majorExchanges];
+
+    for (let i = 0; i < numAdditional && i < remainingExchanges.length; i++) {
+      const randomIndex = Math.floor(Math.random() * remainingExchanges.length);
+      const exchange = remainingExchanges[randomIndex];
+
+      if (!selectedExchanges.includes(exchange)) {
+        selectedExchanges.push(exchange);
+        remainingExchanges.splice(randomIndex, 1);
+      }
+    }
+
+    // Update the selected exchanges
+    setSelectedExchanges(selectedExchanges);
+
+    // Also update the exchangeObjects to highlight the selected ones
+    setExchangeObjects(prev => {
+      return prev.map(exchange => {
+        // Check if this exchange is in the selected list
+        const isSelected = selectedExchanges.includes(exchange.id);
+
+        // Generate a new random profit value for selected exchanges
+        let profit = exchange.profit;
+        if (isSelected) {
+          const isPositive = Math.random() > 0.3; // 70% chance of positive profit
+          const profitAmount = (Math.random() * (isPositive ? 0.01 : 0.005) + 0.0001).toFixed(6);
+          profit = `${isPositive ? '+' : '-'}${profitAmount} USDT`;
+        }
+
+        return {
+          ...exchange,
+          active: isSelected,
+          highlight: isSelected && Math.random() > 0.5, // 50% chance to highlight selected exchanges
+          profit: profit
+        };
+      });
+    });
+  }, []);
 
 
 
@@ -484,16 +827,19 @@ const LiveTrading = () => {
     }
   }, [tradingActive, currentBasePrice, currentTradingPair]);
 
-  // Function to simulate millisecond price changes
+  // Function to simulate millisecond price changes with reduced API calls
   const simulateMillisecondPriceChanges = useCallback(() => {
-    if (!tradingActive || millisecondPrices.length === 0) return;
+    if (!tradingActive || !currentTradingPair) return;
 
-    // Get the latest price
-    const latestPrice = millisecondPrices[millisecondPrices.length - 1];
+    // Use the current base price as reference instead of making API calls
+    // This significantly reduces API load while still providing realistic price movements
+    const basePrice = currentBasePrice;
+
+    if (basePrice <= 0) return;
 
     // Generate a small random change (±0.01%)
-    const randomChange = latestPrice * (0.0001 * (Math.random() - 0.5));
-    const newPrice = latestPrice + randomChange;
+    const randomChange = basePrice * (0.0001 * (Math.random() - 0.5));
+    const newPrice = basePrice + randomChange;
 
     // Update millisecond prices
     setMillisecondPrices(prev => {
@@ -503,7 +849,7 @@ const LiveTrading = () => {
       }
       return newPrices;
     });
-  }, [tradingActive, millisecondPrices]);
+  }, [tradingActive, currentTradingPair, currentBasePrice]);
 
   // Function to fetch all cryptocurrency images - using mock data
   const fetchAllCryptoImages = useCallback(async () => {
@@ -748,20 +1094,24 @@ const LiveTrading = () => {
       if (interval) clearInterval(interval);
     });
 
-    // Set new intervals - some intervals only run when trading is active
+    // Set new intervals - all set to 1 second as requested
     tradingIntervalsRef.current = {
-      // Update price every 10 seconds
-      price: setInterval(updateBasePriceFromAPI, 10000),
+      // Update price every 1 second
+      price: setInterval(updateBasePriceFromAPI, 1000),
 
-      // Change pair every 30 seconds instead of every second to reduce CPU usage
-      pair: setInterval(changeTradingPair, 30000),
+      // Change pair every 1 second
+      pair: setInterval(changeTradingPair, 1000),
 
       // Only create these intervals if trading is active
-      orderBook: tradingActive ? setInterval(generateOrderBook, 5000) : null,
-      tradeHistory: tradingActive ? setInterval(generateTradeHistory, 5000) : null,
+      // Combine orderBook and tradeHistory into a single interval
+      dataUpdates: tradingActive ? setInterval(() => {
+        // Update order book and trade history in the same interval
+        generateOrderBook();
+        generateTradeHistory();
+      }, 1000) : null,
 
-      // Reduce frequency of millisecond price changes to improve performance
-      millisecondPrice: tradingActive ? setInterval(simulateMillisecondPriceChanges, 500) : null
+      // Millisecond price changes every 1 second
+      millisecondPrice: tradingActive ? setInterval(simulateMillisecondPriceChanges, 1000) : null
     };
 
     // Initial updates
@@ -793,6 +1143,38 @@ const LiveTrading = () => {
     };
   }, [tradingActive, initializeTrading, changeTradingPair]);
 
+  // Set up an interval to automatically change selected exchanges
+  useEffect(() => {
+    // This interval will automatically change the selected exchanges
+    const exchangeInterval = setInterval(() => {
+      // Get available exchanges for the current trading pair
+      const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
+      const availableExchanges = currentPair ? currentPair.supportedExchanges :
+        ['binance', 'kucoin', 'crypto', 'okx', 'gate'];
+
+      // Select 3-4 random exchanges (reduced from 3-5 to improve performance)
+      const randomExchanges = [];
+      const numExchanges = Math.floor(Math.random() * 2) + 3; // 3 to 4 exchanges
+
+      while (randomExchanges.length < numExchanges) {
+        const randomIndex = Math.floor(Math.random() * availableExchanges.length);
+        const exchangeId = availableExchanges[randomIndex];
+
+        if (!randomExchanges.includes(exchangeId)) {
+          randomExchanges.push(exchangeId);
+        }
+      }
+
+      // Update the selectedExchanges state
+      setSelectedExchanges(randomExchanges);
+
+      // Update the ref for synchronization
+      activeExchangesRef.current = randomExchanges;
+    }, 1000); // Changed to 1 second as requested
+
+    return () => clearInterval(exchangeInterval);
+  }, [currentTradingPair]);
+
   // Handle flash animation without setTimeout
   useEffect(() => {
     if (flash) {
@@ -802,6 +1184,241 @@ const LiveTrading = () => {
       return () => clearTimeout(timer);
     }
   }, [flash]);
+
+  // Periodically update exchange highlights to simulate exchange jumper effect
+  // This is now aligned with the daily profit rate
+  useEffect(() => {
+    if (!tradingActive || profitPerSecond <= 0) return;
+
+    // Calculate how many exchange highlights should appear per day based on daily profit
+    // We want to distribute the highlights throughout the day
+
+    // For a typical daily profit rate (0.8%), we want to show around 300-400 highlights per day
+    // This is more frequent than bubbles but still realistic
+    const highlightsPerDay = 360; // Target number of highlights per day
+
+    // Calculate seconds per day
+    const secondsPerDay = 24 * 60 * 60; // 86,400 seconds
+
+    // Calculate how often highlights should appear (in seconds)
+    const secondsBetweenHighlights = secondsPerDay / highlightsPerDay; // ~240 seconds (4 minutes)
+
+    // Convert to milliseconds for the interval
+    const avgHighlightInterval = secondsBetweenHighlights * 1000; // ~240,000 ms
+
+    // Calculate the average profit per highlight based on daily profit
+    // Each highlight should represent a portion of the daily profit
+    const avgProfitPerHighlight = dailyProfit / highlightsPerDay;
+
+    const interval = setInterval(() => {
+      // Only update if trading is active
+      if (!tradingActive) return;
+
+      // Update exchange objects to randomly highlight different exchanges
+      setExchangeObjects(prev => {
+        const updatedExchanges = prev.map(exchange => {
+          // Only update exchanges that are in the selected list
+          if (selectedExchanges.includes(exchange.id)) {
+            // Chance to highlight based on exchange importance
+            // Major exchanges have higher chance to be highlighted
+            const isMajorExchange = ['binance', 'okx', 'kucoin'].includes(exchange.id);
+            const baseHighlightChance = isMajorExchange ? 0.15 : 0.08;
+            const shouldHighlight = Math.random() < baseHighlightChance;
+
+            // Generate a new profit value for highlighted exchanges
+            let profit = exchange.profit;
+            let profitAmount = "0.0001";
+
+            if (shouldHighlight) {
+              // Always positive profit (100% chance) - no losses as requested
+
+              // Generate profit amounts based on daily profit rate
+              // Positive profits - based on actual earning rate with some variation
+              const variationFactor = Math.random() * 0.6 + 0.7; // 70-130% of average
+              profitAmount = (avgProfitPerHighlight * variationFactor).toFixed(6);
+
+              // Occasionally show larger profits (10% chance)
+              if (Math.random() < 0.1) {
+                profitAmount = (avgProfitPerHighlight * (Math.random() * 2 + 2)).toFixed(6);
+              }
+
+              profit = `+${profitAmount} USDT`; // Always positive
+
+              // Create a profit bubble for this exchange, but only 30% of the time
+              // This makes bubbles appear more randomly and naturally
+              // Reduced to make bubbles less frequent
+            //   if (Math.random() < 0.3) {
+            //     try {
+            //       createProfitBubble(profitAmount, true, exchange.name); // Always positive
+            //     } catch (error) {
+            //       // Silently handle any DOM errors
+            //       console.log("Error creating profit bubble:", error);
+            //     }
+            //   }
+            }
+
+            return {
+              ...exchange,
+              highlight: shouldHighlight,
+              profit: profit
+            };
+          }
+          return exchange;
+        });
+
+        return updatedExchanges;
+      });
+    }, 1000); // Changed to 1 second as requested
+
+    return () => clearInterval(interval);
+  }, [tradingActive, selectedExchanges, profitPerSecond, dailyProfit]);
+
+  // Create profit bubbles based on actual earning rate and session time
+  useEffect(() => {
+    if (!tradingActive || profitPerSecond <= 0) return;
+
+    // Calculate how many bubbles should appear per day based on daily profit
+    // We want to distribute the daily profit across bubbles throughout the day
+
+    // For a typical daily profit rate (0.8%), we want to show around 100-150 bubbles per day
+    // This makes each bubble represent a meaningful portion of the daily profit
+    const bubblesPerDay = 120; // Target number of bubbles per day
+
+    // Calculate seconds per day
+    const secondsPerDay = 24 * 60 * 60; // 86,400 seconds
+
+    // Calculate how often bubbles should appear (in seconds)
+    const secondsBetweenBubbles = secondsPerDay / bubblesPerDay; // ~720 seconds (12 minutes)
+
+    // Convert to milliseconds for the interval
+    const avgBubbleInterval = secondsBetweenBubbles * 1000; // ~720,000 ms
+
+    // Calculate the average profit per bubble based on daily profit
+    // Each bubble should represent a portion of the daily profit
+    const avgProfitPerBubble = dailyProfit / bubblesPerDay;
+
+    // Create profit bubbles periodically with natural timing
+    const bubbleInterval = setInterval(() => {
+      // Only create bubbles if trading is active
+      if (!tradingActive) return;
+
+      try {
+        // Check for occasional "big profit" event (5% chance)
+        const isBigProfit = Math.random() < 0.05;
+
+        // Always positive profit (100% chance) - no losses as requested
+
+        // Generate profit amounts based on actual earning rate
+        let profitAmount;
+
+        if (isBigProfit) {
+          // Big profit event - larger amount (3-5x normal profit)
+          profitAmount = (avgProfitPerBubble * (Math.random() * 2 + 3)).toFixed(6);
+        } else {
+          // Regular positive profits - based on actual earning rate with some variation
+          const variationFactor = Math.random() * 0.6 + 0.7; // 70-130% of average
+          profitAmount = (avgProfitPerBubble * variationFactor).toFixed(6);
+        }
+
+        // Get a random exchange from the selected ones
+        // For big profits, prefer major exchanges
+        let randomExchangeId;
+
+        if (isBigProfit) {
+          // For big profits, strongly prefer major exchanges
+          const majorExchanges = ['binance', 'okx'].filter(ex => selectedExchanges.includes(ex));
+          if (majorExchanges.length > 0) {
+            randomExchangeId = majorExchanges[Math.floor(Math.random() * majorExchanges.length)];
+          } else {
+            randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+          }
+        } else {
+          // Normal distribution for regular profits
+          if (Math.random() < 0.6) {
+            // 60% chance to pick from major exchanges
+            const majorExchanges = ['binance', 'okx', 'kucoin'].filter(ex => selectedExchanges.includes(ex));
+            if (majorExchanges.length > 0) {
+              randomExchangeId = majorExchanges[Math.floor(Math.random() * majorExchanges.length)];
+            } else {
+              randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+            }
+          } else {
+            // 40% chance to pick any exchange
+            randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+          }
+        }
+
+        const exchangeObj = exchangeObjects.find(ex => ex.id === randomExchangeId);
+        const exchangeName = exchangeObj ? exchangeObj.name : randomExchangeId;
+
+        // Create the bubble
+        if (isBigProfit) {
+          // Create special big profit bubble
+          const bubble = document.createElement('div');
+          bubble.className = `profit-bubble profit big-profit`;
+
+          // Format the amount with proper decimal places
+          const formattedAmount = parseFloat(profitAmount).toFixed(4);
+
+          // Create amount element with enhanced styling
+          const amountSpan = document.createElement('span');
+          amountSpan.textContent = `+${formattedAmount} USDT`;
+          amountSpan.style.fontSize = '18px';
+          bubble.appendChild(amountSpan);
+
+          // Add exchange name with special formatting
+          const exchangeSpan = document.createElement('span');
+          exchangeSpan.className = 'exchange-name';
+          exchangeSpan.textContent = `⭐ ${exchangeName} ⭐`;
+          exchangeSpan.style.fontSize = '12px';
+          exchangeSpan.style.fontWeight = 'bold';
+          bubble.appendChild(exchangeSpan);
+
+          // Center the big profit bubble more
+          const randomX = Math.floor(Math.random() * 40) + 30; // 30% to 70% of screen width
+          bubble.style.left = `${randomX}%`;
+          bubble.style.bottom = '8%';
+
+          // Add to the DOM
+          const container = document.getElementById('profit-bubbles-container');
+          if (container) {
+            container.appendChild(bubble);
+
+            // Remove the bubble after animation completes
+            setTimeout(() => {
+              if (container.contains(bubble)) {
+                container.removeChild(bubble);
+              }
+            }, 10500); // Slightly longer than animation to ensure complete removal
+          }
+        } else {
+          // Regular profit bubble
+          // createProfitBubble(profitAmount, true, exchangeName);
+        }
+
+        // Always highlight exchange for big profits, otherwise only 60% of the time
+        if (isBigProfit || Math.random() < 0.6) {
+          setExchangeObjects(prev => {
+            return prev.map(exchange => {
+              if (exchange.id === randomExchangeId) {
+                return {
+                  ...exchange,
+                  highlight: true,
+                  profit: `+${profitAmount} USDT` // Always positive
+                };
+              }
+              return exchange;
+            });
+          });
+        }
+      } catch (error) {
+        // Silently handle any DOM errors
+        console.log("Error creating profit bubble:", error);
+      }
+    }, 1000); // Changed to 1 second as requested
+
+    return () => clearInterval(bubbleInterval);
+  }, [tradingActive, selectedExchanges, exchangeObjects, profitPerSecond, dailyProfit]);
 
   // Session timer effect
   useEffect(() => {
@@ -909,6 +1526,276 @@ const LiveTrading = () => {
     }
   };
 
+  // Trading Pair Selector Component
+  const TradingPairSelector = () => {
+    return (
+      <Dialog
+        open={showPairSelector}
+        onClose={() => setShowPairSelector(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.95)' : '#ffffff',
+            backgroundImage: mode === 'dark'
+              ? 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))'
+              : 'linear-gradient(rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.01))',
+            boxShadow: mode === 'dark'
+              ? '0 8px 32px rgba(0, 0, 0, 0.8)'
+              : '0 8px 32px rgba(0, 0, 0, 0.1)',
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          borderBottom: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+          px: 3,
+          py: 2,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6" fontWeight="bold">Select Trading Pair</Typography>
+            <IconButton onClick={() => setShowPairSelector(false)} size="small">
+              <Close fontSize="small" />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={2}>
+            {tradingPairs.map((pair) => (
+              <Grid item xs={6} sm={4} key={pair.symbol}>
+                <Card
+                  elevation={0}
+                  onClick={() => {
+                    setCurrentTradingPair(pair.symbol);
+                    setShowPairSelector(false);
+                    setFlash(true);
+                  }}
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    cursor: 'pointer',
+                    border: `1px solid ${currentTradingPair === pair.symbol
+                      ? theme.palette.primary.main
+                      : mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+                    backgroundColor: currentTradingPair === pair.symbol
+                      ? alpha(theme.palette.primary.main, mode === 'dark' ? 0.2 : 0.1)
+                      : 'transparent',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      backgroundColor: currentTradingPair === pair.symbol
+                        ? alpha(theme.palette.primary.main, mode === 'dark' ? 0.3 : 0.15)
+                        : mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <Avatar
+                      src={`https://cryptoicons.org/api/icon/${pair.id.toLowerCase()}/32`}
+                      alt={pair.fullName}
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        mr: 1,
+                        backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                      }}
+                    >
+                      {pair.fullName.charAt(0)}
+                    </Avatar>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {pair.name}
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {pair.fullName}
+                  </Typography>
+                  <Box sx={{
+                    mt: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderTop: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
+                    pt: 1,
+                  }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Exchanges: {pair.supportedExchanges.length}
+                    </Typography>
+                    {currentTradingPair === pair.symbol && (
+                      <Chip
+                        label="Active"
+                        size="small"
+                        color="primary"
+                        sx={{ height: 20, '& .MuiChip-label': { px: 1, fontSize: '0.625rem' } }}
+                      />
+                    )}
+                  </Box>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  // Exchange Selector Component
+  const ExchangeSelector = () => {
+    // Get all available exchanges from trading pairs
+    const allExchanges = [
+      { id: 'binance', name: 'Binance', logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4=' },
+      { id: 'kucoin', name: 'KuCoin', logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIzQkY3NiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI2Ljk4NWMtNi4wNDYgMC0xMC45ODYgNC45NC0xMC45ODYgMTAuOTg1UzkuOTU0IDI2Ljk4NSAxNiAyNi45ODVzMTAuOTg2LTQuOTQgMTAuOTg2LTEwLjk4NVMyMi4wNDYgNS4wMTUgMTYgNS4wMTV6bS0uOTg0IDEyLjk4M2wtMy4wMTMtMy4wMTMgMS40MTQtMS40MTQgMS41OTkgMS41OTkgNS4zOTgtNS4zOTggMS40MTQgMS40MTQtNi44MTIgNi44MTJ6Ii8+PC9zdmc+' },
+      { id: 'crypto', name: 'Crypto.com', logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwMzNhZCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjAxOC03LjkwM2wzLjA3LTEuNzc0YS43NzIuNzcyIDAgMCAwIC4zODYtLjY3MlYxMi4zNWEuNzcyLjc3MiAwIDAgMC0uMzg2LS42NzJsLTMuMDctMS43NzRhLjc3Mi43NzIgMCAwIDAtLjc3MiAwbC0zLjA3IDEuNzc0YS43NzIuNzcyIDAgMCAwLS4zODYuNjcydjcuMzAxYzAgLjI3Ny4xNDYuNTM0LjM4Ni42NzJsMy4wNyAxLjc3NGEuNzcyLjc3MiAwIDAgMCAuNzcyIDB6bS0yLjUwMi0yLjQ0NmMwIC4wNjktLjAzNS4xMDQtLjEwNC4xMDRoLS40MTRjLS4wNyAwLS4xMDQtLjAzNS0uMTA0LS4xMDR2LTUuMjA4YzAtLjA3LjAzNC0uMTA0LjEwNC0uMTA0aC40MTRjLjA2OSAwIC4xMDQuMDM1LjEwNC4xMDR2NS4yMDh6bTEuNTU0IDBjMCAuMDY5LS4wMzUuMTA0LS4xMDQuMTA0aC0uNDE0Yy0uMDcgMC0uMTA0LS4wMzUtLjEwNC0uMTA0di01LjIwOGMwLS4wNy4wMzQtLjEwNC4xMDQtLjEwNGguNDE0Yy4wNjkgMCAuMTA0LjAzNS4xMDQuMTA0djUuMjA4em0xLjU1NCAwYzAgLjA2OS0uMDM1LjEwNC0uMTA0LjEwNGgtLjQxNGMtLjA3IDAtLjEwNC0uMDM1LS4xMDQtLjEwNHYtNS4yMDhjMC0uMDcuMDM0LS4xMDQuMTA0LS4xMDRoLjQxNGMuMDY5IDAgLjEwNC4wMzUuMTA0LjEwNHY1LjIwOHoiLz48L3N2Zz4=' },
+      { id: 'okx', name: 'OKX', logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIxNmZlYSIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNy4xMDUtMTAuMDI1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXptLTkuNDk1LTkuNDk1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXoiLz48L3N2Zz4=' },
+      { id: 'gate', name: 'Gate.io', logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2Y0YjgwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNS40NjYtMTIuNzY2YzAgMy4yNTUgMi42NCA1Ljg5NiA1Ljg5NiA1Ljg5NnM1Ljg5Ni0yLjY0IDUuODk2LTUuODk2LTIuNjQtNS44OTYtNS44OTYtNS44OTYtNS44OTYgMi42NC01Ljg5NiA1Ljg5NnptNS44OTYtMy45M2MyLjE3IDAgMy45MyAxLjc2IDMuOTMgMy45M3MtMS43NiAzLjkzLTMuOTMgMy45My0zLjkzLTEuNzYtMy45My0zLjkzIDEuNzYtMy45MyAzLjkzLTMuOTN6bTAgMS45NjVjLTEuMDg1IDAtMS45NjUuODgtMS45NjUgMS45NjVzLjg4IDEuOTY1IDEuOTY1IDEuOTY1IDEuOTY1LS44OCAxLjk2NS0xLjk2NS0uODgtMS45NjUtMS45NjUtMS45NjV6Ii8+PC9zdmc+' },
+      { id: 'coinbase', name: 'Coinbase', logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwNTJGRiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI4QzkuMzY4IDQgNCAxMC4zNjggNCAxN3M1LjM2OCAxMiAxMiAxMiAxMi01LjM2OCAxMi0xMlMyMi42MzIgNCAxNiA0em0zLjU4MiAxNS45NTNjLS4xNTUuMzYtLjQyLjY1NC0uNzg0Ljg3NC0uMzYzLjIyLS44MjUuMzMtMS4zNjMuMzMtLjYxIDAtMS4xNS0uMTYtMS42Mi0uNDgzLS40Ny0uMzIyLS43OTgtLjc5My0uOTg0LTEuNDFsMS44NS0uNzY1Yy4wOTQuMjY3LjIyNy40NjYuMzk4LjU5OC4xNy4xMzIuMzY4LjE5OC41OTIuMTk4LjIyIDAgLjQwNi0uMDQ3LjU1OC0uMTQyLjE1Mi0uMDk0LjIyOC0uMjI3LjIyOC0uNHYtNi4xMzhoMi4xMjV2Ni4zMzh6bS0xLjg4Mi04LjQ2N2MtLjUxNi0uNDctMS4xMy0uNzA0LTEuODQtLjcwNC0uNzEgMC0xLjMyNC4yMzQtMS44NC43MDQtLjUxNi40Ny0uNzc1IDEuMDQzLS43NzUgMS43MnMuMjU4IDEuMjUyLjc3NSAxLjcyYy41MTYuNDcgMS4xMy43MDQgMS44NC43MDQuNzEgMCAxLjMyNC0uMjM0IDEuODQtLjcwNC41MTYtLjQ3Ljc3NS0xLjA0My43NzUtMS43MnMtLjI1OC0xLjI1Mi0uNzc1LTEuNzJ6TTEwLjk1MyAxOC42M2MtLjYxIDAtMS4xNS0uMTYtMS42Mi0uNDgzLS40Ny0uMzIyLS43OTgtLjc5My0uOTg0LTEuNDFsMS44NS0uNzY1Yy4wOTQuMjY3LjIyNy40NjYuMzk4LjU5OC4xNy4xMzIuMzY4LjE5OC41OTIuMTk4LjIyIDAgLjQwNi0uMDQ3LjU1OC0uMTQyLjE1Mi0uMDk0LjIyOC0uMjI3LjIyOC0uNHYtNi4xMzhoMi4xMjV2Ni4zMzhjLS4xNTUuMzYtLjQyLjY1NC0uNzg0Ljg3NC0uMzYzLjIyLS44MjUuMzMtMS4zNjMuMzN6TTkuMjM0IDkuODg3Yy41MTYuNDcgMS4xMy43MDQgMS44NC43MDQuNzEgMCAxLjMyNC0uMjM0IDEuODQtLjcwNC41MTYtLjQ3Ljc3NS0xLjA0My43NzUtMS43MnMtLjI1OC0xLjI1Mi0uNzc1LTEuNzJjLS41MTYtLjQ3LTEuMTMtLjcwNC0xLjg0LS43MDQtLjcxIDAtMS4zMjQuMjM0LTEuODQuNzA0LS41MTYuNDctLjc3NSAxLjA0My0uNzc1IDEuNzJzLjI1OCAxLjI1Mi43NzUgMS43MnoiLz48L3N2Zz4=' },
+    ];
+
+    // Get supported exchanges for current trading pair
+    const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
+    const supportedExchanges = currentPair ? currentPair.supportedExchanges : [];
+
+    return (
+      <Dialog
+        open={showExchangeSelector}
+        onClose={() => setShowExchangeSelector(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.95)' : '#ffffff',
+            backgroundImage: mode === 'dark'
+              ? 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))'
+              : 'linear-gradient(rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.01))',
+            boxShadow: mode === 'dark'
+              ? '0 8px 32px rgba(0, 0, 0, 0.8)'
+              : '0 8px 32px rgba(0, 0, 0, 0.1)',
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          borderBottom: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+          px: 3,
+          py: 2,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6" fontWeight="bold">Select Exchanges</Typography>
+            <IconButton onClick={() => setShowExchangeSelector(false)} size="small">
+              <Close fontSize="small" />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select exchanges for {currentPair?.name || 'trading pair'}. Only supported exchanges are shown.
+          </Typography>
+
+          <Grid container spacing={2}>
+            {allExchanges
+              .filter(exchange => supportedExchanges.includes(exchange.id))
+              .map((exchange) => {
+                const isSelected = selectedExchanges.includes(exchange.id);
+
+                return (
+                  <Grid item xs={6} sm={4} key={exchange.id}>
+                    <Card
+                      elevation={0}
+                      onClick={() => {
+                        if (isSelected && selectedExchanges.length > 1) {
+                          // Remove exchange if already selected (but keep at least one)
+                          setSelectedExchanges(prev => prev.filter(id => id !== exchange.id));
+                        } else if (!isSelected) {
+                          // Add exchange if not selected
+                          setSelectedExchanges(prev => [...prev, exchange.id]);
+                        }
+                      }}
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        border: `1px solid ${isSelected
+                          ? theme.palette.primary.main
+                          : mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+                        backgroundColor: isSelected
+                          ? alpha(theme.palette.primary.main, mode === 'dark' ? 0.2 : 0.1)
+                          : 'transparent',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: isSelected
+                            ? alpha(theme.palette.primary.main, mode === 'dark' ? 0.3 : 0.15)
+                            : mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <Avatar
+                          src={exchange.logo}
+                          alt={exchange.name}
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            mr: 1,
+                            backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                          }}
+                        >
+                          {exchange.name.charAt(0)}
+                        </Avatar>
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          {exchange.name}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{
+                        mt: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                      }}>
+                        {isSelected && (
+                          <Chip
+                            label="Selected"
+                            size="small"
+                            color="primary"
+                            sx={{ height: 20, '& .MuiChip-label': { px: 1, fontSize: '0.625rem' } }}
+                          />
+                        )}
+                      </Box>
+                    </Card>
+                  </Grid>
+                );
+              })}
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, borderTop: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}` }}>
+          <Button
+            onClick={() => setShowExchangeSelector(false)}
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            Close
+          </Button>
+          <Button
+            onClick={() => {
+              // Reset to default exchanges if none selected
+              if (selectedExchanges.length === 0) {
+                setSelectedExchanges(supportedExchanges.slice(0, 3));
+              }
+              setShowExchangeSelector(false);
+            }}
+            variant="contained"
+            color="primary"
+            sx={{ borderRadius: 2 }}
+          >
+            Apply
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
+
   // Enhanced PriceJumper Component with Exchange Jumper
   const PriceJumper = () => {
     const [price, setPrice] = useState(currentBasePrice);
@@ -920,82 +1807,47 @@ const LiveTrading = () => {
     const [change24h, setChange24h] = useState((Math.random() * 10 - 5).toFixed(2));
     const lastPriceRef = useRef(price);
 
-    // Exchange data with logos from API
-    const [exchanges, setExchanges] = useState([]);
+    // Get the current trading pair info for reference
+    const pairInfo = tradingPairs.find(pair => pair.symbol === currentTradingPair);
 
-    // Get the current trading pair to filter exchanges
-    const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
-
-    // Use pre-initialized exchanges with embedded SVG data to avoid network requests
-
-    // No profit bubbles animation - completely removed to fix removeChild errors
-
-    // Track highlighted exchanges with a ref - moved outside useEffect to follow React rules
-    const highlightedExchangesRef = useRef([]);
-
-    // Randomly change active exchanges to simulate jumping between exchanges
+    // Create exchange jumper effect - when a price changes, create profit bubbles
     useEffect(() => {
       if (!tradingActive) return;
 
-      // Update exchanges
-      const updateInterval = setInterval(() => {
-        setExchanges(prev => {
-          const newExchanges = [...prev];
+      // Create a profit bubble for a random exchange when price changes
+      const createRandomExchangeBubble = () => {
+        // Get active exchanges
+        const activeExchanges = exchangeObjects.filter(ex =>
+          selectedExchanges.includes(ex.id) && ex.active
+        );
 
-          // Randomly activate/deactivate exchanges
-          const randomIndex = Math.floor(Math.random() * newExchanges.length);
-          const randomIndex2 = Math.floor(Math.random() * newExchanges.length);
+        if (activeExchanges.length === 0) return;
 
-          // Make sure at least 3 exchanges are always active
-          const activeCount = newExchanges.filter(ex => ex.active).length;
+        // Pick a random exchange
+        const randomExchange = activeExchanges[Math.floor(Math.random() * activeExchanges.length)];
 
-          if (activeCount > 3 || !newExchanges[randomIndex].active) {
-            newExchanges[randomIndex].active = !newExchanges[randomIndex].active;
-          }
+        // Generate a random profit value
+        const isPositive = Math.random() > 0.3; // 70% chance of positive profit
+        const profitAmount = (Math.random() * (isPositive ? 0.01 : 0.005) + 0.0001).toFixed(6);
 
-          if (randomIndex2 !== randomIndex) {
-            if (activeCount > 3 || !newExchanges[randomIndex2].active) {
-              newExchanges[randomIndex2].highlight = true;
-
-              // Track this exchange for highlight removal
-              highlightedExchangesRef.current.push({
-                index: randomIndex2,
-                time: Date.now()
-              });
-            }
-          }
-
-          return newExchanges;
-        });
-      }, 5000);
-
-      // Separate interval for removing highlights without setTimeout
-      const highlightRemovalInterval = setInterval(() => {
-        const now = Date.now();
-        const highlightsToRemove = highlightedExchangesRef.current
-          .filter(item => now - item.time >= 1000);
-
-        if (highlightsToRemove.length > 0) {
-          setExchanges(current => {
-            return current.map((ex, i) => {
-              if (highlightsToRemove.some(item => item.index === i)) {
-                return { ...ex, highlight: false };
-              }
-              return ex;
-            });
-          });
-
-          // Remove processed items from the ref
-          highlightedExchangesRef.current = highlightedExchangesRef.current
-            .filter(item => now - item.time < 1000);
+        // Create a profit bubble
+        try {
+          // createProfitBubble(profitAmount, isPositive, randomExchange.name);
+        } catch (error) {
+          console.log("Error creating price change bubble:", error);
         }
-      }, 100);
-
-      return () => {
-        clearInterval(updateInterval);
-        clearInterval(highlightRemovalInterval);
       };
-    }, [tradingActive]);
+
+      // Create a bubble when price changes
+      if (millisecondPrices.length > 1) {
+        const lastPrice = millisecondPrices[millisecondPrices.length - 1];
+        const prevPrice = millisecondPrices[millisecondPrices.length - 2];
+
+        if (lastPrice !== prevPrice) {
+          createRandomExchangeBubble();
+        }
+      }
+    }, [millisecondPrices, tradingActive, selectedExchanges, exchangeObjects]);
 
     // Update price when currentBasePrice changes
     useEffect(() => {
@@ -1027,35 +1879,83 @@ const LiveTrading = () => {
       }
     }, [millisecondPrices]);
 
-    // Fetch 24h market data - using mock data to avoid CORS issues
+    // Fetch 24h market data from Binance API - optimized to reduce API calls
     useEffect(() => {
+      // Create a shared state for 24hr data that can be used across components
+      if (!window.binance24hrData) {
+        window.binance24hrData = {};
+      }
+
       const fetchMarketData = async () => {
-        // Get the current pair from our trading pairs data
-        const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
+        try {
+          // Check if we already have recent data for this pair (less than 30 seconds old)
+          const cachedData = window.binance24hrData[currentTradingPair];
+          const now = Date.now();
 
-        if (currentPair) {
-          // Use the mock data
-          setVolume24h(currentPair.totalVolume || price * 1000);
-          setHigh24h(currentPair.high24h || price * 1.05);
-          setLow24h(currentPair.low24h || price * 0.95);
-          setChange24h(currentPair.priceChange24h?.toFixed(2) || '0.00');
-        } else {
-          // Fallback to calculated values if pair not found
-          setVolume24h(price * 1000);
-          setHigh24h(price * 1.05);
-          setLow24h(price * 0.95);
+          if (cachedData && (now - cachedData.timestamp < 30000)) {
+            // Use cached data if it's recent
+            setVolume24h(cachedData.volume);
+            setHigh24h(cachedData.high);
+            setLow24h(cachedData.low);
+            setChange24h(cachedData.change);
+            return;
+          }
 
-          // Generate a random change percentage that's mostly positive
-          const randomChange = (Math.random() * 6 - 1).toFixed(2); // -1% to +5%
-          setChange24h(randomChange);
+          // Fetch data from Binance API if no recent cache exists
+          const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${currentTradingPair}`);
+
+          if (!response.ok) {
+            throw new Error(`Binance API error: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          // Update state with real data from Binance
+          const volume = parseFloat(data.quoteVolume);
+          const high = parseFloat(data.highPrice);
+          const low = parseFloat(data.lowPrice);
+          const change = parseFloat(data.priceChangePercent).toFixed(2);
+
+          setVolume24h(volume);
+          setHigh24h(high);
+          setLow24h(low);
+          setChange24h(change);
+
+          // Cache the data with timestamp
+          window.binance24hrData[currentTradingPair] = {
+            volume,
+            high,
+            low,
+            change,
+            timestamp: now
+          };
+        } catch (error) {
+          console.error(`Error fetching market data for ${currentTradingPair}:`, error);
+
+          // Fallback to calculated values if API fails
+          const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
+
+          if (currentPair) {
+            // Use any existing data we might have
+            setVolume24h(currentPair.totalVolume || price * 1000);
+            setHigh24h(currentPair.high24h || price * 1.05);
+            setLow24h(currentPair.low24h || price * 0.95);
+            setChange24h(currentPair.priceChange24h?.toFixed(2) || '0.00');
+          } else {
+            // Last resort fallback
+            setVolume24h(price * 1000);
+            setHigh24h(price * 1.05);
+            setLow24h(price * 0.95);
+            setChange24h('0.00');
+          }
         }
       };
 
       // Initial fetch
       fetchMarketData();
 
-      // Set up interval with a longer delay to reduce CPU usage
-      const interval = setInterval(fetchMarketData, 15000); // Update less frequently to reduce CPU usage
+      // Set up interval to fetch data every 30 seconds (reduced frequency)
+      const interval = setInterval(fetchMarketData, 30000);
 
       // Clean up interval on component unmount
       return () => clearInterval(interval);
@@ -1084,7 +1984,17 @@ const LiveTrading = () => {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                '&:hover': {
+                  opacity: 0.8,
+                },
+              }}
+              onClick={() => setShowPairSelector(true)}
+            >
               <Box
                 sx={{
                   display: 'flex',
@@ -1123,13 +2033,16 @@ const LiveTrading = () => {
                   }}
                 />
               </Box>
-              <Box className="trading-pair-display">
-                <Typography variant="subtitle1" fontWeight="bold">
-                  {currentPairInfo.name}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {currentPairInfo.fullName}
-                </Typography>
+              <Box className="trading-pair-display" sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {currentPairInfo.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {currentPairInfo.fullName}
+                  </Typography>
+                </Box>
+                <ArrowDropDown sx={{ ml: 0.5, color: 'text.secondary' }} />
               </Box>
             </Box>
 
@@ -1200,27 +2113,45 @@ const LiveTrading = () => {
             <Card
               elevation={0}
               sx={{
-                width: '100%',
+                width: '600px',
                 borderRadius: { xs: 0, sm: 3 },
                 border: { xs: 'none', sm: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}` },
                 backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.9)' : '#ffffff',
-                overflow: 'hidden'
+                overflowX: 'none'
               }}
             >
               <CardContent sx={{ p: 2 }}>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-                  TRADING EXCHANGES
-                </Typography>
+                {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" fontWeight="bold">
+                    TRADING EXCHANGES
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setShowExchangeSelector(true)}
+                    startIcon={<SwapHoriz />}
+                    sx={{
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    Select Exchanges
+                  </Button>
+                </Box> */}
 
                 <Grid container spacing={2}>
-                  {exchanges && exchanges.length > 0 ? exchanges.map((exchange) => (
+                  {/* Use exchangeObjects state instead of local exchanges state */}
+                  {exchangeObjects.filter(exchange => selectedExchanges.includes(exchange.id)).map((exchange) => (
                     <Grid item xs={6} sm={4} md={3} lg={2} key={exchange.id}>
                       <Paper
                         elevation={0}
                         sx={{
                           p: 2,
                           borderRadius: 2,
-                          border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
+                          border: `1px solid ${exchange.highlight ?
+                            (exchange.profit?.startsWith('+') ? '#0ecb81' : '#f6465d') :
+                            (mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)')}`,
                           backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.7)' : '#ffffff',
                           display: 'flex',
                           flexDirection: 'column',
@@ -1237,8 +2168,20 @@ const LiveTrading = () => {
                           },
                           ...(exchange.highlight && {
                             animation: `${pulseAnimation} 1s infinite`,
-                            border: `1px solid ${exchange.profit?.startsWith('+') ? '#0ecb81' : '#f6465d'}`
+                            boxShadow: `0 0 15px ${exchange.profit?.startsWith('+') ? 'rgba(14, 203, 129, 0.3)' : 'rgba(246, 70, 93, 0.3)'}`
                           })
+                        }}
+                        onClick={() => {
+                          // When clicked, create a profit bubble
+                          if (exchange.profit) {
+                            const isPositive = exchange.profit.startsWith('+');
+                            const amount = exchange.profit.replace(/[+\-]/g, '').split(' ')[0];
+                            try {
+                              // createProfitBubble(amount, isPositive, exchange.name);
+                            } catch (error) {
+                              console.log("Error creating profit bubble on click:", error);
+                            }
+                          }
                         }}
                       >
                         {/* Exchange Logo */}
@@ -1272,48 +2215,17 @@ const LiveTrading = () => {
                         </Box>
 
                         {/* Exchange Name */}
-                        <Typography
+                        {/* <Typography
                           variant="subtitle2"
                           fontWeight="bold"
                           align="center"
                           sx={{ mb: 0.5 }}
                         >
                           {exchange.name}
-                        </Typography>
+                        </Typography> */}
 
-                        {/* Exchange Stats */}
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          align="center"
-                          sx={{ mb: 0.5 }}
-                        >
-                          Volume: {exchange.stats?.volume || '$1.0B'}
-                        </Typography>
 
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          align="center"
-                          sx={{ mb: 1 }}
-                        >
-                          Pairs: {exchange.stats?.pairs || '100+'}
-                        </Typography>
 
-                        {/* Profit Indicator */}
-                        <Chip
-                          label={exchange.profit || '+0.00 USDT'}
-                          size="small"
-                          color={exchange.profit?.startsWith('+') ? "success" : "error"}
-                          sx={{
-                            fontWeight: 'bold',
-                            fontSize: '0.7rem',
-                            height: 20,
-                            '& .MuiChip-label': {
-                              px: 1
-                            }
-                          }}
-                        />
 
                         {/* Active Indicator */}
                         {exchange.active && (
@@ -1332,161 +2244,16 @@ const LiveTrading = () => {
                         )}
                       </Paper>
                     </Grid>
-                  )) : (
-                    // Default exchanges if none are available
-                    [
-                      {
-                        id: 'binance',
-                        name: 'Binance',
-                        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iI2YwYjkwYiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjA2NC04LjY0bDMuMDIxIDMuMDIgNy4wNzgtNy4wODQtMy4wMi0zLjAyLTQuMDU4IDQuMDU4LTQuMDU3LTQuMDU4LTMuMDIgMy4wMiA3LjA1NiA3LjA2NHptLTcuMDc4LTQuMDU3bDMuMDIxIDMuMDIgMy4wMi0zLjAyLTMuMDItMy4wMjEtMy4wMjEgMy4wMnptMTQuMTM1IDBsMy4wMiAzLjAyIDMuMDItMy4wMi0zLjAyLTMuMDIxLTMuMDIgMy4wMnptLTcuMDU3LTcuMDU3bDMuMDIgMy4wMiAzLjAyLTMuMDItMy4wMi0zLjAyLTMuMDIgMy4wMnoiLz48L3N2Zz4=',
-                        active: true,
-                        profit: '+0.0037 USDT',
-                        highlight: false,
-                        fallbackLogo: 'https://ui-avatars.com/api/?name=B&background=random&color=fff&size=100'
-                      },
-                      {
-                        id: 'kucoin',
-                        name: 'KuCoin',
-                        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIzQkY3NiIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0wLTI2Ljk4NWMtNi4wNDYgMC0xMC45ODYgNC45NC0xMC45ODYgMTAuOTg1UzkuOTU0IDI2Ljk4NSAxNiAyNi45ODVzMTAuOTg2LTQuOTQgMTAuOTg2LTEwLjk4NVMyMi4wNDYgNS4wMTUgMTYgNS4wMTV6bS0uOTg0IDEyLjk4M2wtMy4wMTMtMy4wMTMgMS40MTQtMS40MTQgMS41OTkgMS41OTkgNS4zOTgtNS4zOTggMS40MTQgMS40MTQtNi44MTIgNi44MTJ6Ii8+PC9zdmc+',
-                        active: true,
-                        profit: '+0.0055 USDT',
-                        highlight: false,
-                        fallbackLogo: 'https://ui-avatars.com/api/?name=K&background=random&color=fff&size=100'
-                      },
-                      {
-                        id: 'crypto',
-                        name: 'Crypto.com',
-                        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzAwMzNhZCIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tLjAxOC03LjkwM2wzLjA3LTEuNzc0YS43NzIuNzcyIDAgMCAwIC4zODYtLjY3MlYxMi4zNWEuNzcyLjc3MiAwIDAgMC0uMzg2LS42NzJsLTMuMDctMS43NzRhLjc3Mi43NzIgMCAwIDAtLjc3MiAwbC0zLjA3IDEuNzc0YS43NzIuNzcyIDAgMCAwLS4zODYuNjcydjcuMzAxYzAgLjI3Ny4xNDYuNTM0LjM4Ni42NzJsMy4wNyAxLjc3NGEuNzcyLjc3MiAwIDAgMCAuNzcyIDB6bS0yLjUwMi0yLjQ0NmMwIC4wNjktLjAzNS4xMDQtLjEwNC4xMDRoLS40MTRjLS4wNyAwLS4xMDQtLjAzNS0uMTA0LS4xMDR2LTUuMjA4YzAtLjA3LjAzNC0uMTA0LjEwNC0uMTA0aC40MTRjLjA2OSAwIC4xMDQuMDM1LjEwNC4xMDR2NS4yMDh6bTEuNTU0IDBjMCAuMDY5LS4wMzUuMTA0LS4xMDQuMTA0aC0uNDE0Yy0uMDcgMC0uMTA0LS4wMzUtLjEwNC0uMTA0di01LjIwOGMwLS4wNy4wMzQtLjEwNC4xMDQtLjEwNGguNDE0Yy4wNjkgMCAuMTA0LjAzNS4xMDQuMTA0djUuMjA4em0xLjU1NCAwYzAgLjA2OS0uMDM1LjEwNC0uMTA0LjEwNGgtLjQxNGMtLjA3IDAtLjEwNC0uMDM1LS4xMDQtLjEwNHYtNS4yMDhjMC0uMDcuMDM0LS4xMDQuMTA0LS4xMDRoLjQxNGMuMDY5IDAgLjEwNC4wMzUuMTA0LjEwNHY1LjIwOHoiLz48L3N2Zz4=',
-                        active: true,
-                        profit: '+0.0042 USDT',
-                        highlight: false,
-                        fallbackLogo: 'https://ui-avatars.com/api/?name=C&background=random&color=fff&size=100'
-                      },
-                      {
-                        id: 'okx',
-                        name: 'OKX',
-                        logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZmlsbD0iIzIxNmZlYSIgZD0iTTE2IDMyQzcuMTYzIDMyIDAgMjQuODM3IDAgMTZTNy4xNjMgMCAxNiAwczE2IDcuMTYzIDE2IDE2LTcuMTYzIDE2LTE2IDE2em0tNy4xMDUtMTAuMDI1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXptLTkuNDk1LTkuNDk1YzAgMi42MjUgMi4xMjMgNC43NSA0Ljc0OCA0Ljc1czQuNzQ4LTIuMTI1IDQuNzQ4LTQuNzUtMi4xMjMtNC43NS00Ljc0OC00Ljc1LTQuNzQ4IDIuMTI1LTQuNzQ4IDQuNzV6bTkuNDk1IDBjMCAyLjYyNSAyLjEyMyA0Ljc1IDQuNzQ4IDQuNzVzNC43NDgtMi4xMjUgNC43NDgtNC43NS0yLjEyMy00Ljc1LTQuNzQ4LTQuNzUtNC43NDggMi4xMjUtNC43NDggNC43NXoiLz48L3N2Zz4=',
-                        active: true,
-                        profit: '+0.0023 USDT',
-                        highlight: false,
-                        fallbackLogo: 'https://ui-avatars.com/api/?name=O&background=random&color=fff&size=100'
-                      }
-                    ].map((exchange) => (
-                      <Grid item xs={6} sm={4} md={3} lg={2} key={exchange.id}>
-                        <Paper
-                          elevation={0}
-                          sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
-                            backgroundColor: mode === 'dark' ? 'rgba(26, 27, 32, 0.7)' : '#ffffff',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            transition: 'all 0.3s ease',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            '&:hover': {
-                              transform: 'translateY(-5px)',
-                              boxShadow: mode === 'dark'
-                                ? '0 8px 16px rgba(0, 0, 0, 0.4)'
-                                : '0 8px 16px rgba(0, 0, 0, 0.1)',
-                            }
-                          }}
-                        >
-                          {/* Exchange Logo */}
-                          <Box
-                            sx={{
-                              width: 48,
-                              height: 48,
-                              borderRadius: '50%',
-                              backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              mb: 1,
-                              position: 'relative',
-                              overflow: 'hidden'
-                            }}
-                          >
-                            <img
-                              src={exchange.logo}
-                              alt={exchange.name}
-                              style={{
-                                width: '70%',
-                                height: '70%',
-                                objectFit: 'contain'
-                              }}
-                              onError={(e) => {
-                                e.target.src = exchange.fallbackLogo ||
-                                  `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
-                              }}
-                            />
-                          </Box>
-
-                          {/* Exchange Name */}
-                          <Typography
-                            variant="subtitle2"
-                            fontWeight="bold"
-                            align="center"
-                            sx={{ mb: 0.5 }}
-                          >
-                            {exchange.name}
-                          </Typography>
-
-                          {/* Exchange Stats */}
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            align="center"
-                            sx={{ mb: 0.5 }}
-                          >
-                            Volume: $1.0B
-                          </Typography>
-
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            align="center"
-                            sx={{ mb: 1 }}
-                          >
-                            Pairs: 100+
-                          </Typography>
-
-                          {/* Profit Indicator */}
-                          <Chip
-                            label={exchange.profit}
-                            size="small"
-                            color={exchange.profit.startsWith('+') ? "success" : "error"}
-                            sx={{
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              height: 20,
-                              '& .MuiChip-label': {
-                                px: 1
-                              }
-                            }}
-                          />
-
-                          {/* Active Indicator */}
-                          {exchange.active && (
-                            <Box
-                              sx={{
-                                position: 'absolute',
-                                top: 8,
-                                right: 8,
-                                width: 8,
-                                height: 8,
-                                borderRadius: '50%',
-                                backgroundColor: 'success.main',
-                                animation: `${pulseAnimation} 2s infinite`
-                              }}
-                            />
-                          )}
-                        </Paper>
-                      </Grid>
-                    ))
+                  ))}
+                  {/* Show message if no exchanges are selected */}
+                  {exchangeObjects.filter(exchange => selectedExchanges.includes(exchange.id)).length === 0 && (
+                    <Grid item xs={12}>
+                      <Box sx={{ p: 4, textAlign: 'center' }}>
+                        <Typography variant="body1" color="text.secondary">
+                          No exchanges selected. Click "Select Exchanges" to choose exchanges.
+                        </Typography>
+                      </Box>
+                    </Grid>
                   )}
                 </Grid>
               </CardContent>
@@ -1494,7 +2261,7 @@ const LiveTrading = () => {
           </Grid>
 
             {/* Price Stats */}
-            <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={6} sm={3}>
                 <Typography variant="body2" color="text.secondary">24h Volume</Typography>
                 <Typography variant="body1" fontWeight="medium">
@@ -1519,33 +2286,149 @@ const LiveTrading = () => {
                   ${(price * (Math.random() * 1000000 + 10000000)).toLocaleString('en-US', { maximumFractionDigits: 0 })}
                 </Typography>
               </Grid>
-            </Grid>
+            </Grid> */}
           </Box>
         </CardContent>
       </Card>
     );
   };
 
+        // Function to fetch real price data from Binance API - optimized to use ticker/price endpoint
+        const [pairPrices, setPairPrices] = useState({});
+        const fetchPairPrices = useCallback(async () => {
+          try {
+            // Use the more lightweight ticker/price endpoint instead of 24hr
+            const response = await fetch('https://api.binance.com/api/v3/ticker/price');
+    
+            if (!response.ok) {
+              throw new Error(`Binance API error: ${response.status}`);
+            }
+    
+            const data = await response.json();
+    
+            // Create a map of pair symbol to price data
+            const priceMap = {};
+    
+            // Process only our trading pairs
+            tradingPairs.forEach(pair => {
+              // Find the matching data from Binance
+              const binanceData = data.find(item => item.symbol === pair.symbol);
+    
+              if (binanceData) {
+                // If we already have this pair's data, just update the price
+                if (pairPrices[pair.symbol]) {
+                  priceMap[pair.symbol] = {
+                    ...pairPrices[pair.symbol],
+                    price: parseFloat(binanceData.price).toFixed(2)
+                  };
+                } else {
+                  // For new pairs, set up the full data structure
+                  priceMap[pair.symbol] = {
+                    price: parseFloat(binanceData.price).toFixed(2),
+                    change: "0.00", // We'll update this less frequently
+                    imageUrl: `https://assets.coingecko.com/coins/images/${
+                      pair.id === 'bitcoin' ? '1' :
+                      pair.id === 'ethereum' ? '279' :
+                      pair.id === 'binancecoin' ? '825' :
+                      pair.id === 'solana' ? '4128' :
+                      pair.id === 'cardano' ? '975' :
+                      pair.id === 'ripple' ? '44' :
+                      pair.id === 'polkadot' ? '12171' :
+                      pair.id === 'dogecoin' ? '5' :
+                      pair.id === 'polygon' ? '4713' :
+                      pair.id === 'avalanche' ? '12559' : '1'
+                    }/large/${pair.id || 'bitcoin'}.png`
+                  };
+                }
+              }
+            });
+    
+            // Update state with the price data
+            setPairPrices(prev => ({...prev, ...priceMap}));
+          } catch (error) {
+            console.error('Error fetching prices from Binance:', error);
+          }
+        }, [pairPrices, tradingPairs]);
+            // Fetch prices on component mount and every 5 seconds
+    useEffect(() => {
+      // Fetch immediately on mount
+      fetchPairPrices();
+
+      // Set up interval to fetch prices every 5 seconds
+      const priceInterval = setInterval(fetchPairPrices, 5000);
+
+      // Set up interval to fetch 24hr data every 30 seconds
+      // const dataInterval = setInterval(fetch24HrData, 30000);
+
+      // Clean up intervals on unmount
+      return () => {
+        clearInterval(priceInterval);
+        // clearInterval(dataInterval);
+      };
+    }, [fetchPairPrices]);
   // Enhanced Trading Pairs Component
   const TradingPairs = () => {
-    // Function to get real price data for a pair
-    const getPairData = (pair) => {
-      // Try to find the pair in the global trading pairs data
-      const pairData = window.tradingPairsData?.find(p => p.id === pair.id);
+    // State to store real price data from Binance
+    
 
-      if (pairData) {
-        return {
-          price: pairData.currentPrice ? pairData.currentPrice.toFixed(2) : (Math.random() * 1000 + 100).toFixed(2),
-          change: pairData.priceChange24h ? pairData.priceChange24h.toFixed(2) : (Math.random() * 10 - 5).toFixed(2),
-          imageUrl: pairData.imageUrl
-        };
+
+
+    // Function to fetch 24hr data less frequently
+    // const fetch24HrData = useCallback(async () => {
+    //   try {
+    //     // Only fetch data for the current trading pair to reduce load
+    //     const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${currentTradingPair}`);
+
+    //     if (!response.ok) {
+    //       throw new Error(`Binance API error: ${response.status}`);
+    //     }
+
+    //     const data = await response.json();
+
+    //     // Update the current pair's 24hr data
+    //     setPairPrices(prev => ({
+    //       ...prev,
+    //       [currentTradingPair]: {
+    //         ...prev[currentTradingPair],
+    //         change: parseFloat(data.priceChangePercent).toFixed(2)
+    //       }
+    //     }));
+    //   } catch (error) {
+    //     console.error('Error fetching 24hr data from Binance:', error);
+    //   }
+    // }, [currentTradingPair]);
+
+
+
+    // Function to get real price data for a pair - optimized to avoid individual API calls
+    const getPairData = (pair) => {
+      // Check if we have real data from Binance
+      if (pairPrices[pair.symbol]) {
+        return pairPrices[pair.symbol];
       }
 
-      // Fallback to random data
+      // If we don't have data yet, trigger a fetch for all pairs
+      // but don't wait for it - this avoids multiple individual API calls
+      if (Object.keys(pairPrices).length === 0) {
+        fetchPairPrices();
+      }
+
+      // Return a placeholder with the correct image while we wait for real data
       return {
-        price: (Math.random() * 1000 + 100).toFixed(2),
-        change: (Math.random() * 10 - 5).toFixed(2),
-        imageUrl: null
+        price: "Loading...",
+        change: "0.00",
+        imageUrl: `https://assets.coingecko.com/coins/images/${
+          pair.id === 'bitcoin' ? '1' :
+          pair.id === 'ethereum' ? '279' :
+          pair.id === 'binancecoin' ? '825' :
+          pair.id === 'solana' ? '4128' :
+          pair.id === 'cardano' ? '975' :
+          pair.id === 'ripple' ? '44' :
+          pair.id === 'polkadot' ? '12171' :
+          pair.id === 'dogecoin' ? '5' :
+          pair.id === 'polygon' ? '4713' :
+          pair.id === 'avalanche' ? '12559' : '1'
+        }/large/${pair.id || 'bitcoin'}.png`
       };
     };
 
@@ -1583,11 +2466,13 @@ const LiveTrading = () => {
             </Button>
           </Box>
 
+          {/* Auto-changing trading pairs effect */}
           <Box sx={{ p: { xs: 1, sm: 2 } }}>
             <Grid container spacing={{ xs: 1, sm: 2 }}>
               {tradingPairs.map((pair) => {
                 const pairData = getPairData(pair);
                 const isPositive = parseFloat(pairData.change) >= 0;
+                const isSelected = currentTradingPair === pair.symbol;
 
                 return (
                   <Grid item xs={6} sm={4} md={2} key={pair.symbol}>
@@ -1597,17 +2482,19 @@ const LiveTrading = () => {
                         p: { xs: 1.5, sm: 2 },
                         borderRadius: 2,
                         cursor: 'pointer',
-                        backgroundColor: currentTradingPair === pair.symbol
+                        backgroundColor: isSelected
                           ? mode === 'dark' ? 'rgba(240, 185, 11, 0.1)' : 'rgba(240, 185, 11, 0.05)'
                           : mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.01)',
-                        border: `1px solid ${currentTradingPair === pair.symbol
+                        border: `1px solid ${isSelected
                           ? 'rgba(240, 185, 11, 0.2)'
                           : mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
                         transition: 'all 0.3s ease',
+                        animation: isSelected ? `${pulseAnimation} 2s infinite` : 'none',
+                        boxShadow: isSelected ? '0 4px 12px rgba(240, 185, 11, 0.15)' : 'none',
                         '&:hover': {
                           transform: 'translateY(-2px)',
                           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                          backgroundColor: currentTradingPair === pair.symbol
+                          backgroundColor: isSelected
                             ? mode === 'dark' ? 'rgba(240, 185, 11, 0.15)' : 'rgba(240, 185, 11, 0.1)'
                             : mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
                         }
@@ -1684,6 +2571,7 @@ const LiveTrading = () => {
   };
 
   // Trade History Component with Exchange Indicators
+  // This component is used in the main render
   const TradeHistory = () => {
     // Use state for exchanges to make them dynamic
     const [exchanges, setExchanges] = useState([
@@ -1978,6 +2866,7 @@ const LiveTrading = () => {
   };
 
   // Enhanced Order Book Component with Exchange Indicators
+  // This component is used in the main render
   const OrderBook = () => {
     // Use state for exchanges to make them dynamic - initialize with embedded SVG data
     const [exchanges, setExchanges] = useState([
@@ -2033,55 +2922,126 @@ const LiveTrading = () => {
     const [sellOrderExchanges, setSellOrderExchanges] = useState([]);
     const [buyOrderExchanges, setBuyOrderExchanges] = useState([]);
 
-    // Function to get a random active exchange
-    const getRandomExchange = useCallback(() => {
-      const activeExchanges = exchanges.filter(ex => ex.active);
-      if (activeExchanges.length === 0) return exchanges[0];
-      return activeExchanges[Math.floor(Math.random() * activeExchanges.length)];
-    }, [exchanges]);
-
-    // Randomly change active exchanges to simulate jumping between exchanges
+    // Filter exchanges based on the selected exchanges from parent component
     useEffect(() => {
-      if (!tradingActive) return;
+      // Update exchanges based on selectedExchanges from parent
+      setExchanges(prev =>
+        prev.map(exchange => ({
+          ...exchange,
+          active: selectedExchanges.includes(exchange.id)
+        }))
+      );
+    }, [selectedExchanges]);
 
-      const interval = setInterval(() => {
-        setExchanges(prev => {
+    // Helper function to get a random exchange from the selected ones
+    const getRandomExchangeFromSelected = () => {
+      if (selectedExchanges.length === 0 || exchanges.length === 0) return null;
+      const randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+      return exchanges.find(ex => ex.id === randomExchangeId) || exchanges[0];
+    };
+
+    // We don't need to set up a separate interval to change exchanges
+    // since the parent component is already handling this
+    // Instead, we'll just listen for changes to selectedExchanges
+
+    // This useEffect will run whenever selectedExchanges changes
+    useEffect(() => {
+      // Update the exchanges based on the selectedExchanges from the parent
+      setExchanges(prev => {
+        return prev.map(exchange => ({
+          ...exchange,
+          active: selectedExchanges.includes(exchange.id),
+          highlight: selectedExchanges.includes(exchange.id) // Highlight all active exchanges
+        }));
+      });
+
+      // Also update the order exchanges when selectedExchanges changes
+      if (selectedExchanges.length > 0) {
+        setSellOrderExchanges(Array.from({ length: 12 }, () => {
+          const randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+          const exchange = exchanges.find(ex => ex.id === randomExchangeId) || exchanges[0];
+          return { ...exchange, highlight: true };
+        }));
+
+        setBuyOrderExchanges(Array.from({ length: 12 }, () => {
+          const randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+          const exchange = exchanges.find(ex => ex.id === randomExchangeId) || exchanges[0];
+          return { ...exchange, highlight: true };
+        }));
+      }
+    }, [selectedExchanges, exchanges]);
+
+    // Set up a separate interval for updating order exchanges
+    useEffect(() => {
+      // Only set up the interval if we have selected exchanges and trading is active
+      if (selectedExchanges.length === 0 || exchanges.length === 0 || !tradingActive) {
+        return;
+      }
+
+      // Initialize order exchanges if they're empty
+      if (sellOrderExchanges.length === 0) {
+        setSellOrderExchanges(Array.from({ length: 10 }, () => {
+          const randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+          const exchange = exchanges.find(ex => ex.id === randomExchangeId) || exchanges[0];
+          return { ...exchange, highlight: true };
+        }));
+      }
+
+      if (buyOrderExchanges.length === 0) {
+        setBuyOrderExchanges(Array.from({ length: 10 }, () => {
+          const randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+          const exchange = exchanges.find(ex => ex.id === randomExchangeId) || exchanges[0];
+          return { ...exchange, highlight: true };
+        }));
+      }
+
+      // This interval will update the order exchanges less frequently to improve performance
+      const orderExchangeInterval = setInterval(() => {
+        // Update only 1-2 sell orders at a time for better performance
+        setSellOrderExchanges(prev => {
           const newExchanges = [...prev];
+          // Update 1-2 random positions (reduced from 2-4)
+          const numToUpdate = Math.floor(Math.random() * 2) + 1;
+          const positions = [];
 
-          // Randomly activate/deactivate exchanges
-          const randomIndex = Math.floor(Math.random() * newExchanges.length);
-
-          // Make sure at least 3 exchanges are always active
-          const activeCount = newExchanges.filter(ex => ex.active).length;
-
-          if (activeCount > 3 || !newExchanges[randomIndex].active) {
-            newExchanges[randomIndex].active = !newExchanges[randomIndex].active;
-            newExchanges[randomIndex].highlight = true;
-
-            // Remove highlight after 1 second
-            setTimeout(() => {
-              setExchanges(current => current.map((ex, i) =>
-                i === randomIndex ? { ...ex, highlight: false } : ex
-              ));
-            }, 1000);
+          while (positions.length < numToUpdate) {
+            const pos = Math.floor(Math.random() * 10); // Reduced from 12 to 10
+            if (!positions.includes(pos)) {
+              positions.push(pos);
+              // Get a random exchange from the selected ones
+              const randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+              const exchange = exchanges.find(ex => ex.id === randomExchangeId) || exchanges[0];
+              newExchanges[pos] = { ...exchange, highlight: true };
+            }
           }
 
           return newExchanges;
         });
 
-        // Reassign exchanges to orders
-        setSellOrderExchanges(Array.from({ length: 10 }, () => getRandomExchange()));
-        setBuyOrderExchanges(Array.from({ length: 10 }, () => getRandomExchange()));
-      }, 3000);
+        // Update only 1-2 buy orders at a time for better performance
+        setBuyOrderExchanges(prev => {
+          const newExchanges = [...prev];
+          // Update 1-2 random positions (reduced from 2-4)
+          const numToUpdate = Math.floor(Math.random() * 2) + 1;
+          const positions = [];
 
-      return () => clearInterval(interval);
-    }, [tradingActive, getRandomExchange]);
+          while (positions.length < numToUpdate) {
+            const pos = Math.floor(Math.random() * 10); // Reduced from 12 to 10
+            if (!positions.includes(pos)) {
+              positions.push(pos);
+              // Get a random exchange from the selected ones
+              const randomExchangeId = selectedExchanges[Math.floor(Math.random() * selectedExchanges.length)];
+              const exchange = exchanges.find(ex => ex.id === randomExchangeId) || exchanges[0];
+              newExchanges[pos] = { ...exchange, highlight: true };
+            }
+          }
 
-    // Initialize order exchange assignments
-    useEffect(() => {
-      setSellOrderExchanges(Array.from({ length: 10 }, () => getRandomExchange()));
-      setBuyOrderExchanges(Array.from({ length: 10 }, () => getRandomExchange()));
-    }, [getRandomExchange]);
+          return newExchanges;
+        });
+      }, 2000); // Reduced frequency to every 2 seconds for better performance
+
+      return () => clearInterval(orderExchangeInterval);
+    }, [selectedExchanges, exchanges, tradingActive]);
 
     return (
       <Card
@@ -2104,22 +3064,58 @@ const LiveTrading = () => {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <Typography variant="h6" fontWeight="bold">
-              Order Book
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mr: 1 }}>
+                Order Book
+              </Typography>
+
+              <Chip
+                label={currentTradingPair}
+                size="small"
+                color="primary"
+                onClick={() => setShowPairSelector(true)}
+                sx={{
+                  height: 24,
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    opacity: 0.9,
+                  }
+                }}
+              />
+            </Box>
 
             {/* Exchange Filter Chips */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setShowExchangeSelector(true)}
+                startIcon={<SwapHoriz />}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '0.75rem',
+                  height: 28,
+                  mr: 1,
+                }}
+              >
+                Exchanges
+              </Button>
+
               <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
-                {exchanges.filter(ex => ex.active).slice(0, 3).map(exchange => (
+                {exchanges.filter(ex => selectedExchanges.includes(ex.id)).slice(0, 3).map(exchange => (
                   <Tooltip key={exchange.id} title={exchange.name}>
                     <Box
                       sx={{
-                        width: 20,
-                        height: 20,
+                        width: 24,
+                        height: 24,
                         borderRadius: '50%',
                         overflow: 'hidden',
                         border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        animation: exchange.highlight ? `${pulseAnimation} 1s infinite` : 'none',
+                        transition: 'all 0.3s ease',
                       }}
                     >
                       <img
@@ -2134,8 +3130,79 @@ const LiveTrading = () => {
                     </Box>
                   </Tooltip>
                 ))}
+
+                {selectedExchanges.length > 3 && (
+                  <Tooltip title={`+${selectedExchanges.length - 3} more exchanges`}>
+                    <Box
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                        color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        animation: `${pulseAnimation} 1.5s infinite`,
+                      }}
+                    >
+                      +{selectedExchanges.length - 3}
+                    </Box>
+                  </Tooltip>
+                )}
               </Box>
-              <IconButton size="small">
+
+              <IconButton
+                size="small"
+                color="primary"
+                sx={{
+                  animation: `${rotateAnimation} 5s linear infinite`,
+                  '&:hover': {
+                    animation: `${rotateAnimation} 1s linear infinite`,
+                  }
+                }}
+                onClick={() => {
+                  // Get available exchanges for the current trading pair
+                  const currentPair = tradingPairs.find(pair => pair.symbol === currentTradingPair);
+                  const availableExchanges = currentPair ? currentPair.supportedExchanges :
+                    ['binance', 'kucoin', 'crypto', 'okx', 'gate'];
+
+                  // Select 3-4 random exchanges (reduced for performance)
+                  const randomExchanges = [];
+                  const numExchanges = Math.floor(Math.random() * 2) + 3; // 3 to 4 exchanges
+
+                  while (randomExchanges.length < numExchanges) {
+                    const randomIndex = Math.floor(Math.random() * availableExchanges.length);
+                    const exchangeId = availableExchanges[randomIndex];
+
+                    if (!randomExchanges.includes(exchangeId)) {
+                      randomExchanges.push(exchangeId);
+                    }
+                  }
+
+                  // Update selectedExchanges state
+                  setSelectedExchanges(randomExchanges);
+
+                  // Immediately update the order exchanges for instant feedback
+                  if (randomExchanges.length > 0 && exchanges.length > 0) {
+                    // Update all sell orders
+                    setSellOrderExchanges(Array.from({ length: 10 }, () => {
+                      const randomExchangeId = randomExchanges[Math.floor(Math.random() * randomExchanges.length)];
+                      const exchange = exchanges.find(ex => ex.id === randomExchangeId) || exchanges[0];
+                      return { ...exchange, highlight: true };
+                    }));
+
+                    // Update all buy orders
+                    setBuyOrderExchanges(Array.from({ length: 10 }, () => {
+                      const randomExchangeId = randomExchanges[Math.floor(Math.random() * randomExchanges.length)];
+                      const exchange = exchanges.find(ex => ex.id === randomExchangeId) || exchanges[0];
+                      return { ...exchange, highlight: true };
+                    }));
+                  }
+                }}
+              >
                 <Refresh fontSize="small" />
               </IconButton>
             </Box>
@@ -2147,10 +3214,10 @@ const LiveTrading = () => {
             justifyContent: 'space-between',
             borderBottom: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
           }}>
-            <Typography variant="body2" color="text.secondary" sx={{ width: '10%', textAlign: 'left' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ width: '15%', textAlign: 'left' }}>
               Exchange
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ width: '30%', textAlign: 'left' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ width: '25%', textAlign: 'left' }}>
               Price (USDT)
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ width: '30%', textAlign: 'right' }}>
@@ -2173,11 +3240,13 @@ const LiveTrading = () => {
                 {/* Sell Orders */}
                 <Box sx={{ flex: 1, overflow: 'auto', p: 1 }}>
                   {Array.from({ length: 10 }).map((_, index) => {
-                    const price = currentBasePrice + (10 - index) * 50;
+                    // Use real price data with small variations for sell orders (slightly higher than current price)
+                    const priceVariation = (10 - index) * (currentBasePrice * 0.001); // 0.1% steps
+                    const price = currentBasePrice + priceVariation;
                     const amount = Math.random() * 2 + 0.1;
                     const total = price * amount;
                     const depth = 10 - index; // Depth indicator for visualization
-                    const exchange = sellOrderExchanges[index] || getRandomExchange();
+                    const exchange = sellOrderExchanges[index] || getRandomExchangeFromSelected();
                     const isHighlighted = exchange.highlight;
 
                 return (
@@ -2207,34 +3276,53 @@ const LiveTrading = () => {
                       }
                     }}
                   >
-                    {/* Exchange Logo */}
-                    <Box sx={{ width: '10%', display: 'flex', alignItems: 'center', zIndex: 1 }}>
+                    {/* Exchange Logo and Name */}
+                    <Box sx={{ width: '15%', display: 'flex', alignItems: 'center', zIndex: 1 }}>
                       <Tooltip title={exchange.name}>
-                        <Box
-                          sx={{
-                            width: 16,
-                            height: 16,
-                            borderRadius: '50%',
-                            overflow: 'hidden',
-                            border: isHighlighted ? `1px solid ${mode === 'dark' ? '#f6465d' : '#f6465d'}` : 'none',
-                            boxShadow: isHighlighted ? '0 0 5px rgba(246, 70, 93, 0.5)' : 'none',
-                            animation: isHighlighted ? `${pulseAnimation} 1s ease` : 'none',
-                          }}
-                        >
-                          <img
-                            src={exchange.logo}
-                            alt={exchange.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover'
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Box
+                            sx={{
+                              width: 16,
+                              height: 16,
+                              borderRadius: '50%',
+                              overflow: 'hidden',
+                              border: isHighlighted ? `1px solid ${mode === 'dark' ? '#f6465d' : '#f6465d'}` : 'none',
+                              boxShadow: isHighlighted ? '0 0 5px rgba(246, 70, 93, 0.5)' : 'none',
+                              animation: isHighlighted ? `${pulseAnimation} 1s ease` : 'none',
+                              flexShrink: 0,
                             }}
-                            onError={(e) => {
-                              // Fallback for image loading errors using the embedded fallback logo
-                              e.target.src = exchange.fallbackLogo ||
-                                `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                          >
+                            <img
+                              src={exchange.logo}
+                              alt={exchange.name}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                              onError={(e) => {
+                                // Fallback for image loading errors using the embedded fallback logo
+                                e.target.src = exchange.fallbackLogo ||
+                                  `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                              }}
+                            />
+                          </Box>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              ml: 0.5,
+                              fontSize: '0.65rem',
+                              color: isHighlighted ? 'error.main' : 'text.secondary',
+                              fontWeight: isHighlighted ? 'bold' : 'normal',
+                              display: { xs: 'none', sm: 'block' },
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '60px'
                             }}
-                          />
+                          >
+                            {exchange.name}
+                          </Typography>
                         </Box>
                       </Tooltip>
                     </Box>
@@ -2243,7 +3331,7 @@ const LiveTrading = () => {
                       variant="body2"
                       color="error.main"
                       sx={{
-                        width: '30%',
+                        width: '25%',
                         textAlign: 'left',
                         zIndex: 1,
                         fontWeight: isHighlighted ? 'bold' : 'normal'
@@ -2342,11 +3430,13 @@ const LiveTrading = () => {
             {/* Buy Orders */}
             <Box sx={{ flex: 1, overflow: 'auto', p: 1 }}>
               {Array.from({ length: 10 }).map((_, index) => {
-                const price = currentBasePrice - (index + 1) * 50;
+                // Use real price data with small variations for buy orders (slightly lower than current price)
+                const priceVariation = (index + 1) * (currentBasePrice * 0.001); // 0.1% steps
+                const price = currentBasePrice - priceVariation;
                 const amount = Math.random() * 2 + 0.1;
                 const total = price * amount;
                 const depth = index + 1; // Depth indicator for visualization
-                const exchange = buyOrderExchanges[index] || getRandomExchange();
+                const exchange = buyOrderExchanges[index] || getRandomExchangeFromSelected();
                 const isHighlighted = exchange.highlight;
 
                 return (
@@ -2376,34 +3466,53 @@ const LiveTrading = () => {
                       }
                     }}
                   >
-                    {/* Exchange Logo */}
-                    <Box sx={{ width: '10%', display: 'flex', alignItems: 'center', zIndex: 1 }}>
+                    {/* Exchange Logo and Name */}
+                    <Box sx={{ width: '15%', display: 'flex', alignItems: 'center', zIndex: 1 }}>
                       <Tooltip title={exchange.name}>
-                        <Box
-                          sx={{
-                            width: 16,
-                            height: 16,
-                            borderRadius: '50%',
-                            overflow: 'hidden',
-                            border: isHighlighted ? `1px solid ${mode === 'dark' ? '#0ecb81' : '#0ecb81'}` : 'none',
-                            boxShadow: isHighlighted ? '0 0 5px rgba(14, 203, 129, 0.5)' : 'none',
-                            animation: isHighlighted ? `${pulseAnimation} 1s ease` : 'none',
-                          }}
-                        >
-                          <img
-                            src={exchange.logo}
-                            alt={exchange.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover'
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Box
+                            sx={{
+                              width: 16,
+                              height: 16,
+                              borderRadius: '50%',
+                              overflow: 'hidden',
+                              border: isHighlighted ? `1px solid ${mode === 'dark' ? '#0ecb81' : '#0ecb81'}` : 'none',
+                              boxShadow: isHighlighted ? '0 0 5px rgba(14, 203, 129, 0.5)' : 'none',
+                              animation: isHighlighted ? `${pulseAnimation} 1s ease` : 'none',
+                              flexShrink: 0,
                             }}
-                            onError={(e) => {
-                              // Fallback for image loading errors using the embedded fallback logo
-                              e.target.src = exchange.fallbackLogo ||
-                                `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                          >
+                            <img
+                              src={exchange.logo}
+                              alt={exchange.name}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                              onError={(e) => {
+                                // Fallback for image loading errors using the embedded fallback logo
+                                e.target.src = exchange.fallbackLogo ||
+                                  `https://ui-avatars.com/api/?name=${exchange.name.charAt(0)}&background=random&color=fff&size=100`;
+                              }}
+                            />
+                          </Box>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              ml: 0.5,
+                              fontSize: '0.65rem',
+                              color: isHighlighted ? 'success.main' : 'text.secondary',
+                              fontWeight: isHighlighted ? 'bold' : 'normal',
+                              display: { xs: 'none', sm: 'block' },
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '60px'
                             }}
-                          />
+                          >
+                            {exchange.name}
+                          </Typography>
                         </Box>
                       </Tooltip>
                     </Box>
@@ -2456,6 +3565,7 @@ const LiveTrading = () => {
   };
 
   // Trend Visualization Component
+  // This component is used in the main render
   const TrendVisualization = () => {
     const svgRef = useRef(null);
     const [chartData, setChartData] = useState([]);
@@ -2997,7 +4107,7 @@ const LiveTrading = () => {
                         {tradingActive ? 'Current Session Profit' : 'Total Profit'}
                       </Typography>
                       <Typography variant={{ xs: 'h6', md: 'h5' }} fontWeight="bold" color="success.main">
-                        +{formatCurrency(accumulatedProfit)}
+                        +{formatCurrency(accumulatedProfit, 5)}
                       </Typography>
                       {tradingActive && (
                         <Box sx={{
@@ -3338,7 +4448,7 @@ const LiveTrading = () => {
                           variant="body2"
                           color="text.secondary"
                           sx={{
-                            width: '15%',
+                            width: '10%',
                             pl: { xs: 0.5, sm: 1 },
                             fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.875rem' }
                           }}
@@ -3349,11 +4459,21 @@ const LiveTrading = () => {
                           variant="body2"
                           color="text.secondary"
                           sx={{
-                            width: '30%',
+                            width: '20%',
                             fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.875rem' }
                           }}
                         >
                           Price (USDT)
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            width: '15%',
+                            fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.875rem' }
+                          }}
+                        >
+                          Exchange
                         </Typography>
                         <Typography
                           variant="body2"
@@ -3421,7 +4541,7 @@ const LiveTrading = () => {
                                 variant="body2"
                                 color="error.main"
                                 sx={{
-                                  width: '15%',
+                                  width: '10%',
                                   pl: { xs: 0.5, sm: 1 },
                                   zIndex: 1,
                                   fontWeight: 'medium',
@@ -3434,7 +4554,7 @@ const LiveTrading = () => {
                                 variant="body2"
                                 color="error.main"
                                 sx={{
-                                  width: '30%',
+                                  width: '20%',
                                   zIndex: 1,
                                   fontWeight: 'medium',
                                   fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.875rem' }
@@ -3442,6 +4562,84 @@ const LiveTrading = () => {
                               >
                                 {price.toLocaleString()}
                               </Typography>
+
+                              {/* Exchange Column */}
+                              <Box sx={{
+                                width: '15%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                zIndex: 1
+                              }}>
+                                {selectedExchanges && selectedExchanges.length > 0 ? (
+                                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    {/* Get the exchange object for this index */}
+                                    {(() => {
+                                      const exchangeId = selectedExchanges[index % selectedExchanges.length];
+                                      const exchangeObj = exchangeObjects.find(ex => ex.id === exchangeId) || {
+                                        id: exchangeId,
+                                        name: exchangeId.charAt(0).toUpperCase() + exchangeId.slice(1),
+                                        logo: `https://ui-avatars.com/api/?name=${exchangeId.charAt(0)}&background=random&color=fff&size=100`,
+                                        active: true,
+                                        highlight: false
+                                      };
+
+                                      return (
+                                        <>
+                                          <Box
+                                            sx={{
+                                              width: 16,
+                                              height: 16,
+                                              borderRadius: '50%',
+                                              overflow: 'hidden',
+                                              flexShrink: 0,
+                                              border: exchangeObj.highlight ?
+                                                `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}` : 'none',
+                                              boxShadow: exchangeObj.highlight ?
+                                                '0 0 5px rgba(255, 255, 255, 0.3)' : 'none',
+                                              animation: exchangeObj.highlight ?
+                                                `${pulseAnimation} 1s ease` : 'none'
+                                            }}
+                                          >
+                                            <img
+                                              src={exchangeObj.logo}
+                                              alt={exchangeObj.name}
+                                              style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                              }}
+                                              onError={(e) => {
+                                                e.target.src = `https://ui-avatars.com/api/?name=${exchangeObj.name.charAt(0)}&background=random&color=fff&size=100`;
+                                              }}
+                                            />
+                                          </Box>
+                                          <Typography
+                                            variant="caption"
+                                            sx={{
+                                              ml: 0.5,
+                                              fontSize: '0.65rem',
+                                              color: exchangeObj.highlight ? 'primary.main' : 'text.secondary',
+                                              display: { xs: 'none', sm: 'block' },
+                                              whiteSpace: 'nowrap',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              maxWidth: '60px',
+                                              fontWeight: exchangeObj.highlight ? 'bold' : 'normal'
+                                            }}
+                                          >
+                                            {exchangeObj.name}
+                                          </Typography>
+                                        </>
+                                      );
+                                    })()}
+                                  </Box>
+                                ) : (
+                                  <Typography variant="caption" color="text.secondary">
+                                    -
+                                  </Typography>
+                                )}
+                              </Box>
+
                               <Typography
                                 variant="body2"
                                 sx={{
@@ -3532,7 +4730,7 @@ const LiveTrading = () => {
                                 variant="body2"
                                 color="success.main"
                                 sx={{
-                                  width: '15%',
+                                  width: '10%',
                                   pl: { xs: 0.5, sm: 1 },
                                   zIndex: 1,
                                   fontWeight: 'medium',
@@ -3545,7 +4743,7 @@ const LiveTrading = () => {
                                 variant="body2"
                                 color="success.main"
                                 sx={{
-                                  width: '30%',
+                                  width: '20%',
                                   zIndex: 1,
                                   fontWeight: 'medium',
                                   fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.875rem' }
@@ -3553,6 +4751,84 @@ const LiveTrading = () => {
                               >
                                 {price.toLocaleString()}
                               </Typography>
+
+                              {/* Exchange Column */}
+                              <Box sx={{
+                                width: '15%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                zIndex: 1
+                              }}>
+                                {selectedExchanges && selectedExchanges.length > 0 ? (
+                                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    {/* Get the exchange object for this index */}
+                                    {(() => {
+                                      const exchangeId = selectedExchanges[(index + 5) % selectedExchanges.length];
+                                      const exchangeObj = exchangeObjects.find(ex => ex.id === exchangeId) || {
+                                        id: exchangeId,
+                                        name: exchangeId.charAt(0).toUpperCase() + exchangeId.slice(1),
+                                        logo: `https://ui-avatars.com/api/?name=${exchangeId.charAt(0)}&background=random&color=fff&size=100`,
+                                        active: true,
+                                        highlight: false
+                                      };
+
+                                      return (
+                                        <>
+                                          <Box
+                                            sx={{
+                                              width: 16,
+                                              height: 16,
+                                              borderRadius: '50%',
+                                              overflow: 'hidden',
+                                              flexShrink: 0,
+                                              border: exchangeObj.highlight ?
+                                                `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}` : 'none',
+                                              boxShadow: exchangeObj.highlight ?
+                                                '0 0 5px rgba(255, 255, 255, 0.3)' : 'none',
+                                              animation: exchangeObj.highlight ?
+                                                `${pulseAnimation} 1s ease` : 'none'
+                                            }}
+                                          >
+                                            <img
+                                              src={exchangeObj.logo}
+                                              alt={exchangeObj.name}
+                                              style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                              }}
+                                              onError={(e) => {
+                                                e.target.src = `https://ui-avatars.com/api/?name=${exchangeObj.name.charAt(0)}&background=random&color=fff&size=100`;
+                                              }}
+                                            />
+                                          </Box>
+                                          <Typography
+                                            variant="caption"
+                                            sx={{
+                                              ml: 0.5,
+                                              fontSize: '0.65rem',
+                                              color: exchangeObj.highlight ? 'success.main' : 'text.secondary',
+                                              display: { xs: 'none', sm: 'block' },
+                                              whiteSpace: 'nowrap',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              maxWidth: '60px',
+                                              fontWeight: exchangeObj.highlight ? 'bold' : 'normal'
+                                            }}
+                                          >
+                                            {exchangeObj.name}
+                                          </Typography>
+                                        </>
+                                      );
+                                    })()}
+                                  </Box>
+                                ) : (
+                                  <Typography variant="caption" color="text.secondary">
+                                    -
+                                  </Typography>
+                                )}
+                              </Box>
+
                               <Typography
                                 variant="body2"
                                 sx={{
@@ -3587,6 +4863,8 @@ const LiveTrading = () => {
 
         </Grid>
       </Box>
+      {/* Profit Bubbles Container */}
+      <div id="profit-bubbles-container"></div>
     </Box>
   );
 };

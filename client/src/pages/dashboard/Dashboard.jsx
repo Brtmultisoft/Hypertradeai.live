@@ -292,32 +292,32 @@ const Dashboard = () => {
     };
   }, []);
 
-  // Sample chart data (replace with actual data from API)
-  const earningsChartData = {
-    daily: Array.from({ length: 30 }, (_, i) => ({
-      date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      total: Math.random() * 100 + 50,
-      roi: Math.random() * 50 + 25,
-    })),
-    monthly: Array.from({ length: 12 }, (_, i) => ({
-      month: new Date(2023, i, 1).toLocaleDateString('en-US', { month: 'short' }),
-      total: Math.random() * 1000 + 500,
-      roi: Math.random() * 500 + 250,
-    })),
-  };
+  // // Sample chart data (replace with actual data from API)
+  // const earningsChartData = {
+  //   daily: Array.from({ length: 30 }, (_, i) => ({
+  //     date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
+  //     total: Math.random() * 100 + 50,
+  //     roi: Math.random() * 50 + 25,
+  //   })),
+  //   monthly: Array.from({ length: 12 }, (_, i) => ({
+  //     month: new Date(2023, i, 1).toLocaleDateString('en-US', { month: 'short' }),
+  //     total: Math.random() * 1000 + 500,
+  //     roi: Math.random() * 500 + 250,
+  //   })),
+  // };
 
-  const teamGrowthData = {
-    daily: Array.from({ length: 30 }, (_, i) => ({
-      date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      direct: Math.floor(Math.random() * 3),
-      total: 10 + Math.floor(Math.random() * 5) + i,
-    })),
-    monthly: Array.from({ length: 12 }, (_, i) => ({
-      month: new Date(2023, i, 1).toLocaleDateString('en-US', { month: 'short' }),
-      direct: Math.floor(Math.random() * 10) + i,
-      total: 10 + Math.floor(Math.random() * 20) + i * 3,
-    })),
-  };
+  // const teamGrowthData = {
+  //   daily: Array.from({ length: 30 }, (_, i) => ({
+  //     date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
+  //     direct: Math.floor(Math.random() * 3),
+  //     total: 10 + Math.floor(Math.random() * 5) + i,
+  //   })),
+  //   monthly: Array.from({ length: 12 }, (_, i) => ({
+  //     month: new Date(2023, i, 1).toLocaleDateString('en-US', { month: 'short' }),
+  //     direct: Math.floor(Math.random() * 10) + i,
+  //     total: 10 + Math.floor(Math.random() * 20) + i * 3,
+  //   })),
+  // };
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -2123,7 +2123,7 @@ const Dashboard = () => {
       </Paper>
 
       {/* Charts - Only show on larger screens */}
-      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+      {/* <Box sx={{ display: { xs: 'none', md: 'block' } }}>
         <Paper
           elevation={0}
           sx={{
@@ -2145,7 +2145,7 @@ const Dashboard = () => {
             </Grid>
           </Grid>
         </Paper>
-      </Box>
+      </Box> */}
     </Box>
   );
 };

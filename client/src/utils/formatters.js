@@ -1,16 +1,24 @@
 /**
  * Format currency values
  * @param {number} value - The value to format
+ * @param {number|string} precision - Number of decimal places or currency code
  * @param {string} currency - The currency code (default: USD)
  * @param {string} locale - The locale (default: en-US)
  * @returns {string} Formatted currency string
  */
-export const formatCurrency = (value, currency = 'USD', locale = 'en-US') => {
+export const formatCurrency = (value, precision = 2, currency = 'USD', locale = 'en-US') => {
+  // Handle case where precision is actually the currency code (backward compatibility)
+  if (typeof precision === 'string' && precision.length === 3) {
+    locale = currency;
+    currency = precision;
+    precision = 2;
+  }
+
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision,
   }).format(value);
 };
 
@@ -28,7 +36,7 @@ export const formatDate = (date, options = {}, locale = 'en-US') => {
     day: 'numeric',
     ...options,
   };
-  
+
   return new Intl.DateTimeFormat(locale, defaultOptions).format(new Date(date));
 };
 
@@ -102,7 +110,7 @@ export const truncateText = (text, length = 50) => {
 export const formatWalletAddress = (address, startChars = 6, endChars = 4) => {
   if (!address) return '';
   if (address.length <= startChars + endChars) return address;
-  
+
   return `${address.substring(0, startChars)}...${address.substring(
     address.length - endChars
   )}`;
@@ -116,10 +124,10 @@ export const formatWalletAddress = (address, startChars = 6, endChars = 4) => {
  */
 export const formatFileSize = (bytes, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${sizes[i]}`;
 };

@@ -84,14 +84,8 @@ const Withdraw = () => {
     }
   ];
 
-  // Calculate 10% fee based on amount
-  const calculateFee = (amt) => {
-    if (!amt || isNaN(amt) || parseFloat(amt) <= 0) return 0;
-    return parseFloat(amt) * 0.1; // 10% fee
-  };
-
-  const [networkFee, setNetworkFee] = useState(0); // Will be calculated based on amount
-  const [networkFeeUsd, setNetworkFeeUsd] = useState(0); // Will be calculated based on amount
+  const networkFee = 1; // USDT
+  const networkFeeUsd = 1; // USD
 
   // API hook for submitting withdrawal request
   const {
@@ -162,17 +156,6 @@ const Withdraw = () => {
   const handleAmountChange = (e) => {
     const value = e.target.value;
     setAmount(value);
-
-    // Calculate and update the network fee (10% of amount)
-    if (value && !isNaN(value) && parseFloat(value) > 0) {
-      const fee = calculateFee(value);
-      setNetworkFee(fee);
-      setNetworkFeeUsd(fee); // Since 1 USDT = 1 USD
-    } else {
-      setNetworkFee(0);
-      setNetworkFeeUsd(0);
-    }
-
     validateAmount(value);
   };
 
@@ -189,8 +172,8 @@ const Withdraw = () => {
       newErrors.amount = 'Amount is required';
     } else if (isNaN(value) || parseFloat(value) <= 0) {
       newErrors.amount = 'Please enter a valid amount';
-    } else if (parseFloat(value) < 0) {
-      newErrors.amount = 'Minimum withdrawal amount is 10 USDT';
+    } else if (parseFloat(value) < 50) {
+      newErrors.amount = 'Minimum withdrawal amount is 50 USDT';
     } else if (parseFloat(value) > balances[activeTab].balance) {
       newErrors.amount = 'Insufficient balance';
     } else {
@@ -215,17 +198,7 @@ const Withdraw = () => {
   };
 
   const handleMaxAmount = () => {
-    // For 10% fee, we need to calculate differently
-    // If x is the amount to withdraw and balance is the total available
-    // Then x + 0.1x = balance
-    // So x = balance / 1.1
-    const maxAmount = (balances[activeTab].balance / 1.1).toFixed(6);
-
-    // Calculate and update the fee
-    const fee = calculateFee(maxAmount);
-    setNetworkFee(fee);
-    setNetworkFeeUsd(fee);
-
+    const maxAmount = (balances[activeTab].balance - networkFee).toFixed(6);
     setAmount(maxAmount > 0 ? maxAmount : '0');
     validateAmount(maxAmount);
   };
@@ -370,7 +343,7 @@ const Withdraw = () => {
         </IconButton>
         <Typography variant="h6" fontWeight="bold">Withdraw</Typography>
       </Box>
-       
+
       {/* Currency Selection Tabs */}
       <Tabs
         value={activeTab}
@@ -401,30 +374,7 @@ const Withdraw = () => {
           <Tab key={item.currency} label={item.currency} />
         ))}
       </Tabs>
-      {/* Warning */}
-      <Alert
-          severity="warning"
-          icon={<InfoIcon />}
-          sx={{
-            borderRadius: 3,
-            mb: 3,
-            p: 2,
-            boxShadow: mode === 'dark' ? '0 4px 12px rgba(0, 0, 0, 0.3)' : '0 4px 12px rgba(0, 0, 0, 0.05)',
-            backgroundColor: mode === 'dark' ? 'rgba(237, 108, 2, 0.1)' : 'rgba(237, 108, 2, 0.05)',
-            border: `1px solid ${mode === 'dark' ? 'rgba(237, 108, 2, 0.2)' : 'rgba(237, 108, 2, 0.1)'}`,
-            '& .MuiAlert-message': {
-              width: '100%',
-            },
-            '& .MuiAlert-icon': {
-              color: '#ED6C02',
-              opacity: 0.9,
-            }
-          }}
-        >
-          <Typography variant="body2" fontWeight="medium">
-            Make sure the recipient address is correct and supports {balances[activeTab].currency} on the {balances[activeTab].currency} network. Sending to an incorrect address may result in permanent loss of funds. A 10% fee will be deducted from your withdrawal amount.
-          </Typography>
-        </Alert>
+
       {/* Main Content */}
       <Box sx={{ px: 2 }}>
         {/* Balance Card */}
@@ -464,7 +414,6 @@ const Withdraw = () => {
               <CircularProgress size={30} color="primary" />
             </Box>
           )}
-          
           <CardContent sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -658,19 +607,16 @@ const Withdraw = () => {
             }}
           >
             <Typography variant="body2" color="text.secondary" fontWeight="medium" sx={{ mb: 1 }}>
-              Withdrawal Fee (10%)
+              Network Fee
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="body1" fontWeight="medium">
-                {networkFee.toFixed(6)} {balances[activeTab].currency}
+                {networkFee} {balances[activeTab].currency}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                ≈ ${networkFeeUsd.toFixed(2)} USD
+                ≈ ${networkFeeUsd} USD
               </Typography>
             </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              A 10% fee is charged on all withdrawals
-            </Typography>
           </Box>
 
           {/* Terms and Conditions */}
@@ -917,10 +863,33 @@ const Withdraw = () => {
           </DialogActions>
         </Dialog>
 
-        
+        {/* Warning */}
+        <Alert
+          severity="warning"
+          icon={<InfoIcon />}
+          sx={{
+            borderRadius: 3,
+            mb: 3,
+            p: 2,
+            boxShadow: mode === 'dark' ? '0 4px 12px rgba(0, 0, 0, 0.3)' : '0 4px 12px rgba(0, 0, 0, 0.05)',
+            backgroundColor: mode === 'dark' ? 'rgba(237, 108, 2, 0.1)' : 'rgba(237, 108, 2, 0.05)',
+            border: `1px solid ${mode === 'dark' ? 'rgba(237, 108, 2, 0.2)' : 'rgba(237, 108, 2, 0.1)'}`,
+            '& .MuiAlert-message': {
+              width: '100%',
+            },
+            '& .MuiAlert-icon': {
+              color: '#ED6C02',
+              opacity: 0.9,
+            }
+          }}
+        >
+          <Typography variant="body2" fontWeight="medium">
+            Make sure the recipient address is correct and supports {balances[activeTab].currency} on the {balances[activeTab].currency} network. Sending to an incorrect address may result in permanent loss of funds.
+          </Typography>
+        </Alert>
 
         {/* Recent Withdrawals */}
-        {/* <Paper
+        <Paper
           elevation={0}
           sx={{
             p: 3,
@@ -969,7 +938,7 @@ const Withdraw = () => {
               No recent withdrawals found
             </Typography>
           </Box>
-        </Paper> */}
+        </Paper>
 
         {/* Snackbar for notifications */}
         <Snackbar
