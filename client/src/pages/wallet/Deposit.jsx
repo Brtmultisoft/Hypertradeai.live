@@ -55,7 +55,7 @@ const Deposit = () => {
     {
       name: 'USDT (BEP20)',
       value: 'bep20',
-      icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
+      icon: 'https://static-00.iconduck.com/assets.00/tether-cryptocurrency-icon-2048x2048-dp13oydi.png',
       placeholder: 'https://via.placeholder.com/40x40/26A17B/FFFFFF?text=USDT'
     },
   ];

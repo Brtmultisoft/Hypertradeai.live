@@ -79,7 +79,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState(0);
 
   // State for wallet selection
-  const [selectedWallet, setSelectedWallet] = useState('main'); // 'main' or 'topup'
+  const [selectedWallet, setSelectedWallet] = useState('main'); // 'main', 'topup', or 'trade'
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [walletMenuAnchor, setWalletMenuAnchor] = useState(null);
 
@@ -277,9 +277,18 @@ const Dashboard = () => {
       fetchCryptoPrices();
     }, 60000); // 60 seconds
 
-    // Clean up interval on component unmount
+    // Add event listener for notifications from header component
+    const handleNotification = (event) => {
+      const { message, severity } = event.detail;
+      showSnackbar(message, severity);
+    };
+
+    document.addEventListener('showNotification', handleNotification);
+
+    // Clean up interval and event listener on component unmount
     return () => {
       clearInterval(priceRefreshInterval);
+      document.removeEventListener('showNotification', handleNotification);
     };
   }, []);
 
@@ -600,7 +609,7 @@ const Dashboard = () => {
       )}
 
       {/* Referral Link Box - Enhanced Design */}
-      <Card
+      {/* <Card
         elevation={0}
         sx={{
           mb: 2,
@@ -846,7 +855,9 @@ const Dashboard = () => {
             </Tooltip>
           </Box>
         </Box>
-      </Card>
+      </Card> */}
+
+      {/* Referral Button moved to header */}
 
       {/* Wallet Selector - Trust Wallet Style */}
       <Box sx={{ mb: 2, px: { xs: 1, sm: 2 }, width: '100%' }}>
@@ -875,15 +886,22 @@ const Dashboard = () => {
                 width: 36,
                 height: 36,
                 borderRadius: '50%',
-                backgroundColor: theme.palette.primary.main,
+                backgroundColor: selectedWallet === 'trade' ? theme.palette.success.main : theme.palette.primary.main,
                 mr: 1,
                 flexShrink: 0,
               }}
             >
-              <WalletIcon sx={{ fontSize: 20, color: 'white' }} />
+              {selectedWallet === 'trade'
+                ? <TrendingUpIcon sx={{ fontSize: 20, color: 'white' }} />
+                : <WalletIcon sx={{ fontSize: 20, color: 'white' }} />
+              }
             </Box>
             <Typography variant="subtitle1" fontWeight="medium" noWrap>
-              {selectedWallet === 'main' ? 'Main wallet' : 'Spot wallet'}
+              {selectedWallet === 'main'
+                ? 'Main Wallet'
+                : selectedWallet === 'topup'
+                  ? 'Spot Wallet'
+                  : 'Total Trade Wallet'}
             </Typography>
             <KeyboardArrowDownIcon sx={{ ml: 0.5, color: theme.palette.text.secondary, flexShrink: 0 }} />
           </Box>
@@ -987,6 +1005,37 @@ const Dashboard = () => {
               secondary={`Balance: ${formatCurrency(dashboardData?.topup_wallet_balance || 0)}`}
             />
           </MenuItem>
+
+          {/* Total Trade Wallet */}
+          <MenuItem
+            onClick={() => handleWalletSelect('trade')}
+            selected={selectedWallet === 'trade'}
+            sx={{
+              py: 1.5,
+              backgroundColor: selectedWallet === 'trade'
+                ? theme.palette.success.main + '20'
+                : theme.palette.success.main + '10',
+              '&:hover': {
+                backgroundColor: theme.palette.success.main + '15',
+              }
+            }}
+          >
+            <ListItemIcon>
+              <TrendingUpIcon fontSize="small" color="success" />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography
+                  variant="body1"
+                  fontWeight={selectedWallet === 'trade' ? 'bold' : 'medium'}
+                  color={selectedWallet === 'trade' ? 'success.main' : 'success.main'}
+                >
+                  Total Trade Wallet
+                </Typography>
+              }
+              secondary={`Balance: ${formatCurrency(dashboardData?.total_investment || 0)}`}
+            />
+          </MenuItem>
         </Menu>
       </Box>
 
@@ -1011,11 +1060,14 @@ const Dashboard = () => {
             align="center"
             sx={{
               mb: 1,
+              color: selectedWallet === 'trade' ? theme.palette.success.main : 'inherit',
             }}
           >
             {selectedWallet === 'main'
               ? formatCurrency(dashboardData?.wallet_balance || 0)
-              : formatCurrency(dashboardData?.topup_wallet_balance || 0)
+              : selectedWallet === 'topup'
+                ? formatCurrency(dashboardData?.topup_wallet_balance || 0)
+                : formatCurrency(dashboardData?.total_investment || 0)
             }
           </Typography>
 
@@ -1044,7 +1096,7 @@ const Dashboard = () => {
               >
                 <ArrowUpwardIcon />
               </Box>
-              <Typography variant="body2">Send</Typography>
+              <Typography variant="body2">Withdraw</Typography>
             </Box>
 
             <Box
@@ -1070,7 +1122,7 @@ const Dashboard = () => {
               >
                 <ArrowDownwardIcon />
               </Box>
-              <Typography variant="body2">Receive</Typography>
+              <Typography variant="body2">Deposit</Typography>
             </Box>
 
             <Box
@@ -1128,6 +1180,67 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
+      {/* Total Trade Wallet Card - Only show when no wallet is selected in dropdown */}
+      {false && (
+        <Card
+          elevation={0}
+          sx={{
+            borderRadius: { xs: 2, sm: 3 },
+            mb: 3,
+            overflow: 'hidden',
+            backgroundColor: theme.palette.background.card,
+            color: theme.palette.text.primary,
+            position: 'relative',
+            border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+          }}
+        >
+        <CardContent sx={{ p: { xs: 2, sm: 2.5 }, position: 'relative' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                backgroundColor: `${theme.palette.success.main}20`,
+                color: theme.palette.success.main,
+                mr: 2,
+              }}
+            >
+              <TrendingUpIcon />
+            </Box>
+            <Typography variant="h6" fontWeight="medium">
+              Total Trade Wallet
+            </Typography>
+          </Box>
+
+          <Typography
+            variant="h4"
+            component="div"
+            fontWeight="bold"
+            align="center"
+            sx={{
+              mb: 1,
+              color: theme.palette.success.main,
+            }}
+          >
+            {formatCurrency(dashboardData?.total_investment || 0)}
+          </Typography>
+
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            align="center"
+            sx={{ mt: 1 }}
+          >
+            Total amount invested in trading
+          </Typography>
+        </CardContent>
+      </Card>
+      )}
+
       {/* Add Funds Banner - Trust Wallet Style */}
       <Card
         elevation={0}
@@ -1140,45 +1253,7 @@ const Dashboard = () => {
           position: 'relative',
         }}
       >
-        <CardContent sx={{ p: 2, position: 'relative' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Box
-                component="img"
-                src="https://assets.coingecko.com/coins/images/6319/small/USD_Coin_icon.png"
-                alt="Exchange"
-                sx={{
-                  width: 40,
-                  height: 40,
-                  mr: 2,
-                  borderRadius: 1,
-                  backgroundColor: '#2775CA15',
-                  padding: 0.5
-                }}
-                onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/40x40/3375BB/FFFFFF?text=HT';
-                }}
-              />
-              <Box>
-                <Typography variant="subtitle2">
-                  Add funds from exchange
-                </Typography>
-                <Button
-                  variant="text"
-                  color="primary"
-                  size="small"
-                  sx={{ p: 0, minWidth: 'auto', textTransform: 'none' }}
-                  onClick={() => navigate('/deposit')}
-                >
-                  Deposit now →
-                </Button>
-              </Box>
-            </Box>
-            <IconButton size="small">
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        </CardContent>
+        {/* Banner content commented out */}
       </Card>
 
       {/* Tabs - Trust Wallet Style */}
@@ -1202,306 +1277,16 @@ const Dashboard = () => {
             mb: 2,
           }}
         >
-          <Tab label="Crypto" />
-          <Tab label="NFTs" />
+          {/* <Tab label="Crypto" />
+          <Tab label="NFTs" /> */}
           <Tab label="Live Trading" />
         </Tabs>
 
         {/* Crypto Tab Content */}
-        {activeTab === 0 && (
-          <Box sx={{ p: 0 }}>
-            {/* Crypto Assets */}
-            <Box sx={{ px: 2 }}>
-              {/* Error Message */}
-              {cryptoError && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {cryptoError}
-                </Alert>
-              )}
 
-              {/* Loading State */}
-              {loadingCrypto && cryptoPrices.length === 0 && (
-                Array.from({ length: 5 }).map((_, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      py: 2,
-                      borderBottom: index < 4 ? `1px solid ${theme.palette.divider}` : 'none',
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
-                      <Box>
-                        <Skeleton variant="text" width={80} height={24} />
-                        <Skeleton variant="text" width={40} height={16} />
-                      </Box>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Skeleton variant="text" width={60} height={24} />
-                      <Skeleton variant="text" width={80} height={16} />
-                    </Box>
-                  </Box>
-                ))
-              )}
-
-              {/* Crypto List */}
-              {!loadingCrypto && CRYPTO_ASSETS.map((asset) => {
-                const cryptoData = cryptoPrices.find(crypto => crypto.id === asset.id) || {};
-
-                // Mock balances - in a real app, these would come from the user's wallet
-                const walletBalance = selectedWallet === 'main'
-                  ? parseFloat(dashboardData?.wallet_balance || 0)
-                  : parseFloat(dashboardData?.topup_wallet_balance || 0);
-
-                const mockBalances = {
-                  'tether': walletBalance,
-                  'bitcoin': 0.00,
-                  'ethereum': 0.00,
-                  'binancecoin': 0.00,
-                  'matic-network': 0.00,
-                  'usd-coin': 0.00,
-                };
-
-                const balance = mockBalances[asset.id] || 0;
-                const currentPrice = cryptoData.current_price || 0;
-                const usdValue = balance * currentPrice;
-                const priceChange = cryptoData.price_change_percentage_24h || 0;
-                const isPriceUp = priceChange >= 0;
-
-                return (
-                  <Card
-                    key={asset.id}
-                    elevation={0}
-                    sx={{
-                      mb: 2,
-                      borderRadius: 2,
-                      backgroundColor: mode === 'dark' ? 'rgba(30, 35, 41, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-                      border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
-                      boxShadow: mode === 'dark' ? '0 4px 12px rgba(0, 0, 0, 0.1)' : '0 4px 12px rgba(0, 0, 0, 0.03)',
-                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                      '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: mode === 'dark' ? '0 6px 16px rgba(0, 0, 0, 0.15)' : '0 6px 16px rgba(0, 0, 0, 0.06)',
-                      },
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <CardContent sx={{ p: 2 }}>
-                      {/* Top Section - Coin Info and Balance */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: balance > 0 ? 1.5 : 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Box
-                            component="img"
-                            src={cryptoData.image || asset.image}
-                            alt={asset.name}
-                            sx={{
-                              width: 40,
-                              height: 40,
-                              mr: 2,
-                              borderRadius: '50%',
-                              border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}`,
-                              padding: 0.5,
-                              backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.8)',
-                            }}
-                            onError={(e) => {
-                              e.target.src = `https://via.placeholder.com/40x40/${asset.fallbackColor.replace('#', '')}/FFFFFF?text=${asset.fallbackText}`;
-                            }}
-                          />
-                          <Box>
-                            <Typography variant="body1" fontWeight="bold">
-                              {asset.name}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {asset.symbol.toUpperCase()}
-                            </Typography>
-                          </Box>
-                        </Box>
-
-                        {/* Balance Display */}
-                        <Box sx={{ textAlign: 'right' }}>
-                          <Typography variant="body1" fontWeight="bold">
-                            {balance.toLocaleString(undefined, {
-                              minimumFractionDigits: asset.id === 'tether' || asset.id === 'usd-coin' ? 2 : balance < 1 ? 4 : 2,
-                              maximumFractionDigits: asset.id === 'tether' || asset.id === 'usd-coin' ? 2 : balance < 1 ? 4 : 2
-                            })} {asset.symbol.toUpperCase()}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            ≈ ${usdValue.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2
-                            })}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      {/* Live Price Section */}
-                      <Box
-                        sx={{
-                          pt: balance > 0 ? 1.5 : 0,
-                          borderTop: balance > 0 ? `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}` : 'none',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Typography variant="body2" color="text.secondary" fontWeight="medium">
-                            Live Price:
-                          </Typography>
-                        </Box>
-
-                        <Box sx={{ textAlign: 'right' }}>
-                          <Typography variant="body2" fontWeight="bold">
-                            ${currentPrice.toLocaleString(undefined, {
-                              minimumFractionDigits: currentPrice < 1 ? 4 : 2,
-                              maximumFractionDigits: currentPrice < 1 ? 4 : 2
-                            })}
-                          </Typography>
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'flex-end',
-                              color: isPriceUp ? '#0ecb81' : '#f6465d',
-                            }}
-                          >
-                            {isPriceUp ? (
-                              <ArrowUpwardIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                            ) : (
-                              <ArrowDownwardIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                            )}
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                fontWeight: 'bold',
-                                color: 'inherit',
-                              }}
-                            >
-                              {Math.abs(priceChange).toFixed(2)}%
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-
-              {/* Price Update Indicator */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  mt: 2,
-                  mb: 1,
-                  position: 'relative',
-                }}
-              >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    px: 2,
-                    py: 0.75,
-                    borderRadius: 5,
-                    backgroundColor: mode === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)',
-                    border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}`,
-                    boxShadow: mode === 'dark' ? '0 4px 12px rgba(0, 0, 0, 0.2)' : '0 4px 12px rgba(0, 0, 0, 0.03)',
-                  }}
-                >
-                  {loadingCrypto ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <CircularProgress size={14} sx={{ mr: 1, color: theme.palette.primary.main }} />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: 'medium',
-                          color: theme.palette.primary.main,
-                        }}
-                      >
-                        Updating live prices...
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <RefreshIcon
-                        sx={{
-                          fontSize: 14,
-                          mr: 1,
-                          color: '#0ecb81',
-                          animation: 'pulse 2s infinite',
-                          '@keyframes pulse': {
-                            '0%': { opacity: 0.6 },
-                            '50%': { opacity: 1 },
-                            '100%': { opacity: 0.6 },
-                          },
-                        }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: 'medium',
-                          color: theme.palette.text.primary,
-                        }}
-                      >
-                        Live prices • Updated {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-
-                <Tooltip title="Refresh prices">
-                  <IconButton
-                    size="small"
-                    onClick={handleRefresh}
-                    disabled={loadingCrypto}
-                    sx={{
-                      position: 'absolute',
-                      right: 0,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.1)' : 'rgba(51, 117, 187, 0.05)',
-                      '&:hover': {
-                        backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.2)' : 'rgba(51, 117, 187, 0.1)',
-                      }
-                    }}
-                  >
-                    <RefreshIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Box>
-          </Box>
-        )}
-
-        {/* NFTs Tab Content */}
-        {activeTab === 1 && (
-          <Box sx={{ p: 0 }}>
-            {/* NFTs Content */}
-            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
-              <Typography variant="subtitle1" color="text.secondary" align="center" sx={{ mb: 2 }}>
-                No NFTs found
-              </Typography>
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3, maxWidth: 300 }}>
-              Coming soon....
-              </Typography>
-              {/* <Button
-                variant="outlined"
-                color="primary"
-                size="small"
-              >
-                Browse NFTs
-              </Button> */}
-            </Box>
-          </Box>
-        )}
 
         {/* Live Trading Tab Content */}
-        {activeTab === 2 && (
+        {activeTab === 0 && (
           <Box sx={{ p: 0 }}>
             <Box sx={{
               p: 2,
@@ -1892,7 +1677,7 @@ const Dashboard = () => {
                   alignItems: 'center',
                   cursor: 'pointer',
                 }}
-                onClick={(e) => {
+                onClick={() => {
                   const referralCode = userData?.sponsorID;
                   const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
 
@@ -1901,30 +1686,14 @@ const Dashboard = () => {
                     return;
                   }
 
-                  // Check if Web Share API is available
-                  if (navigator.share) {
-                    navigator.share({
-                      title: 'Join HypeTrade AI',
-                      text: 'Join HypeTrade AI using my referral link:',
-                      url: referralLink,
+                  navigator.clipboard.writeText(referralLink)
+                    .then(() => {
+                      showSnackbar('Referral link copied to clipboard!', 'success');
                     })
-                      .then(() => {
-                        showSnackbar('Thanks for sharing!', 'success');
-                      })
-                      .catch((error) => {
-                        console.error('Error sharing:', error);
-                        // Fallback to clipboard if sharing fails
-                        navigator.clipboard.writeText(referralLink)
-                          .then(() => {
-                            showSnackbar('Referral link copied to clipboard!', 'success');
-                          });
-                      });
-                  } else {
-                    // Fallback for browsers that don't support the Web Share API
-                    // Open a popup with share options
-                    setShareMenuAnchor(e.currentTarget);
-                    setShareMenuOpen(true);
-                  }
+                    .catch((error) => {
+                      console.error('Failed to copy: ', error);
+                      showSnackbar('Failed to copy referral link', 'error');
+                    });
                 }}
               >
                 <Box
