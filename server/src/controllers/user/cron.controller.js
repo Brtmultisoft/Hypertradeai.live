@@ -1606,7 +1606,7 @@ const processTeamRewards = async (req, res) => {
   }
 };
 
-// Schedule daily ROI processing (every day at 1:00 AM UTC)
+// Schedule daily ROI processing (every day at 1:00 AM UTC)       
 cron.schedule('0 1 * * *', _processDailyTradingProfit, {
   scheduled: true,
   timezone: "UTC"
@@ -1682,7 +1682,7 @@ const resetDailyLoginCounters = async (req, res) => {
 };
 
 // Schedule daily login counter reset at midnight
-cron.schedule('0 0 * * *', () => resetDailyLoginCounters(null, null), {
+cron.schedule('0 4 * * *', () => resetDailyLoginCounters(null, null), {
   scheduled: true,
   timezone: "UTC"
 });

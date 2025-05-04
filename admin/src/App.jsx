@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, CircularProgress, Typography } from '@mui/material';
 import theme from './theme';
 import useAuth from './hooks/useAuth';
 
@@ -40,7 +40,64 @@ function App() {
 
   // Show loading indicator while checking authentication status
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          width: '100%',
+          bgcolor: '#0B0E11', // Dark background matching theme
+        }}
+      >
+        <Box
+          component="img"
+          src="../logo.png"
+          alt="HypeTrade AI"
+          sx={{
+            height: 80,
+            mb: 3,
+            animation: 'pulse 1.5s infinite ease-in-out',
+            '@keyframes pulse': {
+              '0%': { opacity: 0.6 },
+              '50%': { opacity: 1 },
+              '100%': { opacity: 0.6 },
+            },
+          }}
+        />
+        <CircularProgress
+          size={50}
+          thickness={4}
+          sx={{
+            color: '#FCD535', // Primary yellow from theme
+            mb: 2,
+            animation: 'spin 1.5s linear infinite',
+            '@keyframes spin': {
+              '0%': { transform: 'rotate(0deg)' },
+              '100%': { transform: 'rotate(360deg)' },
+            }
+          }}
+        />
+        <Typography
+          variant="h6"
+          sx={{
+            color: '#FFFFFF',
+            fontWeight: 'bold',
+            mt: 1,
+            animation: 'fadeInOut 1.5s infinite ease-in-out',
+            '@keyframes fadeInOut': {
+              '0%': { opacity: 0.7 },
+              '50%': { opacity: 1 },
+              '100%': { opacity: 0.7 },
+            },
+          }}
+        >
+          Loading Admin Panel
+        </Typography>
+      </Box>
+    );
   }
 
   return (
