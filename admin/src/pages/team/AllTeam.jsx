@@ -39,6 +39,7 @@ import useAuth from '../../hooks/useAuth';
 import axios from 'axios';
 import PageHeader from '../../components/PageHeader';
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, API_URL } from '../../config';
+import { useMemo } from 'react';
 
 const AllTeam = () => {
   const theme = useTheme();
@@ -98,7 +99,7 @@ const AllTeam = () => {
         setError(response.data?.message || 'Failed to fetch users');
       }
     } catch (err) {
-      setError(err.response?.data?.message );
+      setError(err.response?.data?.message);
       console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
@@ -121,6 +122,17 @@ const AllTeam = () => {
     }
   }, [successMessage]);
 
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm.trim()) return users;
+    const lowerTerm = searchTerm.toLowerCase();
+    return users.filter(user =>
+      (user.name && user.name.toLowerCase().includes(lowerTerm)) ||
+      (user.email && user.email.toLowerCase().includes(lowerTerm)) ||
+      (user.sponsorID && user.sponsorID.toString().toLowerCase().includes(lowerTerm)) ||
+      (user.referrer_email && user.referrer_email.toLowerCase().includes(lowerTerm)) ||
+      (user.refer_id && user.refer_id.toLowerCase().includes(lowerTerm))
+    );
+  }, [users, searchTerm])
   // Handle search
   const handleSearch = () => {
     console.log('Searching with term:', searchTerm);
@@ -391,7 +403,19 @@ const AllTeam = () => {
           <Table sx={{ minWidth: 1100 }}>
             <TableHead>
               <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleSort('transaction_id')}
+                  >
+                    Serial No. {renderSortIcon('transaction_id')}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>
                   <Box
                     sx={{
                       display: 'flex',
@@ -434,9 +458,10 @@ const AllTeam = () => {
                       alignItems: 'center',
                       cursor: 'pointer',
                     }}
-                    onClick={() => handleSort('username')}
+                    onClick={() => handleSort('phone_number')}
                   >
-                    Username {renderSortIcon('username')}
+                    Phone No.
+                    {renderSortIcon('phone_no')}
                   </Box>
                 </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>
@@ -519,8 +544,9 @@ const AllTeam = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((user) => (
+                filteredUsers.map((user,index) => (
                   <TableRow key={user._id} hover>
+                    <TableCell>{index+1}</TableCell>
                     <TableCell>{user.sponsorID || 'N/A'}</TableCell>
                     <TableCell>
                       <Button
@@ -538,14 +564,15 @@ const AllTeam = () => {
                         sx={{ textTransform: 'none', fontWeight: 'normal', p: 0, minWidth: 'auto' }}
                         onClick={() => handleLoginAsUser(user._id)}
                       >
-                        {user.username}
+                        {user.phone_number
+                        }
                       </Button>
                     </TableCell>
                     <TableCell>
                       {user.refer_id ? (
                         user.referrer_email ? (
                           <Chip
-                            label={`${user.referrer_name || 'User'} (${user.referrer_email})`}
+                            label={`${user.referrer_name || 'User'} `}
                             size="small"
                             color="primary"
                             variant="outlined"
@@ -577,7 +604,7 @@ const AllTeam = () => {
                           size="small"
                           color="primary"
                           sx={{ mr: 1 }}
-                          // onClick={() => handleViewUser(user._id)}
+                        // onClick={() => handleViewUser(user._id)}
                         >
                           <VisibilityIcon fontSize="small" />
                         </IconButton>

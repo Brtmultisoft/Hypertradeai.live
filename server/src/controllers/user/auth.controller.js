@@ -395,7 +395,8 @@ module.exports = {
 
                 avatar: getUser[0] ?.avatar,
                 token: token,
-                two_fa_enabled: getUser[0] ?.two_fa_enabled
+                two_fa_enabled: getUser[0] ?.two_fa_enabled,
+                sponsorID:getUser[0].sponsorID
 
             }
             responseData.msg = `Welcome !`;
@@ -410,6 +411,7 @@ module.exports = {
             return responseHelper.success2(res, responseData);
         }
     },
+    
 
     /**
      * Method to handle user login request from Admin Side

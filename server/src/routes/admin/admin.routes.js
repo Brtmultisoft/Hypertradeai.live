@@ -225,7 +225,7 @@ module.exports = () => {
     Router.get("/test-fund-transfers", async (req, res) => {
         try {
             const { fundTransferModel } = require('../../models');
-            const transfers = await fundTransferModel.find().limit(10);
+            const transfers = await fundTransferModel.find().limit(10)
             return res.json({
                 status: true,
                 message: 'Test fund transfers',

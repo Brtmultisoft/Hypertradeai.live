@@ -33,6 +33,8 @@ const Header = ({ onToggleSidebar }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user, logout } = useAuth();
   const { userData } = useData();
+  console.log("user data header", user);
+  
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleProfileMenuOpen = (event) => {
@@ -159,7 +161,7 @@ const Header = ({ onToggleSidebar }) => {
                         color: mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
                       }}
                     >
-                      {userData?.sponsorID || 'Loading...'}
+                      {user?.sponsorID || 'Loading...'}
                     </Box>
                   </Typography>
                 </Box>
@@ -340,7 +342,7 @@ const Header = ({ onToggleSidebar }) => {
                         color: mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
                       }}
                     >
-                      {userData?.sponsorID || 'Loading...'}
+                      {user?.sponsorID || 'Loading...'}
                     </Box>
                   </Typography>
                 </Box>

@@ -34,6 +34,7 @@ import WithdrawalHistory from './pages/wallet/WithdrawalHistory';
 
 // Error Page
 import NotFound from './pages/NotFound';
+import FundDeduct from './pages/wallet/FundDeduct';
 
 function App() {
   const { isAuthenticated, loading } = useAuth();
@@ -130,6 +131,7 @@ function App() {
 
             {/* Wallet Routes */}
             <Route path="/transfer-fund" element={<TransferFund />} />
+            <Route path="/deduct-fund" element={<FundDeduct />} />
             <Route path="/transfer-history" element={<TransferHistory />} />
             <Route path="/deposit-history" element={<DepositHistory />} />
             <Route path="/withdrawal-history" element={<WithdrawalHistory />} />

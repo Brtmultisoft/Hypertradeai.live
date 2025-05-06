@@ -122,7 +122,7 @@ const userSchema = new Schema({
     },
     force_relogin_type: {
         type: String,
-        enum: ['session_expired', 'permission_change', 'account_deactive'],
+        enum: ['session_expired', 'permission_change', 'account_deactive',"admin_forced_logout"],
         default: 'session_expired',
     },
     two_fa_enabled: {

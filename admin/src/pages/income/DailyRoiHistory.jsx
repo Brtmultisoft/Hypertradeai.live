@@ -320,6 +320,18 @@ const DailyRoiHistory = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => handleSort('transaction_id')}
+                                  >
+                                    Serial No. {renderSortIcon('transaction_id')}
+                                  </Box>
+                                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>
                   <Box
                     sx={{
                       display: 'flex',
@@ -387,8 +399,9 @@ const DailyRoiHistory = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                incomes.map((income) => (
+                incomes.map((income,index) => (
                   <TableRow key={income._id} hover>
+                    <TableCell>{index+1}</TableCell>
                     <TableCell>
                       {income.user_details ? (
                         `${income.user_details.name} (${income.user_details.email})`

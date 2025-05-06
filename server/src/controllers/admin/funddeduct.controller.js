@@ -60,34 +60,35 @@ module.exports = {
                 remark: reqObj.remark,
                 type: reqObj.type,
             }
+               console.log(" recived...........data", data)
 
-            if (reqObj.type == 'tasksIncome') {
-                if (user.extra.tasksIncome < reqObj.amount) {
+            if (reqObj.type == 0) {
+                if (user.wallet < reqObj.amount) {
                     responseData.msg = "Insufficient Fund!";
                     return responseHelper.error(res, responseData);
                 }
-                user.extra.tasksIncome = parseFloat(user.extra.tasksIncome) - parseFloat(reqObj.amount)
+                user.wallet = parseFloat(user.wallet) - parseFloat(reqObj.amount)
                 // await userDbHandler.updateOneByQuery({ _id: ObjectId(reqObj.user_id) }, { $inc: { wallet: -reqObj.amount } });
             }
-            else if (reqObj.type == 'levelIncome') {
-                if (user.extra.levelIncome < reqObj.amount) {
+            else if (reqObj.type == 1) {
+                if (user.wallet_topup < reqObj.amount) {
                     responseData.msg = "Insufficient Fund!"
                     return responseHelper.error(res, responseData);
                 }
-                user.extra.levelIncome = parseFloat(user.extra.levelIncome) - parseFloat(reqObj.amount)
+                user.wallet_topup = parseFloat(user.wallet_topup) - parseFloat(reqObj.amount)
                 // await userDbHandler.updateOneByQuery({ _id: ObjectId(reqObj.user_id) }, { $inc: { wallet_topup: -reqObj.amount } });
             } else {
                 throw "Wrong type!"
             }
-
+        console.log("amount checked.....")
             // user.extra[`${reqObj.type}`] -= reqObj.amount
             await user.save()
-
+            console.log("user saving.......")
             await fundDeductDbHandler.create(data);
             responseData.msg = "Data added successfully!";
             return responseHelper.success(res, responseData);
         } catch (error) {
-            log.error('failed to update data with error::', error);
+            log.error('failed to update data with error::', error.message);
             responseData.msg = "Failed to add data";
             return responseHelper.error(res, responseData);
         }

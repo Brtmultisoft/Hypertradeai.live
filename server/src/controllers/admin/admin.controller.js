@@ -280,6 +280,8 @@ module.exports = {
         let reqObj = req.body;
         let admin = req.admin;
         let admin_id = admin.sub;
+        log.info('Received request for Login A User Through :', req.body);
+        log.info('Received request for Login A User Through Admin:', req.query);
         log.info('Received request for Login A User Through Admin:', reqObj);
         let responseData = {};
         try {

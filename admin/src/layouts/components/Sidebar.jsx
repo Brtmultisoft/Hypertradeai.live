@@ -407,6 +407,31 @@ const Sidebar = ({ open, onClose }) => {
               </ListItemIcon>
               <ListItemText primary="Transfer Fund" />
             </ListItemButton>
+
+            <ListItemButton
+              component={Link}
+              to="/deduct-fund"
+              selected={isActive('/deduct-fund')}
+              onClick={handleItemClick}
+              sx={{
+                pl: 4,
+                borderRadius: 1,
+                mb: 0.5,
+                '&.Mui-selected': {
+                  backgroundColor: `${theme.palette.primary.main}20`,
+                  '&:hover': {
+                    backgroundColor: `${theme.palette.primary.main}30`,
+                  },
+                },
+              }}
+            >
+              <ListItemIcon>
+                <SwapHorizIcon
+                  color={isActive('/deduct-fund') ? 'primary' : 'inherit'}
+                />
+              </ListItemIcon>
+              <ListItemText primary="Deduct Fund" />
+            </ListItemButton>
             <ListItemButton
               component={Link}
               to="/transfer-history"

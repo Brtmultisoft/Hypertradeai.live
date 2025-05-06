@@ -250,6 +250,7 @@ const EditUser = () => {
                   label="Email"
                   name="email"
                   type="email"
+                
                   value={userData.email}
                   onChange={handleChange}
                   variant="outlined"
@@ -266,7 +267,8 @@ const EditUser = () => {
                   value={userData.username}
                   onChange={handleChange}
                   variant="outlined"
-                  required
+              
+                 required
                 />
               </Grid>
               
