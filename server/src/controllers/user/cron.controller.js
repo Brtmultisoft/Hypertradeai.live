@@ -1423,8 +1423,14 @@ const _processDailyTradingProfit = async () => {
 
         console.log(`User ${user._id} has activated daily profit today. Processing ROI...`);
 
-        // Calculate daily profit using fixed 8/30% ROI rate (8% monthly distributed daily)
-        const roiRate = 8/30; // Fixed 8/30% ROI rate as per requirements
+        // Get the investment plan to use its percentage value
+        const investmentPlan = await investmentPlanDbHandler.getById(investment.investment_plan_id);
+
+        // Use the plan's percentage value or fall back to 8/30% if not available
+        const roiRate = investmentPlan ? investmentPlan.percentage : 8/30;
+        console.log(`Using ROI rate: ${roiRate}% for investment ${investment._id}`);
+
+        // Calculate daily profit based on the investment amount and ROI rate
         const dailyProfit = (investment.amount * roiRate) / 100;
         totalProfit += dailyProfit;
 
@@ -1606,7 +1612,7 @@ const processTeamRewards = async (req, res) => {
   }
 };
 
-// Schedule daily ROI processing (every day at 1:00 AM UTC)       
+// Schedule daily ROI processing (every day at 1:00 AM UTC)
 cron.schedule('0 1 * * *', _processDailyTradingProfit, {
   scheduled: true,
   timezone: "UTC"

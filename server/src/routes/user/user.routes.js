@@ -301,6 +301,12 @@ module.exports = () => {
      */
     Router.post("/request-withdrawal", userWithdrawalController.requestWithdrawal);
 
+    /**
+     * Announcement routes for users
+     */
+    const announcementRoutes = require('./announcement.route');
+    Router.use('/', announcementRoutes);
+
     /**************************
      * END OF AUTHORIZED ROUTES
      **************************/

@@ -436,7 +436,7 @@ const BuyPackage = () => {
                   textShadow: 'none',
                 }}
               >
-                {selectedPlan?.percentage ? `${selectedPlan.percentage / 100}% Daily` : ''}
+                {selectedPlan?.percentage ? `${selectedPlan.percentage}% Daily ROI` : ''}
               </Typography>
             </Box>
           </Typography>
@@ -685,7 +685,7 @@ const BuyPackage = () => {
                           fontWeight: selectedPlan?._id === plan._id ? 'medium' : 'normal',
                         }}
                       >
-                        Daily Trade Income
+                        Daily ROI
                       </Typography>
 
                       {/* Investment Range */}

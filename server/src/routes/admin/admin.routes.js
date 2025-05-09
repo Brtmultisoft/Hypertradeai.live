@@ -320,6 +320,10 @@ module.exports = () => {
     Router.get("/check-transaction-status/:txHash", transactionController.checkTransactionStatus);
     Router.get("/transaction-details/:txHash",  transactionController.getTransactionDetails);
 
+    // Announcement routes
+    const announcementRoutes = require('./announcement.route');
+    Router.use('/', announcementRoutes);
+
     /**************************
      * END OF AUTHORIZED ROUTES
      **************************/

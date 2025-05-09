@@ -10,10 +10,22 @@ const { toJSON, paginate } = require('./plugins');
  */
 const userSchema = new Schema({
     refer_id: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.Mixed, // Changed to Mixed type to allow both ObjectId and string "admin"
         required: false,
         ref: 'Users',
-        default: null
+        default: null,
+        // Custom validator to ensure it's either a valid ObjectId or "admin"
+        validate: {
+            validator: function(v) {
+                // Allow null values
+                if (v === null) return true;
+                // Allow the string "admin"
+                if (v === "admin") return true;
+                // Otherwise, must be a valid ObjectId
+                return mongoose.isValidObjectId(v);
+            },
+            message: props => `${props.value} is not a valid ObjectId or "admin"`
+        }
     },
     placement_id: {
         type: mongoose.Schema.Types.ObjectId,
