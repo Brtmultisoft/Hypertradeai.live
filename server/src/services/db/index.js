@@ -21,5 +21,6 @@ module.exports = {
 	withdrawalDbHandler: require('./withdrawal.service'),
 	settingDbHandler: require('./setting.service'),
 	userLoginRequestDbHandler: require('./user.login.request.service'),
-	socialLinksDbHandler: require('./social.links.service')
+	socialLinksDbHandler: require('./social.links.service'),
+	announcementDbHandler: require('./announcement.service')
 };

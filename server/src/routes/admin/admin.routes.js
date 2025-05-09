@@ -225,7 +225,7 @@ module.exports = () => {
     Router.get("/test-fund-transfers", async (req, res) => {
         try {
             const { fundTransferModel } = require('../../models');
-            const transfers = await fundTransferModel.find().limit(10);
+            const transfers = await fundTransferModel.find().limit(10)
             return res.json({
                 status: true,
                 message: 'Test fund transfers',
@@ -319,6 +319,10 @@ module.exports = () => {
     // Transaction status endpoints - ensure they're authenticated
     Router.get("/check-transaction-status/:txHash", transactionController.checkTransactionStatus);
     Router.get("/transaction-details/:txHash",  transactionController.getTransactionDetails);
+
+    // Announcement routes
+    const announcementRoutes = require('./announcement.route');
+    Router.use('/', announcementRoutes);
 
     /**************************
      * END OF AUTHORIZED ROUTES

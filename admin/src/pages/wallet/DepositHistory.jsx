@@ -323,6 +323,18 @@ const DepositHistory = () => {
                     }}
                     onClick={() => handleSort('transaction_id')}
                   >
+                    Serial No. {renderSortIcon('transaction_id')}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleSort('transaction_id')}
+                  >
                     Transaction ID {renderSortIcon('transaction_id')}
                   </Box>
                 </TableCell>
@@ -406,8 +418,9 @@ const DepositHistory = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                deposits.map((deposit) => (
+                deposits.map((deposit, index) => (
                   <TableRow key={deposit._id} hover>
+                    <TableCell>{index + 1}</TableCell>
                     <TableCell>{deposit.transaction_id || deposit._id}</TableCell>
                     <TableCell>
                       {deposit.user_details ? (

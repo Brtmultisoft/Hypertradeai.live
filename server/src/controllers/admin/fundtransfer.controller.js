@@ -118,14 +118,16 @@ module.exports = {
             };
 
             // Log the data for debugging
-            console.log('Fund transfer data:', data);
+            console.log('Fund transfer data......:', data);
 
             // Update user's wallet balance
             const updateObj = {};
             updateObj[walletField] = user[walletField] + reqObj.amount;
 
-            // Save the updated user
+            // Update user's wallet balance directly
             user[walletField] += reqObj.amount;
+
+            // Now we can use save() since we've fixed the refer_id validation in the model
             await user.save();
 
             // Create fund transfer record
@@ -144,7 +146,7 @@ module.exports = {
             return responseHelper.success(res, responseData);
         } catch (error) {
             log.error('Failed to process fund transfer with error:', error);
-            responseData.msg = "Failed to process fund transfer";
+            responseData.msg = error.message;
             return responseHelper.error(res, responseData);
         }
     },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -30,13 +30,14 @@ import {
   Refresh as RefreshIcon,
   Visibility as VisibilityIcon,
   Edit as EditIcon,
-  FilterList as FilterListIcon,
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
 } from '@mui/icons-material';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import useAuth from '../../hooks/useAuth';
-import axios from 'axios';
+import useDebounce from '../../hooks/useDebounce';
+import UserService from '../../services/user.service';
+import ApiService from '../../services/api.service';
 import PageHeader from '../../components/PageHeader';
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, API_URL } from '../../config';
 
@@ -52,38 +53,41 @@ const AllTeam = () => {
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_PAGE_SIZE);
   const [searchTerm, setSearchTerm] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
-  const [sortField, setSortField] = useState('created_at');
+  const [sortField, setSortField] = useState('wallet');
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterReferrer, setFilterReferrer] = useState('');
   const [referrers, setReferrers] = useState([]);
 
-  // Fetch users data
-  const fetchUsers = async () => {
-    setLoading(true);
+  // Use debounced search term to prevent excessive API calls
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  // Fetch users data with optimized API calls
+  const fetchUsers = useCallback(async (skipLoading = false) => {
+    if (!skipLoading) setLoading(true);
     setError(null);
+
     try {
       const token = getToken();
-      const response = await axios.get(`${API_URL}/admin/get-all-users`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        params: {
-          page: page + 1,
-          limit: rowsPerPage,
-          search: searchTerm,
-          sort_by: `${sortField}:${sortDirection}`,
-          referrer_email: filterReferrer,
-        },
+
+      // Use parallel requests to fetch users and any other data we might need
+      const response = await UserService.getAllUsers({
+        page: page + 1, // API uses 1-based indexing
+        limit: rowsPerPage,
+        search: debouncedSearchTerm,
+        sortField,
+        sortDirection,
+        referrerEmail: filterReferrer,
+        token,
       });
-      console.log('API Response:', response.data)
-      console.log('Search term:', searchTerm)
-      console.log('Sort params:', { field: sortField, direction: sortDirection })
-      if (response.data.result || response.data.data) {
+
+      console.log('API Response:', response);
+
+      if (response.result || response.data) {
         // Handle different response structures
-        const result = response.data.result || response.data.data;
-        const users = result.docs || result.list || [];
-        const total = result.totalDocs || result.total || 0;
-        console.log('Users:', users);
+        const result = response?.result || response?.data;
+        const users = result?.docs || result?.list || [];
+        const total = result?.totalDocs || result?.total || 0;
+
         setUsers(users);
         setTotalUsers(total);
 
@@ -94,21 +98,66 @@ const AllTeam = () => {
             .map(user => user.referrer_email))];
           setReferrers(uniqueReferrers);
         }
+
+        // Prefetch next page for smoother pagination
+        UserService.prefetchNextPage({
+          currentPage: page,
+          limit: rowsPerPage,
+          search: debouncedSearchTerm,
+          sortField,
+          sortDirection,
+          referrerEmail: filterReferrer,
+          token,
+        });
       } else {
-        setError(response.data?.message || 'Failed to fetch users');
+        setError(response?.message || 'Failed to fetch users');
       }
     } catch (err) {
-      setError(err.response?.data?.message );
-      console.error('Error fetching users:', err);
+      // Enhanced error logging with more details
+      console.error('Error fetching users:', {
+        error: err,
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText
+      });
+
+      // Set a more descriptive error message based on the error type
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        setError(`Server error: ${err.response.status} ${err.response.statusText} - ${err.response.data?.message || 'Unknown error'}`);
+      } else if (err.request) {
+        // The request was made but no response was received
+        setError('Network error: No response received from server. Please check your connection.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        setError(`Error: ${err.message || 'An unknown error occurred while fetching users'}`);
+      }
     } finally {
-      setLoading(false);
+      if (!skipLoading) setLoading(false);
     }
-  };
+  }, [page, rowsPerPage, debouncedSearchTerm, sortField, sortDirection, filterReferrer, getToken]);
 
   // Fetch data on component mount and when dependencies change
   useEffect(() => {
+    // Cancel any pending requests when dependencies change
+    return () => {
+      ApiService.cancelPendingRequest(`users_${page + 1}_${rowsPerPage}_${sortField}_${sortDirection}_${debouncedSearchTerm}_${filterReferrer}`);
+    };
+  }, [page, rowsPerPage, sortField, sortDirection, debouncedSearchTerm, filterReferrer]);
+
+  // Effect to trigger fetch when dependencies change
+  useEffect(() => {
     fetchUsers();
-  }, [page, rowsPerPage, sortField, sortDirection, filterReferrer]);
+  }, [fetchUsers]);
+
+  // Clean up all pending requests on unmount
+  useEffect(() => {
+    return () => {
+      ApiService.cancelAllRequests();
+    };
+  }, []);
 
   // Auto-clear success message after 5 seconds
   useEffect(() => {
@@ -121,24 +170,38 @@ const AllTeam = () => {
     }
   }, [successMessage]);
 
-  // Handle search
-  const handleSearch = () => {
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm.trim()) return users;
+    const lowerTerm = searchTerm.toLowerCase();
+    return users.filter(user =>
+      (user.name && user.name.toLowerCase().includes(lowerTerm)) ||
+      (user.email && user.email.toLowerCase().includes(lowerTerm)) ||
+      (user.sponsorID && user.sponsorID.toString().toLowerCase().includes(lowerTerm)) ||
+      (user.referrer_email && user.referrer_email.toLowerCase().includes(lowerTerm)) ||
+      (user.refer_id && user.refer_id.toLowerCase().includes(lowerTerm))
+    );
+  }, [users, searchTerm])
+  // Handle search - now uses debounced search term
+  const handleSearch = useCallback(() => {
     console.log('Searching with term:', searchTerm);
     setPage(0);
-    fetchUsers();
-  };
+    // The actual API call will be triggered by the useEffect that depends on debouncedSearchTerm
+  }, [searchTerm]);
 
   // Handle search input change
-  const handleSearchChange = (event) => {
+  const handleSearchChange = useCallback((event) => {
     setSearchTerm(event.target.value);
-  };
+    // No need to call fetchUsers here, the debounce hook will handle it
+  }, []);
 
-  // Handle search on Enter key press
-  const handleSearchKeyDown = (event) => {
+  // Handle search on Enter key press - immediately search without waiting for debounce
+  const handleSearchKeyDown = useCallback((event) => {
     if (event.key === 'Enter') {
+      // Cancel any pending debounced search
+      ApiService.cancelPendingRequest(`users_${page + 1}_${rowsPerPage}_${sortField}_${sortDirection}_${searchTerm}_${filterReferrer}`);
       handleSearch();
     }
-  };
+  }, [handleSearch, page, rowsPerPage, sortField, sortDirection, searchTerm, filterReferrer]);
 
   // Handle page change
   const handleChangePage = (_, newPage) => {
@@ -167,7 +230,7 @@ const AllTeam = () => {
     setPage(0);
   };
 
-  // Handle login as user with a single click
+  // Handle login as user with a single click - optimized version
   const handleLoginAsUser = async (userId) => {
     try {
       setLoading(true);
@@ -205,26 +268,14 @@ const AllTeam = () => {
       const loginAttemptId = `login_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
       window.localStorage.setItem('admin_login_attempt_id', loginAttemptId);
 
-      // Make the API request to create a login request
-      const response = await axios.post(
-        `${API_URL}/admin/user-login-request`,
-        {
-          user_id: userId,
-          clear_existing: true, // Tell the server to clear any existing sessions
-          login_attempt_id: loginAttemptId // Include the login attempt ID
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      // Use our optimized UserService to make the API request
+      const response = await UserService.createLoginRequest({ userId, token });
 
-      console.log('Login request response:', response.data);
+      console.log('Login request response:', response);
 
-      if (response.data && response.data.status && response.data.result && response.data.result.url) {
+      if (response && response.status && response.result && response.result.url) {
         // Make sure the URL has the clear=1 parameter to force session clearing
-        let loginUrl = response.data.result.url;
+        let loginUrl = response.result.url;
         if (!loginUrl.includes('clear=1')) {
           loginUrl = loginUrl.includes('?')
             ? `${loginUrl}&clear=1`
@@ -254,7 +305,7 @@ const AllTeam = () => {
           }, 1000);
 
           // Show success message
-          const username = response.data.result.username || 'selected user';
+          const username = response.result.username || 'selected user';
           setSuccessMessage(`Successfully opened login session for ${username}. A new tab should have opened with the user already logged in.`);
 
           // Set loading to false after a short delay
@@ -263,8 +314,8 @@ const AllTeam = () => {
           }, 500);
         }
       } else {
-        console.error('Failed to create login request or URL not found:', response.data);
-        setError(response.data?.msg || 'Failed to create login request');
+        console.error('Failed to create login request or URL not found:', response);
+        setError(response?.msg || 'Failed to create login request');
         setLoading(false);
       }
     } catch (err) {
@@ -276,7 +327,19 @@ const AllTeam = () => {
 
   // Render sort icon
   const renderSortIcon = (field) => {
-    if (sortField !== field) return null;
+    // If this is not the active sort field and it's not the wallet field, return null
+    if (sortField !== field && field !== 'wallet') return null;
+
+    // For wallet field, always show the sort icon (default to descending)
+    if (field === 'wallet') {
+      return sortField === field && sortDirection === 'asc' ? (
+        <ArrowUpwardIcon fontSize="small" />
+      ) : (
+        <ArrowDownwardIcon fontSize="small" />
+      );
+    }
+
+    // For other fields, show the appropriate icon based on sort direction
     return sortDirection === 'asc' ? (
       <ArrowUpwardIcon fontSize="small" />
     ) : (
@@ -351,11 +414,20 @@ const AllTeam = () => {
               color="primary"
               startIcon={<RefreshIcon />}
               onClick={() => {
+                // Cancel any pending requests
+                ApiService.cancelAllRequests();
+
+                // Clear the API cache to ensure fresh data
+                ApiService.clearCache();
+
+                // Reset all filters
                 setSearchTerm('');
                 setFilterReferrer('');
                 setPage(0);
-                setSortField('created_at');
+                setSortField('wallet');
                 setSortDirection('desc');
+
+                // Fetch fresh data
                 fetchUsers();
               }}
             >
@@ -391,7 +463,19 @@ const AllTeam = () => {
           <Table sx={{ minWidth: 1100 }}>
             <TableHead>
               <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleSort('transaction_id')}
+                  >
+                    Serial No. {renderSortIcon('transaction_id')}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>
                   <Box
                     sx={{
                       display: 'flex',
@@ -434,9 +518,10 @@ const AllTeam = () => {
                       alignItems: 'center',
                       cursor: 'pointer',
                     }}
-                    onClick={() => handleSort('username')}
+                    onClick={() => handleSort('phone_number')}
                   >
-                    Username {renderSortIcon('username')}
+                    Phone No.
+                    {renderSortIcon('phone_no')}
                   </Box>
                 </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>
@@ -457,10 +542,11 @@ const AllTeam = () => {
                       display: 'flex',
                       alignItems: 'center',
                       cursor: 'pointer',
+                      color: theme.palette.primary.main, // Highlight this column by default
                     }}
                     onClick={() => handleSort('wallet')}
                   >
-                    Wallet {renderSortIcon('wallet')}
+                    Wallet (Max First) {renderSortIcon('wallet')}
                   </Box>
                 </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>
@@ -509,6 +595,38 @@ const AllTeam = () => {
                     <CircularProgress size={40} />
                     <Box sx={{ mt: 1 }}>
                       Loading users...
+                      {error && (
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          size="small"
+                          sx={{ mt: 2 }}
+                          onClick={async () => {
+                            try {
+                              setError('Checking API connection...');
+                              // Try a direct API call to diagnose the issue
+                              const token = getToken();
+                              const response = await fetch(`${API_URL}/admin/get-all-users?page=1&limit=1`, {
+                                headers: {
+                                  Authorization: `Bearer ${token}`,
+                                }
+                              });
+
+                              if (response.ok) {
+                                const data = await response.json();
+                                setError(`API is working. Response: ${JSON.stringify(data).substring(0, 100)}...`);
+                              } else {
+                                const text = await response.text();
+                                setError(`API error: ${response.status} ${response.statusText} - ${text}`);
+                              }
+                            } catch (err) {
+                              setError(`Connection test failed: ${err.message}`);
+                            }
+                          }}
+                        >
+                          Check API Connection
+                        </Button>
+                      )}
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -519,8 +637,9 @@ const AllTeam = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((user) => (
+                filteredUsers.map((user,index) => (
                   <TableRow key={user._id} hover>
+                    <TableCell>{index+1}</TableCell>
                     <TableCell>{user.sponsorID || 'N/A'}</TableCell>
                     <TableCell>
                       <Button
@@ -538,14 +657,15 @@ const AllTeam = () => {
                         sx={{ textTransform: 'none', fontWeight: 'normal', p: 0, minWidth: 'auto' }}
                         onClick={() => handleLoginAsUser(user._id)}
                       >
-                        {user.username}
+                        {user.phone_number
+                        }
                       </Button>
                     </TableCell>
                     <TableCell>
                       {user.refer_id ? (
                         user.referrer_email ? (
                           <Chip
-                            label={`${user.referrer_name || 'User'} (${user.referrer_email})`}
+                            label={`${user.referrer_name || 'User'} `}
                             size="small"
                             color="primary"
                             variant="outlined"
@@ -577,7 +697,7 @@ const AllTeam = () => {
                           size="small"
                           color="primary"
                           sx={{ mr: 1 }}
-                          // onClick={() => handleViewUser(user._id)}
+                        // onClick={() => handleViewUser(user._id)}
                         >
                           <VisibilityIcon fontSize="small" />
                         </IconButton>

@@ -280,6 +280,8 @@ module.exports = {
         let reqObj = req.body;
         let admin = req.admin;
         let admin_id = admin.sub;
+        log.info('Received request for Login A User Through :', req.body);
+        log.info('Received request for Login A User Through Admin:', req.query);
         log.info('Received request for Login A User Through Admin:', reqObj);
         let responseData = {};
         try {
@@ -360,7 +362,7 @@ module.exports = {
                     admin_id,
                     user_id: reqObj.user_id,
                     created_at: new Date(),
-                    expires_at: new Date(Date.now() + 5 * 60 * 1000), // Expires in 5 minutes
+                    expires_at: new Date(Date.now() + 30 * 60 * 1000), // Expires in 30 minutes (increased from 5 minutes)
                 };
 
                 // Add metadata if supported by the database schema
@@ -413,7 +415,7 @@ module.exports = {
                 username: user.username,
                 hash: hash,
                 login_attempt_id: loginAttemptId,
-                expires_in: '5 minutes'
+                expires_in: '30 minutes'
             };
 
             return responseHelper.success(res, responseData);

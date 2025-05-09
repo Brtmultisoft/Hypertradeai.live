@@ -5,6 +5,7 @@ const cron = require('node-cron');
 const axios = require('axios');
 const investmentPlanController = require('./src/controllers/user/investmentplan.controller');
 const seedDefaultInvestmentPlan = require('./src/seeders/investmentplan.seeder');
+const seedDefaultAnnouncements = require('./src/seeders/announcement.seeder');
 
 /*************************************************************************************/
 /* START PROCESS UNHANDLED METHODS */
@@ -53,7 +54,10 @@ process.on('uncaughtException', (err) => {
 /**
  * Run seed scripts
  */
-seedDefaultInvestmentPlan().then(() => {
+Promise.all([
+    seedDefaultInvestmentPlan(),
+    seedDefaultAnnouncements()
+]).then(() => {
     log.info('Seed scripts completed');
 }).catch(err => {
     log.error('Error running seed scripts:', err);

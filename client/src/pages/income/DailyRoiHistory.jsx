@@ -96,7 +96,7 @@ const DailyRoiHistory = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <PageHeader title="MPR History" />
+      <PageHeader title="Daily ROI History" />
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -104,7 +104,7 @@ const DailyRoiHistory = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Total MPR Earned
+                Total Daily ROI Earned
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
                 {summaryLoading ? <CircularProgress size={24} /> : formatCurrency(totalIncome)}
@@ -113,7 +113,7 @@ const DailyRoiHistory = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={4}>
+        {/* <Grid item xs={12} sm={6} md={4}>
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -124,7 +124,7 @@ const DailyRoiHistory = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> */}
 
         <Grid item xs={12} sm={6} md={4}>
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
@@ -178,7 +178,7 @@ const DailyRoiHistory = () => {
                     <TableRow>
                       <TableCell colSpan={6} align="center">
                         <Typography variant="body2" sx={{ py: 2 }}>
-                          No MPR income records found
+                          No Daily ROI income records found
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -188,7 +188,7 @@ const DailyRoiHistory = () => {
                         <TableCell>{formatDate(income.created_at)}</TableCell>
                         <TableCell>{formatCurrency(income.amount)}</TableCell>
                         <TableCell>{formatCurrency(income.extra?.investmentAmount || 0)}</TableCell>
-                        <TableCell>{income.extra?.profitPercentage || 8}%</TableCell>
+                        <TableCell>{(income.extra?.profitPercentage || 2.5).toFixed(2)}%</TableCell>
                         <TableCell>{income.description || 'Daily trading profit'}</TableCell>
                         <TableCell>
                           <Chip

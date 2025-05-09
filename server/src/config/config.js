@@ -1,7 +1,7 @@
 const { config } = require("dotenv");
 
 /*************************
- * ENVIRONMENT VARIABLES 
+ * ENVIRONMENT VARIABLES
  **************************/
 module.exports = {
     socialMediaVerificationEndpoint: process.env['SOCIAL_MEDIA_VERIFICATION_ENDPOINT'],
@@ -30,14 +30,14 @@ module.exports = {
         issuer: process.env['JWT_ISSUER'],
         audience: process.env['JWT_AUDIENCE'],
         algorithm: 'HS256',
-        expiresIn: '8760h'
+        expiresIn: '43800h' // Increased from 8760h (1 year) to 43800h (5 years)
     },
     adminJwtTokenInfo: {
         secretKey: process.env['JWT_SECRET_KEY_ADMIN'],
         issuer: process.env['JWT_ISSUER'],
         audience: process.env['JWT_AUDIENCE'],
         algorithm: 'HS256',
-        expiresIn: '1h'
+        expiresIn: '24h' // Increased from 1h to 24h (1 day)
     },
     emailTokenInfo: {
         secretKey: process.env['JWT_SECRET_KEY_EMAIL'],

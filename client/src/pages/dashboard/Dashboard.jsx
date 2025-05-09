@@ -23,6 +23,10 @@ import {
   ListItemText,
   Snackbar,
   Fade,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
@@ -61,6 +65,7 @@ import { useTheme as useMuiTheme } from '@mui/material/styles';
 import { useTheme as useAppTheme } from '../../context/ThemeContext';
 import CryptoService, { CRYPTO_ASSETS } from '../../services/crypto.service';
 import UserService from '../../services/user.service';
+import AnnouncementService from '../../services/announcement.service';
 
 const Dashboard = () => {
   const theme = useMuiTheme();
@@ -79,7 +84,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState(0);
 
   // State for wallet selection
-  const [selectedWallet, setSelectedWallet] = useState('main'); // 'main', 'topup', or 'trade'
+  const [selectedWallet, setSelectedWallet] = useState('combined'); // 'combined', 'main', 'topup', or 'trade'
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [walletMenuAnchor, setWalletMenuAnchor] = useState(null);
 
@@ -100,6 +105,70 @@ const Dashboard = () => {
   // State for daily profit activation
   const [activatingDailyProfit, setActivatingDailyProfit] = useState(false);
   const [dailyProfitActivated, setDailyProfitActivated] = useState(false);
+
+  // State for news modal
+  const [newsModalOpen, setNewsModalOpen] = useState(false);
+
+  // State for announcements
+  const [newsItems, setNewsItems] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [announcementsError, setAnnouncementsError] = useState(null);
+
+  // Fetch announcements from API
+  const fetchAnnouncements = async () => {
+    setLoadingAnnouncements(true);
+    setAnnouncementsError(null);
+    try {
+      const response = await AnnouncementService.getAnnouncements();
+      if (response && response.status && response.result && response.result.list) {
+        // Map the API response to the format expected by the UI
+        const announcements = response.result.list.map(item => ({
+          id: item._id,
+          title: item.title,
+          description: item.description,
+          image: item.image || `https://via.placeholder.com/60x60/3375BB/FFFFFF?text=${item.category || 'News'}`,
+          date: new Date(item.created_at).toISOString().split('T')[0],
+          category: item.category,
+          backgroundColor: item.backgroundColor || 'rgba(51, 117, 187, 0.1)',
+          createdBy: item.createdBy,
+          updatedBy: item.updatedBy,
+          isActive: item.isActive,
+          priority: item.priority
+        }));
+        setNewsItems(announcements);
+      } else {
+        // If no announcements are returned, set default ones
+        setNewsItems([
+          {
+            id: 1,
+            title: 'Welcome to HypeTrade AI',
+            description: 'Start your investment journey with us and enjoy daily profits from our advanced trading algorithms.',
+            image: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+            date: new Date().toISOString().split('T')[0],
+            category: 'Welcome',
+            backgroundColor: '#F7931A15',
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching announcements:', error);
+      setAnnouncementsError('Failed to load announcements');
+      // Set default announcements on error
+      setNewsItems([
+        {
+          id: 1,
+          title: 'Welcome to HypeTrade AI',
+          description: 'Start your investment journey with us and enjoy daily profits from our advanced trading algorithms.',
+          image: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+          date: new Date().toISOString().split('T')[0],
+          category: 'Welcome',
+          backgroundColor: '#F7931A15',
+        }
+      ]);
+    } finally {
+      setLoadingAnnouncements(false);
+    }
+  };
 
   // Handle tab change
   const handleTabChange = (_, newValue) => {
@@ -171,6 +240,8 @@ const Dashboard = () => {
     // Clear the crypto cache before fetching new prices
     CryptoService.clearCache();
     fetchCryptoPrices();
+    // Refresh announcements
+    fetchAnnouncements();
   };
 
   // Fetch cryptocurrency prices
@@ -266,10 +337,11 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch user data and crypto prices on component mount
+  // Fetch user data, crypto prices, and announcements on component mount
   useEffect(() => {
     fetchDashboardData(); // This will also fetch the latest user data
     fetchCryptoPrices();
+    fetchAnnouncements(); // Fetch announcements from API
     checkDailyProfitStatus(); // Check if daily profit is already activated
 
     // Set up interval to refresh crypto prices every 60 seconds
@@ -891,17 +963,21 @@ const Dashboard = () => {
                 flexShrink: 0,
               }}
             >
-              {selectedWallet === 'trade'
-                ? <TrendingUpIcon sx={{ fontSize: 20, color: 'white' }} />
-                : <WalletIcon sx={{ fontSize: 20, color: 'white' }} />
+              {selectedWallet === 'combined'
+                ? <AccountBalanceIcon sx={{ fontSize: 20, color: theme.palette.info.main }} />
+                : selectedWallet === 'trade'
+                  ? <TrendingUpIcon sx={{ fontSize: 20, color: 'white' }} />
+                  : <WalletIcon sx={{ fontSize: 20, color: 'white' }} />
               }
             </Box>
             <Typography variant="subtitle1" fontWeight="medium" noWrap>
-              {selectedWallet === 'main'
-                ? 'Main Wallet'
-                : selectedWallet === 'topup'
-                  ? 'Spot Wallet'
-                  : 'Total Trade Wallet'}
+              {selectedWallet === 'combined'
+                ? ' Assets'
+                : selectedWallet === 'main'
+                  ? 'Main Wallet'
+                  : selectedWallet === 'topup'
+                    ? 'Spot Wallet'
+                    : 'Total Trade Wallet'}
             </Typography>
             <KeyboardArrowDownIcon sx={{ ml: 0.5, color: theme.palette.text.secondary, flexShrink: 0 }} />
           </Box>
@@ -963,6 +1039,37 @@ const Dashboard = () => {
             }
           }}
         >
+          {/* Combined Assets Option */}
+          <MenuItem
+            onClick={() => handleWalletSelect('combined')}
+            selected={selectedWallet === 'combined'}
+            sx={{
+              py: 1.5,
+              backgroundColor: selectedWallet === 'combined'
+                ? theme.palette.info.main + '20'
+                : theme.palette.info.main + '10',
+              '&:hover': {
+                backgroundColor: theme.palette.info.main + '15',
+              }
+            }}
+          >
+            <ListItemIcon>
+              <AccountBalanceIcon fontSize="small" color="info" />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography
+                  variant="body1"
+                  fontWeight={selectedWallet === 'combined' ? 'bold' : 'medium'}
+                  color="info.main"
+                >
+                   Assets
+                </Typography>
+              }
+              secondary={`Balance: ${formatCurrency((dashboardData?.wallet_balance || 0) + (dashboardData?.topup_wallet_balance || 0) + (dashboardData?.total_investment || 0))}`}
+            />
+          </MenuItem>
+
           <MenuItem
             onClick={() => handleWalletSelect('main')}
             selected={selectedWallet === 'main'}
@@ -1060,14 +1167,24 @@ const Dashboard = () => {
             align="center"
             sx={{
               mb: 1,
-              color: selectedWallet === 'trade' ? theme.palette.success.main : 'inherit',
+              color: selectedWallet === 'combined'
+                ? theme.palette.info.main
+                : selectedWallet === 'trade'
+                  ? theme.palette.success.main
+                  : 'inherit',
             }}
           >
-            {selectedWallet === 'main'
-              ? formatCurrency(dashboardData?.wallet_balance || 0)
-              : selectedWallet === 'topup'
-                ? formatCurrency(dashboardData?.topup_wallet_balance || 0)
-                : formatCurrency(dashboardData?.total_investment || 0)
+            {selectedWallet === 'combined'
+              ? formatCurrency(
+                  (dashboardData?.wallet_balance || 0) +
+                  (dashboardData?.topup_wallet_balance || 0) +
+                  (dashboardData?.total_investment || 0)
+                )
+              : selectedWallet === 'main'
+                ? formatCurrency(dashboardData?.wallet_balance || 0)
+                : selectedWallet === 'topup'
+                  ? formatCurrency(dashboardData?.topup_wallet_balance || 0)
+                  : formatCurrency(dashboardData?.total_investment || 0)
             }
           </Typography>
 
@@ -2029,96 +2146,133 @@ const Dashboard = () => {
               endIcon={<ArrowForwardIcon />}
               size="small"
               sx={{ textTransform: 'none' }}
+              onClick={() => setNewsModalOpen(true)}
             >
               View All
             </Button>
           </Box>
 
-          {/* News Item 1 */}
-          <Box
-            sx={{
-              display: 'flex',
-              p: 1.5,
-              mb: 1.5,
-              borderRadius: 2,
-              backgroundColor: 'rgba(51, 117, 187, 0.05)',
-              border: '1px solid rgba(51, 117, 187, 0.1)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                backgroundColor: 'rgba(51, 117, 187, 0.08)',
-              },
-            }}
-          >
+          {/* News Items - Show loading state, error, or items */}
+          {loadingAnnouncements ? (
+            // Loading state
+            Array.from(new Array(2)).map((_, index) => (
+              <Box
+                key={index}
+                sx={{
+                  display: 'flex',
+                  p: 1.5,
+                  mb: 1.5,
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(51, 117, 187, 0.05)',
+                  border: '1px solid rgba(51, 117, 187, 0.1)',
+                }}
+              >
+                <Skeleton
+                  variant="rectangular"
+                  width={60}
+                  height={60}
+                  sx={{ borderRadius: 1, mr: 2 }}
+                />
+                <Box sx={{ flex: 1 }}>
+                  <Skeleton variant="text" width="80%" height={24} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="100%" />
+                  <Skeleton variant="text" width="60%" />
+                </Box>
+              </Box>
+            ))
+          ) : announcementsError ? (
+            // Error state
             <Box
-              component="img"
-              src="https://assets.coingecko.com/coins/images/1/small/bitcoin.png"
-              alt="News"
               sx={{
-                width: 60,
-                height: 60,
-                borderRadius: 1,
-                mr: 2,
-                objectFit: 'cover',
-                backgroundColor: '#F7931A15',
-                padding: 1,
+                p: 2,
+                mb: 1.5,
+                borderRadius: 2,
+                backgroundColor: 'rgba(211, 47, 47, 0.05)',
+                border: '1px solid rgba(211, 47, 47, 0.1)',
+                textAlign: 'center',
               }}
-              onError={(e) => {
-                e.target.src = "https://via.placeholder.com/60x60/3375BB/FFFFFF?text=News";
-              }}
-            />
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                New Investment Packages Available
+            >
+              <Typography variant="body2" color="error" gutterBottom>
+                {announcementsError}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Check out our new investment packages with higher ROI rates and better rewards.
+              <Button
+                size="small"
+                variant="outlined"
+                color="primary"
+                onClick={fetchAnnouncements}
+                startIcon={<RefreshIcon />}
+                sx={{ mt: 1 }}
+              >
+                Retry
+              </Button>
+            </Box>
+          ) : newsItems.length === 0 ? (
+            // Empty state
+            <Box
+              sx={{
+                p: 2,
+                mb: 1.5,
+                borderRadius: 2,
+                backgroundColor: 'rgba(51, 117, 187, 0.05)',
+                border: '1px solid rgba(51, 117, 187, 0.1)',
+                textAlign: 'center',
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                No announcements available at the moment.
               </Typography>
             </Box>
-          </Box>
-
-          {/* News Item 2 */}
-          <Box
-            sx={{
-              display: 'flex',
-              p: 1.5,
-              mb: 1.5,
-              borderRadius: 2,
-              backgroundColor: 'rgba(51, 117, 187, 0.05)',
-              border: '1px solid rgba(51, 117, 187, 0.1)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                backgroundColor: 'rgba(51, 117, 187, 0.08)',
-              },
-            }}
-          >
-            <Box
-              component="img"
-              src="https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png"
-              alt="News"
-              sx={{
-                width: 60,
-                height: 60,
-                borderRadius: 1,
-                mr: 2,
-                objectFit: 'cover',
-                backgroundColor: '#F3BA2F15',
-                padding: 1,
-              }}
-              onError={(e) => {
-                e.target.src = "https://via.placeholder.com/60x60/0ECB81/FFFFFF?text=News";
-              }}
-            />
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                Referral Program Update
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                We've improved our referral program with better commissions and more levels.
-              </Typography>
-            </Box>
-          </Box>
+          ) : (
+            // Show only first 2 items in dashboard
+            newsItems.slice(0, 2).map((item) => (
+              <Box
+                key={item.id}
+                onClick={() => setNewsModalOpen(true)}
+                sx={{
+                  display: 'flex',
+                  p: 1.5,
+                  mb: 1.5,
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(51, 117, 187, 0.05)',
+                  border: '1px solid rgba(51, 117, 187, 0.1)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                    transform: 'translateY(-2px)',
+                  },
+                }}
+              >
+                <Box
+                  component="img"
+                  src={item.image}
+                  alt={item.title}
+                  sx={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: 1,
+                    mr: 2,
+                    objectFit: 'cover',
+                    backgroundColor: item.backgroundColor || 'rgba(51, 117, 187, 0.1)',
+                    padding: 1,
+                  }}
+                  onError={(e) => {
+                    e.target.src = `https://via.placeholder.com/60x60/3375BB/FFFFFF?text=${item.category || 'News'}`;
+                  }}
+                />
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                    {item.title}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.description.length > 100
+                      ? `${item.description.substring(0, 100)}...`
+                      : item.description}
+                  </Typography>
+                </Box>
+              </Box>
+            ))
+          )}
         </Box>
       </Paper>
 
@@ -2146,6 +2300,134 @@ const Dashboard = () => {
           </Grid>
         </Paper>
       </Box> */}
+
+      {/* News & Announcements Modal */}
+      <Dialog
+        open={newsModalOpen}
+        onClose={() => setNewsModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: { xs: 2, sm: 3 },
+              backgroundColor: theme.palette.background.paper,
+              backgroundImage: mode === 'dark'
+                ? 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))'
+                : 'none',
+              boxShadow: '0 8px 40px rgba(0, 0, 0, 0.12)',
+              overflow: 'hidden',
+            }
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+          py: 2,
+          px: 3,
+        }}>
+          <Typography variant="h6" component="div" fontWeight="bold">
+            News & Announcements
+          </Typography>
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={() => setNewsModalOpen(false)}
+            aria-label="close"
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
+          {newsItems.map((item, index) => (
+            <Box
+              key={item.id}
+              sx={{
+                display: 'flex',
+                p: { xs: 2, sm: 3 },
+                mb: index < newsItems.length - 1 ? 2 : 0,
+                borderRadius: 2,
+                backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.05)' : 'rgba(255, 255, 255, 1)',
+                border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.1)' : 'rgba(0, 0, 0, 0.05)'}`,
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.08)' : 'rgba(51, 117, 187, 0.02)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+                },
+              }}
+            >
+              <Box
+                component="img"
+                src={item.image}
+                alt={item.title}
+                sx={{
+                  width: { xs: 60, sm: 80 },
+                  height: { xs: 60, sm: 80 },
+                  borderRadius: 2,
+                  mr: { xs: 2, sm: 3 },
+                  objectFit: 'cover',
+                  backgroundColor: item.backgroundColor || 'rgba(51, 117, 187, 0.1)',
+                  padding: 1,
+                  flexShrink: 0,
+                }}
+                onError={(e) => {
+                  e.target.src = `https://via.placeholder.com/80x80/3375BB/FFFFFF?text=${item.category || 'News'}`;
+                }}
+              />
+              <Box sx={{ flex: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    {item.title}
+                  </Typography>
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.1)' : 'rgba(51, 117, 187, 0.05)',
+                    borderRadius: 5,
+                    px: 1.5,
+                    py: 0.5,
+                    ml: 1,
+                  }}>
+                    <Typography variant="caption" color="primary" fontWeight="medium">
+                      {item.category}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {item.description}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {new Date(item.date).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+        </DialogContent>
+
+        <DialogActions sx={{
+          borderTop: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+          py: 2,
+          px: 3,
+        }}>
+          <Button
+            onClick={() => setNewsModalOpen(false)}
+            variant="outlined"
+            color="primary"
+            startIcon={<CloseIcon />}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

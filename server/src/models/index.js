@@ -15,4 +15,5 @@ module.exports.teamRewardModel = require('./teamreward.model');
 module.exports.withdrawalModel = require('./withdrawal.model');
 module.exports.settingModel = require('./setting.model');
 module.exports.userLoginRequestModel = require('./user.login.request.model');
-module.exports.socialLinksModel = require('./social.links.model')
+module.exports.socialLinksModel = require('./social.links.model');
+module.exports.announcementModel = require('./announcement.model');

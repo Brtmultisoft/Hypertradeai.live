@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Paper,
@@ -18,10 +18,11 @@ import {
   Divider,
   Card,
   CardContent,
-  Snackbar,
 } from '@mui/material';
 import {
+  AccountBalance as AccountBalanceIcon,
   Send as SendIcon,
+  AccountBalanceWallet as WalletIcon,
   Email as EmailIcon,
   AttachMoney as AttachMoneyIcon,
   Description as DescriptionIcon,
@@ -32,7 +33,7 @@ import axios from 'axios';
 import PageHeader from '../../components/PageHeader';
 import { API_URL } from '../../config';
 
-const TransferFund = () => {
+const FundDeduct = () => {
   const theme = useTheme();
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -46,53 +47,6 @@ const TransferFund = () => {
   });
   const [userFound, setUserFound] = useState(null);
   const [searchingUser, setSearchingUser] = useState(false);
-
-  // Snackbar state
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'info', // 'success', 'error', 'warning', 'info'
-    autoHideDuration: 6000,
-  });
-
-  // Test notification on component mount
-  useEffect(() => {
-    // Show a welcome notification when the component mounts
-    setTimeout(() => {
-      setSnackbar({
-        open: true,
-        message: 'Welcome to Fund Transfer. Search for a user to begin.',
-        severity: 'info',
-        autoHideDuration: 5000,
-      });
-      console.log('Initial notification set');
-    }, 500);
-  }, []);
-
-  // Handle snackbar close
-  const handleSnackbarClose = (_, reason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
-
-  // Show snackbar helper function
-  const showSnackbar = (message, severity = 'info', autoHideDuration = 6000) => {
-    console.log('Showing snackbar:', { message, severity, autoHideDuration });
-    // First close any existing snackbar to ensure the new one triggers a state change
-    setSnackbar(prev => ({ ...prev, open: false }));
-
-    // Use setTimeout to ensure the state update happens in the next tick
-    setTimeout(() => {
-      setSnackbar({
-        open: true,
-        message,
-        severity,
-        autoHideDuration,
-      });
-    }, 100);
-  };
 
   // Handle input change
   const handleChange = (e) => {
@@ -140,8 +94,6 @@ const TransferFund = () => {
 
         if (exactMatch) {
           console.log('Found exact match in fallback search:', exactMatch);
-          showSnackbar('User found, retrieving details...', 'info');
-
           // Get full user details
           const userResponse = await axios.get(`${API_URL}/admin/get-user/${exactMatch._id}`, {
             headers: {
@@ -155,40 +107,28 @@ const TransferFund = () => {
             if (userResponse.data.data && typeof userResponse.data.data === 'object' && Object.keys(userResponse.data.data).length > 0) {
               console.log('Found user in data field:', userResponse.data.data);
               setUserFound(userResponse.data.data);
-              showSnackbar(`User found: ${userResponse.data.data.name || userResponse.data.data.email}`, 'success');
             }
             // Then try the result field (old format)
             else if (userResponse.data.result && typeof userResponse.data.result === 'object' && Object.keys(userResponse.data.result).length > 0) {
               console.log('Found user in result field:', userResponse.data.result);
               setUserFound(userResponse.data.result);
-              showSnackbar(`User found: ${userResponse.data.result.name || userResponse.data.result.email}`, 'success');
             }
             // If neither has valid data, show error
             else {
-              const errorMessage = 'User found but data is missing in response';
-              setError(errorMessage);
-              showSnackbar(errorMessage, 'error');
+              setError('User found but data is missing in response');
               console.error('No valid user data found in response:', userResponse.data);
             }
           } else {
-            const errorMessage = 'User found but could not retrieve full details';
-            setError(errorMessage);
-            showSnackbar(errorMessage, 'error');
+            setError('User found but could not retrieve full details');
           }
         } else {
-          const errorMessage = `No exact match found for email: ${email}`;
-          setError(errorMessage);
-          showSnackbar(errorMessage, 'error');
+          setError(`No exact match found for email: ${email}`);
         }
       } else {
-        const errorMessage = 'User not found with this email';
-        setError(errorMessage);
-        showSnackbar(errorMessage, 'error');
+        setError('User not found with this email');
       }
     } catch (searchErr) {
-      const errorMessage = searchErr.response?.data?.message || 'Failed to find user';
-      setError(errorMessage);
-      showSnackbar(`Search error: ${errorMessage}`, 'error');
+      setError(searchErr.response?.data?.message || 'Failed to find user');
       console.error('Error in fallback search:', searchErr);
     }
   };
@@ -197,17 +137,12 @@ const TransferFund = () => {
   const searchUser = async () => {
     if (!formData.email) {
       setError('Please enter an email address');
-      showSnackbar('Please enter an email address', 'error');
       return;
     }
 
     setSearchingUser(true);
     setUserFound(null);
     setError(null);
-    setSuccess(null);
-
-    // Show searching notification
-    showSnackbar(`Searching for user: ${formData.email}...`, 'info');
 
     try {
       const token = getToken();
@@ -226,30 +161,24 @@ const TransferFund = () => {
         if (response.data.data && typeof response.data.data === 'object' && Object.keys(response.data.data).length > 0) {
           console.log('Found user in data field:', response.data.data);
           setUserFound(response.data.data);
-          showSnackbar(`User found: ${response.data.data.name || response.data.data.email}`, 'success');
         }
         // Then try the result field (old format)
         else if (response.data.result && typeof response.data.result === 'object' && Object.keys(response.data.result).length > 0) {
           console.log('Found user in result field:', response.data.result);
           setUserFound(response.data.result);
-          showSnackbar(`User found: ${response.data.result.name || response.data.result.email}`, 'success');
         }
         // If neither has valid data, try fallback search
         else {
           console.error('No valid user data found in response');
           console.error('Response data:', response.data);
-          showSnackbar('User search returned invalid data, trying alternative search method...', 'warning');
           handleFallbackSearch(formData.email);
           return;
         }
       } else {
-        const errorMessage = response.data?.message || 'User not found';
-        setError(errorMessage);
-        showSnackbar(`Search failed: ${errorMessage}`, 'error');
+        setError(response.data?.message || 'User not found');
       }
     } catch (err) {
       console.error('Error searching user:', err);
-      showSnackbar('Error searching for user, trying alternative search method...', 'warning');
       // Use the fallback search function
       handleFallbackSearch(formData.email);
     } finally {
@@ -264,27 +193,23 @@ const TransferFund = () => {
     // Validate form
     if (!formData.email) {
       setError('Please enter an email address');
-      showSnackbar('Please enter an email address', 'error');
       return;
     }
 
     if (!userFound) {
       setError('Please search for a valid user first');
-      showSnackbar('Please search for a valid user first', 'error');
       return;
     }
 
     // Validate that userFound has the required fields
     if (!userFound._id) {
       setError('User data is incomplete. Missing user ID.');
-      showSnackbar('User data is incomplete. Missing user ID.', 'error');
       console.error('Incomplete user data:', userFound);
       return;
     }
 
     if (!formData.amount || isNaN(formData.amount) || parseFloat(formData.amount) <= 0) {
       setError('Please enter a valid amount');
-      showSnackbar('Please enter a valid amount', 'error');
       return;
     }
 
@@ -299,16 +224,13 @@ const TransferFund = () => {
       const requestData = {
         user_id: userFound._id,
         amount: parseFloat(formData.amount),
-        type: formData.walletType === 'wallet' ? 0 : 1, // 0 for main wallet, 1 for topup wallet
+        type: formData.walletType === 'wallet' ? "0" : "1", // 0 for main wallet, 1 for topup wallet
         remark: formData.description || 'Admin transfer',
       };
 
       console.log('Sending fund transfer request:', requestData);
 
-      // Show pending transfer notification
-      showSnackbar(`Processing transfer of ${formatCurrency(parseFloat(formData.amount))} to ${userFound.name || userFound.email}...`, 'info');
-
-      const response = await axios.post(`${API_URL}/admin/add-fund-transfer`, requestData, {
+      const response = await axios.post(`${API_URL}/admin/add-fund-deduct`, requestData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -317,16 +239,7 @@ const TransferFund = () => {
       console.log('Fund transfer response:', response.data);
 
       if (response.data && response.data.status) {
-        const successMessage = response.data.msg || response.data.message || 'Funds transferred successfully';
-        setSuccess(successMessage);
-
-        // Show success notification with more details
-        showSnackbar(
-          `Successfully transferred ${formatCurrency(parseFloat(formData.amount))} to ${userFound.name || userFound.email}'s ${formData.walletType === 'wallet' ? 'Main Wallet' : 'Topup Wallet'}`,
-          'success',
-          8000
-        );
-
+        setSuccess(response.data.msg || response.data.message || 'Funds transferred successfully');
         // Reset form
         setFormData({
           email: '',
@@ -336,103 +249,22 @@ const TransferFund = () => {
         });
         setUserFound(null);
       } else {
-        const errorMessage = response.data?.msg || response.data?.message || 'Failed to transfer funds';
-        setError(errorMessage);
-        showSnackbar(errorMessage, 'error', 10000);
+        setError(response.data?.msg || response.data?.message || 'Failed to transfer funds');
       }
     } catch (err) {
       console.error('Error transferring funds:', err);
-      const errorMessage = err.response?.data?.msg || err.response?.data?.message || 'An error occurred while transferring funds';
-      setError(errorMessage);
-
-      // Show detailed error notification
-      showSnackbar(
-        `Transfer failed: ${errorMessage}. Please try again or contact support.`,
-        'error',
-        10000
-      );
+      setError(err.response?.data?.msg || err.response?.data?.message || 'An error occurred while transferring funds');
     } finally {
       setLoading(false);
     }
   };
 
-  // No custom alert component needed anymore
-
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={snackbar.autoHideDuration}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        sx={{
-          zIndex: 9999,
-          '& .MuiSnackbarContent-root': {
-            minWidth: '300px',
-          }
-        }}
-      >
-        <Alert
-          onClose={handleSnackbarClose}
-          severity={snackbar.severity}
-          variant="filled"
-          elevation={6}
-          sx={{
-            width: '100%',
-            borderRadius: 2,
-            boxShadow: 3,
-            '& .MuiAlert-icon': {
-              fontSize: '1.25rem'
-            },
-            fontWeight: 'medium',
-            fontSize: '0.95rem'
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-
       <PageHeader
-        title="Transfer Funds"
-        subtitle="Transfer funds to any user's wallet"
+        title="Deduct Funds"
+        subtitle="Deduct funds to any user's wallet"
       />
-
-      {/* Test button for notifications - remove in production */}
-      {/* <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
-        <Button
-          size="small"
-          variant="outlined"
-          color="info"
-          onClick={() => showSnackbar('This is an info message', 'info')}
-        >
-          Test Info
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          color="success"
-          onClick={() => showSnackbar('This is a success message', 'success')}
-        >
-          Test Success
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          color="warning"
-          onClick={() => showSnackbar('This is a warning message', 'warning')}
-        >
-          Test Warning
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          color="error"
-          onClick={() => showSnackbar('This is an error message', 'error')}
-        >
-          Test Error
-        </Button>
-      </Box> */}
 
       <Grid container spacing={3}>
         {/* Transfer Form */}
@@ -557,7 +389,7 @@ const TransferFund = () => {
 
               {/* Transfer Details */}
               <Typography variant="h6" fontWeight="bold" gutterBottom>
-                2. Transfer Details
+                2. Deduct Amount
               </Typography>
 
               {/* Amount */}
@@ -629,7 +461,7 @@ const TransferFund = () => {
                 disabled={loading || !userFound || !formData.amount}
                 sx={{ mt: 2 }}
               >
-                {loading ? <CircularProgress size={24} /> : 'Transfer Funds'}
+                {loading ? <CircularProgress size={24} /> : 'Deduct Funds'}
               </Button>
             </Box>
           </Paper>
@@ -647,7 +479,7 @@ const TransferFund = () => {
             }}
           >
             <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Transfer Information
+              Deduct Information
             </Typography>
 
             <Box sx={{ mb: 3 }}>
@@ -689,4 +521,4 @@ const TransferFund = () => {
   );
 };
 
-export default TransferFund;
+export default FundDeduct;

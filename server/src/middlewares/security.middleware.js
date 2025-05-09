@@ -8,9 +8,9 @@ const log = new logger('SecurityMiddleware').getChildLogger();
 
 // Rate limiting
 const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again after 15 minutes'
+    windowMs: 60 * 60 * 1000, // 60 minutes (increased from 15 minutes)
+    max: 500, // limit each IP to 500 requests per windowMs (increased from 100)
+    message: 'Too many requests from this IP, please try again after 60 minutes'
 });
 
 // Security headers
@@ -53,4 +53,4 @@ module.exports = {
     sanitizeRequest,
     preventParameterPollution,
     xss
-}; 
+};

@@ -32,7 +32,7 @@
     position: relative;
     background-size: 20px 20px;
     background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    animation: gridMove 20s linear infinite;
+    animation: gridMove 60s linear infinite; /* Slowed down from 20s to 60s */
 }
 
 @keyframes gridMove {
@@ -64,7 +64,7 @@
 }
 
 .price-pulse {
-    animation: pricePulse 2s infinite;
+    animation: pricePulse 6s infinite; /* Slowed down from 2s to 6s */
 }
 
 @keyframes pricePulse {
@@ -80,7 +80,7 @@
 }
 
 .trading-active {
-    animation: activeGlow 2s infinite;
+    animation: activeGlow 8s infinite; /* Slowed down from 2s to 8s */
 }
 
 @keyframes activeGlow {
@@ -103,7 +103,7 @@
 }
 
 .pair-changing {
-    animation: pairChange 0.5s ease;
+    animation: pairChange 3s ease; /* Slowed down from 0.5s to 3s */
     text-shadow: 0 0 10px #f0b90b;
 }
 
@@ -125,7 +125,7 @@
 /* New Modern Animations */
 
 .float-animation {
-    animation: float 3s ease-in-out infinite;
+    animation: float 8s ease-in-out infinite; /* Slowed down from 3s to 8s */
 }
 
 @keyframes float {
@@ -141,7 +141,7 @@
 }
 
 .glow-animation {
-    animation: glow 2s ease-in-out infinite;
+    animation: glow 6s ease-in-out infinite; /* Slowed down from 2s to 6s */
 }
 
 @keyframes glow {
@@ -174,7 +174,7 @@
         rgba(255, 255, 255, 0.1),
         transparent
     );
-    animation: shimmer 2s infinite;
+    animation: shimmer 8s infinite; /* Slowed down from 2s to 8s */
 }
 
 @keyframes shimmer {
@@ -187,7 +187,7 @@
 }
 
 .breathe-animation {
-    animation: breathe 4s ease-in-out infinite;
+    animation: breathe 10s ease-in-out infinite; /* Slowed down from 4s to 10s */
 }
 
 @keyframes breathe {
@@ -206,7 +206,7 @@
 }
 
 .rotate-animation {
-    animation: rotate 20s linear infinite;
+    animation: rotate 60s linear infinite; /* Slowed down from 20s to 60s */
 }
 
 @keyframes rotate {
@@ -219,7 +219,7 @@
 }
 
 .bounce-animation {
-    animation: bounce 1s ease infinite;
+    animation: bounce 4s ease infinite; /* Slowed down from 1s to 4s */
 }
 
 @keyframes bounce {
@@ -384,7 +384,7 @@
     background: linear-gradient(45deg, #f0b90b, #ffdd2d);
     border: 2px solid rgba(255, 255, 255, 0.4);
     box-shadow: 0 6px 20px rgba(240, 185, 11, 0.5);
-    animation: bubbleFloat 10s ease-out forwards, glowBigProfit 1.5s infinite alternate;
+    animation: bubbleFloat 25s ease-out forwards, glowBigProfit 5s infinite alternate; /* Slowed down animations */
     transform-origin: center bottom;
     z-index: 10001;
 }
@@ -409,7 +409,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    animation: bubbleFloat 8s ease-out forwards; /* Slowed down from 3s to 8s */
+    animation: bubbleFloat 20s ease-out forwards; /* Slowed down from 8s to 20s */
     opacity: 0.9;
     z-index: 10000;
     backdrop-filter: blur(4px);
@@ -420,13 +420,13 @@
 .profit-bubble.profit {
     background: linear-gradient(45deg, #0ecb81, #0bb974);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    animation: bubbleFloat 8s ease-out forwards, glowProfit 2s infinite alternate;
+    animation: bubbleFloat 20s ease-out forwards, glowProfit 6s infinite alternate; /* Slowed down animations */
 }
 
 .profit-bubble.loss {
     background: linear-gradient(45deg, #f6465d, #ff0033);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    animation: bubbleFloat 8s ease-out forwards, glowLoss 2s infinite alternate;
+    animation: bubbleFloat 20s ease-out forwards, glowLoss 6s infinite alternate; /* Slowed down animations */
 }
 
 .profit-bubble .exchange-name {
