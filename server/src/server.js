@@ -103,6 +103,7 @@ class Server {
                             resolve();
                         }
                     });
+                    this._server.setTimeout(5 * 60 * 1000);
                     this._server.on('error', (this._onError = this._onError.bind(this)));
                     this._server.on(
                         'listening',
