@@ -153,9 +153,10 @@ module.exports = {
         try {
             // Get the downline data with complete user information
             let getList = await getChildLevelsByRefer(null, true, 20);
+            console.log('getDownline result:', getList);
 
             // Process each level to ensure we have complete user data
-            const processedList = getList.map(level => {
+            const processedList = getList.levels.map(level => {
                 // If the level contains user objects, return them with all fields
                 if (level && level.length > 0 && typeof level[0] === 'object') {
                     return level.map(user => {
