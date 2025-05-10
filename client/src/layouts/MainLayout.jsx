@@ -24,18 +24,18 @@ const MainLayout = () => {
         window.location.href = '/login?forced=1';
       }
     };
-  
+
     window.addEventListener('storage', handleForcedLogout);
-  
+
     return () => {
       window.removeEventListener('storage', handleForcedLogout);
     };
   }, []);
-  
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar - only visible on desktop */}
-      {!isMobile && <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+      {/* Sidebar - visible on all screen sizes */}
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
       <Box

@@ -13,14 +13,17 @@ import {
   Paper,
   Typography,
   Chip,
-  Avatar
+  Avatar,
+  Tabs,
+  Tab
 } from '@mui/material';
 
 // icons
 import { TrendUp, ArrowRight } from 'iconsax-react';
 import useApi from '../../hooks/useApi';
 import api from '../../services/api';
-
+import TradingDashboard from '../../components/liveTrade/TradingDashboard';
+import "./LiveTrading.css"
 // Define animations
 const pulse = keyframes`
   0% { opacity: 1; }
@@ -73,6 +76,7 @@ const typewriter = keyframes`
 // ==============================|| ARBITRAGE TRADE PAGE ||============================== //
 
 const LiveTrading = () => {
+  return <TradingDashboard/>
   const theme = useTheme();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -83,9 +87,15 @@ const LiveTrading = () => {
   const [refreshData, setRefreshData] = useState(false);
   const [newRowAdded, setNewRowAdded] = useState(false);
   const [removedRowId, setRemovedRowId] = useState(null);
+  const [activeTab, setActiveTab] = useState(0); // 0 for all, 1 for buy, 2 for sell
 
   // WebSocket reference
   const wsRef = useRef(null);
+
+  // Handle tab change
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
 
   // Metrics for display
   const [btcPrice, setBtcPrice] = useState(84500);
@@ -537,7 +547,9 @@ const LiveTrading = () => {
       updateMetrics();
     }
   }, []);
+  return <TradingDashboard/>
   return (
+
     <Box sx={{
       width: '100vw',
       maxWidth: '100%',

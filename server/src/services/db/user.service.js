@@ -46,13 +46,6 @@ class User {
         let filter = params;
         const options = pick(data, ['sort_by', 'limit', 'page']);
         options.sort_fields = ['email', 'name', 'created_at', 'username', 'sponsorID', 'wallet', 'wallet_topup', 'total_investment'];
-
-        // Check if we need to sort by maximum wallet value
-        if (data.sort_by && data.sort_by.includes('wallet:desc')) {
-            // This will sort by wallet in descending order (highest first)
-            options.sort = { wallet: -1 };
-        }
-
         options.populate = '';
         const pipeline = [];
 

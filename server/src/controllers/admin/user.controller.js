@@ -148,12 +148,29 @@ module.exports = {
 
     getDownline: async (req, res) => {
         let reqObj = req.query;
-        log.info('Recieved request for getDownline Users:', reqObj);
+        log.info('Received request for getDownline Users:', reqObj);
         let responseData = {};
         try {
+            // Get the downline data with complete user information
             let getList = await getChildLevelsByRefer(null, true, 20);
+
+            // Process each level to ensure we have complete user data
+            const processedList = getList.map(level => {
+                // If the level contains user objects, return them with all fields
+                if (level && level.length > 0 && typeof level[0] === 'object') {
+                    return level.map(user => {
+                        // Ensure we're returning a plain object, not a Mongoose document
+                        return user.toObject ? user.toObject() : user;
+                    });
+                }
+                // If it's just IDs, return them as is
+                return level;
+            });
+
+            log.info(`Processed downline data with ${processedList.length} levels`);
+
             responseData.msg = 'Data fetched successfully!';
-            responseData.data = getList;
+            responseData.data = processedList;
             return responseHelper.success(res, responseData);
         } catch (error) {
             log.error('failed to fetch users data with error::', error);

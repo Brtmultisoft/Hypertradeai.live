@@ -61,7 +61,7 @@ const TransferHistory = () => {
     setError(null);
     try {
       const token = getToken();
-      const response = await axios.get(`${API_URL}/admin/test-fund-transfers`, {
+      const response = await axios.get(`${API_URL}/admin/get-all-fund-transfers`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
