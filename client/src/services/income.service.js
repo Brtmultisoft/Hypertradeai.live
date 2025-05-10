@@ -55,6 +55,7 @@ const IncomeService = {
   getIncomeSum: async (params = {}) => {
     try {
       const response = await api.get('/get-income-sum', { params });
+      console.log("asdf;liasdfjfj",response.data)
       return response.data;
     } catch (error) {
       throw error.response?.data || { msg: 'Failed to get income sum' };

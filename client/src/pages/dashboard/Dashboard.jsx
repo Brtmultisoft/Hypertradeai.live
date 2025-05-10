@@ -2097,7 +2097,7 @@ const Dashboard = () => {
                       alignItems: 'center',
                       cursor: 'pointer',
                     }}
-                    onClick={() => navigate('/direct-income')}
+                    onClick={() => navigate('/direct-income-history')}
                   >
                     <Box
                       sx={{

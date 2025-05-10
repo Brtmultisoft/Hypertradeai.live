@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import useAuth from './hooks/useAuth';
 import { DataProvider } from './context/DataContext';
 import ThemeProvider from './context/ThemeContext';
+import { TradingContextProvider } from './context/TradingContext';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -49,9 +50,10 @@ function App() {
     <ThemeProvider>
       <ErrorBoundary fullPage>
         <DataProvider>
-          <Router>
-            <Routes>
-            {/* Auth Routes */}
+          <TradingContextProvider>
+            <Router>
+              <Routes>
+              {/* Auth Routes */}
             <Route element={<AuthLayout />}>
               <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />} />
               <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} />
@@ -90,8 +92,9 @@ function App() {
 
             {/* Default Route */}
             <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
-          </Routes>
-        </Router>
+            </Routes>
+          </Router>
+          </TradingContextProvider>
         </DataProvider>
       </ErrorBoundary>
     </ThemeProvider>
