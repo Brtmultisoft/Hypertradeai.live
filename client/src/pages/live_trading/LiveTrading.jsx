@@ -24,6 +24,7 @@ import useApi from '../../hooks/useApi';
 import api from '../../services/api';
 import TradingDashboard from '../../components/liveTrade/TradingDashboard';
 import "./LiveTrading.css"
+import Dashboard from '../../components/live/Dashboard';
 // Define animations
 const pulse = keyframes`
   0% { opacity: 1; }
@@ -76,7 +77,7 @@ const typewriter = keyframes`
 // ==============================|| ARBITRAGE TRADE PAGE ||============================== //
 
 const LiveTrading = () => {
-  return <TradingDashboard/>
+  return <Dashboard/>
   const theme = useTheme();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);

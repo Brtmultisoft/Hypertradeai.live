@@ -62,7 +62,7 @@ const EmptyState: React.FC<EmptyStateProps> = React.memo(({ userData }) => {
           color="gray"
           sx={{ maxWidth: 500, mx: 'auto' }}
         >
-          {userData?.total_investment > 0
+          {userData?.total_investment || 4 > 0
             ? 'Please activate your daily profit to see live trading data and start earning returns on your investment.'
             : 'Make an investment and activate daily profit to see live trading data and start earning returns.'}
         </Typography>
