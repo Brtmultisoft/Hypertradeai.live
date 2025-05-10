@@ -43,7 +43,7 @@ const Dashboard: React.FC = () => {
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Box>
-          <MarketSelector />
+          {/* <MarketSelector /> */}
         </Box>
 
         {/* Activation Status - Show when activated */}
@@ -81,67 +81,98 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
         )}
+{/* Coming Soon Features Card */}
+<Card sx={{
+  borderRadius: 3,
+  backgroundColor: 'rgba(51, 117, 187, 0.05)',
+  border: '1px solid rgba(51, 117, 187, 0.1)',
+  overflow: 'hidden',
+  position: 'relative',
+  mb: 3,
+  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+  '&:hover': {
+    transform: 'translateY(-4px)',
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)',
+  }
+}}>
+  {/* Background gradient effect */}
+  <Box sx={{
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '50%',
+    height: '100%',
+    background: 'radial-gradient(circle at top right, rgba(51, 117, 187, 0.1), transparent 70%)',
+    zIndex: 0,
+  }} />
 
-        {/* Activation Panel - Only show if not activated */}
-        {!userData?.dailyProfitActivated && (
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Daily Profit Activation
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <ActivationPanel
-                userData={userData}
-                activatingProfit={activatingProfit}
-                onActivate={handleActivateDailyProfit}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Basic price and stats cards always shown */}
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3 }}>
-          <Box sx={{ flex: 1 }}>
-            <PriceCard />
-          </Box>
-          <Box sx={{ flex: 1 }}>
-            <StatsCard />
-          </Box>
+  <CardContent sx={{ position: 'relative', zIndex: 1, p: 3 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+      <Box sx={{
+        width: 48,
+        height: 48,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: '50%',
+        backgroundColor: 'rgba(51, 117, 187, 0.1)',
+        marginRight: 2,
+        animation: 'pulse 2s infinite',
+        '@keyframes pulse': {
+          '0%, 100%': { opacity: 0.6, transform: 'scale(1)' },
+          '50%': { opacity: 1, transform: 'scale(1.05)' }
+        }
+      }}>
+        <Box component="span" sx={{
+          fontSize: '1.5rem',
+          color: 'primary.main',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          🚀
         </Box>
+      </Box>
+      <Box>
+        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          Coming Soon
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Exciting new features are on the way!
+        </Typography>
+      </Box>
+    </Box>
 
-        {/* Only show detailed trading components when daily profit is activated */}
-        {userData?.dailyProfitActivated ? (
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
-            <Box sx={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Box>
-                <PriceChart />
-              </Box>
+    {/* <Box sx={{ pl: 7 }}>
+      <Typography variant="body2" sx={{ mb: 1 }}>
+        We're working on advanced trading features to enhance your experience:
+      </Typography>
 
-              {/* Trading Panel */}
-              {/* <TradingPanel /> */}
-            </Box>
+      <Box component="ul" sx={{ pl: 2, mb: 2 }}>
+        <Box component="li" sx={{ mb: 1 }}>
+          <Typography variant="body2">
+            <strong>Advanced Analytics</strong> - Detailed market insights and performance metrics
+          </Typography>
+        </Box>
+        <Box component="li" sx={{ mb: 1 }}>
+          <Typography variant="body2">
+            <strong>Portfolio Management</strong> - Track and optimize your investments
+          </Typography>
+        </Box>
+        <Box component="li">
+          <Typography variant="body2">
+            <strong>AI-Powered Trading</strong> - Smart algorithms to maximize your profits
+          </Typography>
+        </Box>
+      </Box>
 
-            <Box sx={{ flex: 1 }}>
-              <OrderBook />
-            </Box>
-          </Box>
-        ) : (
-          <Box sx={{
-            p: 4,
-            textAlign: 'center',
-            border: '1px dashed',
-            borderColor: 'divider',
-            borderRadius: 2,
-            backgroundColor: 'rgba(0, 0, 0, 0.02)'
-          }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Activate Daily Profit to View Trading Charts
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Detailed price charts, order book, and trading functionality will be available after activation.
-            </Typography>
-          </Box>
-        )}
+      <Typography variant="caption" color="text.secondary">
+        Stay tuned for updates! These features will be available in the next release.
+      </Typography>
+    </Box> */}
+  </CardContent>
+</Card>
+
       </Box>
     </Container>
   );
