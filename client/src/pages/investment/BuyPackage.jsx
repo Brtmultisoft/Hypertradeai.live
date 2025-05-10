@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,11 +11,6 @@ import {
   Divider,
   useTheme,
   IconButton,
-  Tabs,
-  Tab,
-  InputAdornment,
-  ToggleButtonGroup,
-  ToggleButton,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -274,8 +269,6 @@ const BuyPackage = () => {
           alignItems: 'center',
           justifyContent: 'center',
           borderBottom: `1px solid ${theme.palette.divider}`,
-          position: 'relative',
-          overflow: 'hidden',
         }}
       >
         {/* Trust Wallet Style Animated background elements */}
@@ -765,8 +758,6 @@ const BuyPackage = () => {
               backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.05)' : 'rgba(255, 255, 255, 1)',
               border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.2)' : '#E6E8EA'}`,
               mb: 2,
-              position: 'relative',
-              overflow: 'hidden',
               boxShadow: mode === 'dark'
                 ? '0 8px 20px rgba(0,0,0,0.05)'
                 : '0 2px 8px rgba(0, 0, 0, 0.03)',
@@ -1019,8 +1010,6 @@ const BuyPackage = () => {
             backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.05)' : 'rgba(255, 255, 255, 1)',
             border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.2)' : '#E6E8EA'}`,
             mb: 3,
-            position: 'relative',
-            overflow: 'hidden',
             boxShadow: mode === 'dark'
               ? '0 8px 20px rgba(0,0,0,0.05)'
               : '0 2px 8px rgba(0, 0, 0, 0.03)',
