@@ -1,5 +1,5 @@
 import React from 'react';
-import { TableRow, TableCell, Box, Chip } from '@mui/material';
+import { TableRow, TableCell, Box, Chip, Tooltip } from '@mui/material';
 import { styled } from '@mui/system';
 import { TradeData } from './types';
 import { keyframes } from '@mui/system';
@@ -130,9 +130,18 @@ interface TradeRowProps {
   index: number;
   isNew: boolean;
   isUpdated: boolean;
+  isMobile?: boolean;
+  isTablet?: boolean;
 }
 
-const TradeRow: React.FC<TradeRowProps> = React.memo(({ trade, index, isNew, isUpdated }) => {
+const TradeRow: React.FC<TradeRowProps> = React.memo(({
+  trade,
+  index,
+  isNew,
+  isUpdated,
+  isMobile = false,
+  isTablet = false
+}) => {
   return (
     <StyledTableRow
       sx={{
@@ -157,11 +166,11 @@ const TradeRow: React.FC<TradeRowProps> = React.memo(({ trade, index, isNew, isU
       }}
     >
       <TableCell
-        width="20%"
+        width={isMobile ? '30%' : isTablet ? '25%' : '20%'}
         sx={{
           border: 0,
-          py: 2,
-          width: '20%',
+          py: isMobile ? 1.5 : 2,
+          width: isMobile ? '30%' : isTablet ? '25%' : '20%',
         }}
       >
         <Box
@@ -174,11 +183,11 @@ const TradeRow: React.FC<TradeRowProps> = React.memo(({ trade, index, isNew, isU
         >
           <Box
             sx={{
-              width: 10,
-              height: 10,
+              width: isMobile ? 8 : 10,
+              height: isMobile ? 8 : 10,
               borderRadius: '50%',
               backgroundColor: trade.type === 'buy' ? '#22c55e' : '#ef4444',
-              mr: 1.5,
+              mr: isMobile ? 1 : 1.5,
               animation: `${pulse} 3s infinite ease-in-out`, // Slower pulse animation
               boxShadow: trade.type === 'buy'
                 ? '0 0 8px rgba(34, 197, 94, 0.5)'
@@ -187,35 +196,48 @@ const TradeRow: React.FC<TradeRowProps> = React.memo(({ trade, index, isNew, isU
             }}
           />
           <Box>
-            <StyledTypography
-              sx={{
-                color: '#d1d5db',
-                fontWeight: 600,
-                mb: 0.5,
-                fontSize: '0.875rem',
-              }}
-            >
-              {trade.exchange}
-            </StyledTypography>
-            <StyledTypography
-              sx={{
-                color: 'gray',
-                opacity: 0.8,
-                fontSize: '0.7rem',
-              }}
-            >
-              {trade.timestamp}
-            </StyledTypography>
+            <Tooltip title={trade.exchange} placement="top" arrow>
+              <StyledTypography
+                sx={{
+                  color: '#d1d5db',
+                  fontWeight: 600,
+                  mb: 0.5,
+                  fontSize: isMobile ? '0.75rem' : '0.875rem',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: isMobile ? '80px' : '120px',
+                }}
+              >
+                {trade.exchange}
+              </StyledTypography>
+            </Tooltip>
+            <Tooltip title={trade.timestamp} placement="bottom" arrow>
+              <StyledTypography
+                sx={{
+                  color: 'gray',
+                  opacity: 0.8,
+                  fontSize: isMobile ? '0.65rem' : '0.7rem',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: isMobile ? '80px' : '120px',
+                }}
+              >
+                {trade.timestamp}
+              </StyledTypography>
+            </Tooltip>
           </Box>
         </Box>
       </TableCell>
       <TableCell
-        width="10%"
+        width={isMobile ? '20%' : isTablet ? '15%' : '10%'}
         align="center"
         sx={{
           border: 0,
-          py: 2,
-          width: '10%',
+          py: isMobile ? 1.5 : 2,
+          width: isMobile ? '20%' : isTablet ? '15%' : '10%',
+          display: { xs: 'table-cell', sm: 'table-cell' },
         }}
       >
         <Chip
@@ -224,6 +246,8 @@ const TradeRow: React.FC<TradeRowProps> = React.memo(({ trade, index, isNew, isU
           sx={{
             color: 'white',
             fontWeight: 600,
+            fontSize: isMobile ? '0.65rem' : '0.75rem',
+            height: isMobile ? '22px' : '24px',
             backgroundColor:
               trade.type === 'buy'
                 ? 'rgba(34, 197, 94, 0.8)'
@@ -246,104 +270,129 @@ const TradeRow: React.FC<TradeRowProps> = React.memo(({ trade, index, isNew, isU
         />
       </TableCell>
       <TableCell
-        width="20%"
+        width={isMobile ? '0%' : isTablet ? '15%' : '20%'}
         align="center"
         sx={{
           border: 0,
           py: 2,
-          width: '20%',
+          width: isMobile ? '0%' : isTablet ? '15%' : '20%',
+          display: { xs: 'none', md: 'table-cell' }, // Hide on mobile
         }}
       >
-        <StyledTypography
-          sx={{
-            color: '#9ca3af',
-            padding: '4px 8px',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: 1,
-            letterSpacing: '0.5px',
-            fontFamily: 'monospace',
-            fontSize: '0.75rem',
-            transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)', // Slower transition
-            animation: isNew
-              ? `${fadeIn} 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.2s` // Slower fade in with longer delay
-              : 'none',
-          }}
-        >
-          {trade.orderId}
-        </StyledTypography>
+        <Tooltip title={trade.orderId} placement="top" arrow>
+          <StyledTypography
+            sx={{
+              color: '#9ca3af',
+              padding: '4px 8px',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 1,
+              letterSpacing: '0.5px',
+              fontFamily: 'monospace',
+              fontSize: '0.75rem',
+              transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)', // Slower transition
+              animation: isNew
+                ? `${fadeIn} 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.2s` // Slower fade in with longer delay
+                : 'none',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: isTablet ? '100px' : '150px',
+            }}
+          >
+            {trade.orderId}
+          </StyledTypography>
+        </Tooltip>
       </TableCell>
       <TableCell
-        width="15%"
+        width={isMobile ? '25%' : isTablet ? '15%' : '15%'}
         align="right"
         sx={{
           color: trade.type === 'buy' ? '#4ade80' : '#f87171',
           fontWeight: 'bold',
           border: 0,
-          py: 2,
-          width: '15%',
+          py: isMobile ? 1.5 : 2,
+          width: isMobile ? '25%' : isTablet ? '15%' : '15%',
         }}
       >
-        <StyledTypography
-          sx={{
-            fontWeight: 700,
-            textShadow: trade.type === 'buy'
-              ? '0 0 10px rgba(34, 197, 94, 0.3)'
-              : '0 0 10px rgba(239, 68, 68, 0.3)',
-            animation: isUpdated
-              ? `${numberChange} 1.5s cubic-bezier(0.4, 0, 0.2, 1)` // Slower number change animation
-              : 'none',
-          }}
-        >
-          ₿ {trade.price}
-        </StyledTypography>
+        <Tooltip title={`Price: ₿ ${trade.price}`} placement="top" arrow>
+          <StyledTypography
+            sx={{
+              fontWeight: 700,
+              fontSize: isMobile ? '0.75rem' : '0.875rem',
+              textShadow: trade.type === 'buy'
+                ? '0 0 10px rgba(34, 197, 94, 0.3)'
+                : '0 0 10px rgba(239, 68, 68, 0.3)',
+              animation: isUpdated
+                ? `${numberChange} 1.5s cubic-bezier(0.4, 0, 0.2, 1)` // Slower number change animation
+                : 'none',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            ₿ {trade.price}
+          </StyledTypography>
+        </Tooltip>
       </TableCell>
       <TableCell
-        width="15%"
+        width={isMobile ? '0%' : isTablet ? '15%' : '15%'}
         align="right"
         sx={{
           color: trade.type === 'buy' ? '#4ade80' : '#f87171',
           border: 0,
           py: 2,
-          width: '15%',
+          width: isMobile ? '0%' : isTablet ? '15%' : '15%',
+          display: { xs: 'none', sm: 'table-cell' }, // Hide on mobile
         }}
       >
-        <StyledTypography
-          sx={{
-            fontWeight: 500,
-            opacity: 0.9,
-            animation: isUpdated
-              ? `${numberChange} 1.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s` // Slower animation with longer delay
-              : 'none',
-          }}
-        >
-          ₮ {trade.amount}
-        </StyledTypography>
+        <Tooltip title={`Amount: ₮ ${trade.amount}`} placement="top" arrow>
+          <StyledTypography
+            sx={{
+              fontWeight: 500,
+              opacity: 0.9,
+              fontSize: isTablet ? '0.75rem' : '0.875rem',
+              animation: isUpdated
+                ? `${numberChange} 1.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s` // Slower animation with longer delay
+                : 'none',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            ₮ {trade.amount}
+          </StyledTypography>
+        </Tooltip>
       </TableCell>
       <TableCell
-        width="20%"
+        width={isMobile ? '25%' : isTablet ? '20%' : '20%'}
         align="right"
         sx={{
           color: trade.type === 'buy' ? '#4ade80' : '#f87171',
           fontWeight: 'bold',
           border: 0,
-          py: 2,
-          width: '20%',
+          py: isMobile ? 1.5 : 2,
+          width: isMobile ? '25%' : isTablet ? '20%' : '20%',
         }}
       >
-        <StyledTypography
-          sx={{
-            fontWeight: 700,
-            fontSize: '0.95rem',
-            textShadow: trade.type === 'buy'
-              ? '0 0 10px rgba(34, 197, 94, 0.3)'
-              : '0 0 10px rgba(239, 68, 68, 0.3)',
-            animation: isUpdated
-              ? `${numberChange} 1.5s cubic-bezier(0.4, 0, 0.2, 1) 0.6s` // Slower animation with longer delay
-              : 'none',
-          }}
-        >
-          ₮ {trade.total}
-        </StyledTypography>
+        <Tooltip title={`Total: ₮ ${trade.total}`} placement="top" arrow>
+          <StyledTypography
+            sx={{
+              fontWeight: 700,
+              fontSize: isMobile ? '0.75rem' : '0.95rem',
+              textShadow: trade.type === 'buy'
+                ? '0 0 10px rgba(34, 197, 94, 0.3)'
+                : '0 0 10px rgba(239, 68, 68, 0.3)',
+              animation: isUpdated
+                ? `${numberChange} 1.5s cubic-bezier(0.4, 0, 0.2, 1) 0.6s` // Slower animation with longer delay
+                : 'none',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            ₮ {trade.total}
+          </StyledTypography>
+        </Tooltip>
       </TableCell>
     </StyledTableRow>
   );

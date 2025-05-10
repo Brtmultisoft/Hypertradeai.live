@@ -1,15 +1,30 @@
 import React from 'react';
-import { Table, TableHead, TableRow, TableCell } from '@mui/material';
+import { Table, TableHead, TableRow, TableCell, Tooltip } from '@mui/material';
 
-const TableHeader: React.FC = React.memo(() => {
+interface TableHeaderProps {
+  isMobile?: boolean;
+  isTablet?: boolean;
+}
+
+const TableHeader: React.FC<TableHeaderProps> = React.memo(({ isMobile = false, isTablet = false }) => {
   // Common cell styles
   const cellBaseStyle = {
     color: '#d1d5db',
     borderBottom: '1px solid rgba(55, 65, 81, 0.5)',
     fontWeight: 600,
-    fontSize: '0.875rem',
-    py: 2,
+    fontSize: isMobile ? '0.75rem' : '0.875rem',
+    py: isMobile ? 1.5 : 2,
     backgroundColor: 'rgba(31, 41, 55, 0.5)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  };
+
+  // Adjust column widths for different screen sizes
+  const getColumnWidth = (defaultWidth: string, mobileWidth: string, tabletWidth: string) => {
+    if (isMobile) return mobileWidth;
+    if (isTablet) return tabletWidth;
+    return defaultWidth;
   };
 
   return (
@@ -25,63 +40,78 @@ const TableHeader: React.FC = React.memo(() => {
       <TableHead>
         <TableRow>
           <TableCell
-            width="20%"
+            width={getColumnWidth('20%', '30%', '25%')}
             sx={{
               ...cellBaseStyle,
-              width: '20%',
+              width: getColumnWidth('20%', '30%', '25%'),
             }}
           >
-            Exchange
+            <Tooltip title="Exchange" placement="top" arrow>
+              <span>Exchange</span>
+            </Tooltip>
           </TableCell>
           <TableCell
-            width="10%"
+            width={getColumnWidth('10%', '20%', '15%')}
             sx={{
               ...cellBaseStyle,
               textAlign: 'center',
-              width: '10%',
+              width: getColumnWidth('10%', '20%', '15%'),
+              display: { xs: 'table-cell', sm: 'table-cell' },
             }}
           >
-            Type
+            <Tooltip title="Type" placement="top" arrow>
+              <span>Type</span>
+            </Tooltip>
           </TableCell>
           <TableCell
-            width="20%"
+            width={getColumnWidth('20%', '0%', '15%')}
             sx={{
               ...cellBaseStyle,
               textAlign: 'center',
-              width: '20%',
+              width: getColumnWidth('20%', '0%', '15%'),
+              display: { xs: 'none', md: 'table-cell' }, // Hide on mobile
             }}
           >
-            Order ID
+            <Tooltip title="Order ID" placement="top" arrow>
+              <span>Order ID</span>
+            </Tooltip>
           </TableCell>
           <TableCell
-            width="15%"
+            width={getColumnWidth('15%', '25%', '15%')}
             align="right"
             sx={{
               ...cellBaseStyle,
-              width: '15%',
+              width: getColumnWidth('15%', '25%', '15%'),
             }}
           >
-            Price
+            <Tooltip title="Price" placement="top" arrow>
+              <span>Price</span>
+            </Tooltip>
           </TableCell>
           <TableCell
-            width="15%"
+            width={getColumnWidth('15%', '0%', '15%')}
             align="right"
             sx={{
               ...cellBaseStyle,
-              width: '15%',
+              width: getColumnWidth('15%', '0%', '15%'),
+              display: { xs: 'none', sm: 'table-cell' }, // Hide on mobile
             }}
           >
-            Amount
+            <Tooltip title="Amount" placement="top" arrow>
+              <span>Amount</span>
+            </Tooltip>
           </TableCell>
           <TableCell
-            width="20%"
+            width={getColumnWidth('20%', '25%', '20%')}
             align="right"
             sx={{
               ...cellBaseStyle,
-              width: '20%',
+              width: getColumnWidth('20%', '25%', '20%'),
             }}
           >
-            Total
+            <Tooltip title="Total" placement="top" arrow>
+              <span>Total</span>
+            </Tooltip>
           </TableCell>
         </TableRow>
       </TableHead>
