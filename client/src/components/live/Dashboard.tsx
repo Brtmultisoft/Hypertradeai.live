@@ -43,7 +43,7 @@ const Dashboard: React.FC = () => {
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Box>
-          <MarketSelector />
+          {/* <MarketSelector /> */}
         </Box>
 
         {/* Activation Status - Show when activated */}
@@ -81,67 +81,15 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
         )}
-
-        {/* Activation Panel - Only show if not activated */}
-        {!userData?.dailyProfitActivated && (
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Daily Profit Activation
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <ActivationPanel
-                userData={userData}
-                activatingProfit={activatingProfit}
-                onActivate={handleActivateDailyProfit}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Basic price and stats cards always shown */}
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3 }}>
-          <Box sx={{ flex: 1 }}>
-            <PriceCard />
-          </Box>
-          <Box sx={{ flex: 1 }}>
-            <StatsCard />
-          </Box>
-        </Box>
-
-        {/* Only show detailed trading components when daily profit is activated */}
-        {userData?.dailyProfitActivated ? (
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
-            <Box sx={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Box>
-                <PriceChart />
-              </Box>
-
-              {/* Trading Panel */}
-              {/* <TradingPanel /> */}
-            </Box>
-
-            <Box sx={{ flex: 1 }}>
-              <OrderBook />
-            </Box>
-          </Box>
-        ) : (
-          <Box sx={{
-            p: 4,
-            textAlign: 'center',
-            border: '1px dashed',
-            borderColor: 'divider',
-            borderRadius: 2,
-            backgroundColor: 'rgba(0, 0, 0, 0.02)'
-          }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Activate Daily Profit to View Trading Charts
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Detailed price charts, order book, and trading functionality will be available after activation.
-            </Typography>
-          </Box>
-        )}
+<Box>
+        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          Coming Soon
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Exciting new features are on the way!
+        </Typography>
+      </Box>
+       
       </Box>
     </Container>
   );
