@@ -60,7 +60,7 @@ const Dashboard: React.FC = () => {
                   Daily Profit Activated
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Your daily profit is active. You can now trade and earn 2.5% on your investment today.
+                  Your daily profit is active. You can now trade and earn 0.266% on your investment today.
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
                   Activated: {userData?.lastDailyProfitActivation
