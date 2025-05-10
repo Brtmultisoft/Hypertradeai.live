@@ -64,29 +64,83 @@ module.exports = {
     },
 
     getChildLevelsByRefer: async (user_id, withInitial = false, levelLimit = 0) => {
-        if (user_id === null) {
-            const defaultUser = await userDbHandler.getOneByQuery({ is_default: true }, { _id: 1 });
-            user_id = defaultUser._id;
+        try {
+            // Validate and convert user_id to ObjectId if it's a string
+            if (typeof user_id === 'string') {
+                const { ObjectId } = require('mongodb');
+                try {
+                    user_id = new ObjectId(user_id);
+                } catch (error) {
+                    console.error('Invalid user_id format:', error);
+                    return { error: 'Invalid user ID format' };
+                }
+            }
+
+            // If user_id is null, use the default user
+            if (user_id === null) {
+                const defaultUser = await userDbHandler.getOneByQuery({ is_default: true }, { _id: 1 });
+                if (!defaultUser) {
+                    return { error: 'Default user not found' };
+                }
+                user_id = defaultUser._id;
+            }
+
+            // Get the user data for the initial user if needed
+            let initialUser = null;
+            if (withInitial) {
+                initialUser = await userDbHandler.getById(user_id, { password: 0 });
+                if (!initialUser) {
+                    return { error: 'User not found' };
+                }
+            }
+
+            // Initialize the levels array
+            // If withInitial is true, include the initial user in level 0
+            let levels = [];
+            if (withInitial && initialUser) {
+                levels[0] = [initialUser];
+            }
+
+            // Start from level 1 (direct referrals)
+            let i = 1;
+            let currentLevelIds = [user_id]; // Start with the initial user ID
+
+            while (true) {
+                // Get all users who have the current level users as their referrer
+                const children = await userDbHandler.getByQuery(
+                    { refer_id: { $in: currentLevelIds } },
+                    { password: 0 } // Exclude password for security
+                );
+
+                // If no children found at this level, break the loop
+                if (!children.length) break;
+
+                // Store the complete user objects for this level
+                levels[i] = children;
+
+                // Prepare for the next level by extracting just the IDs
+                currentLevelIds = children.map(child => child._id);
+
+                // Break if we've reached the specified level limit
+                if (levelLimit && i === levelLimit) break;
+
+                // Move to the next level
+                i++;
+            }
+
+            return {
+                success: true,
+                levels: levels,
+                // Include a flattened array of all users for convenience
+                allUsers: levels.flat()
+            };
+        } catch (error) {
+            console.error('Error in getChildLevelsByRefer:', error);
+            return {
+                error: 'Failed to retrieve referral users',
+                details: error.message
+            };
         }
-        let levels = withInitial ? [[]] : [[]];
-
-        let i = 1;
-        while (true) {
-            const currentLevel = (i == 1) ? [user_id] : levels[i - 1];
-            const children = await userDbHandler.getByQuery({ refer_id: { $in: currentLevel } }, { password: 0 });
-
-            if (!children.length) break;
-            
-            // const childIds = children.map(child => child._id);
-            // console.log(children, childIds)
-            levels[i] = children;
-
-            if (levelLimit && i === levelLimit) break;
-
-            i++;
-        }
-
-        return levels;
     },
 
     getTopLevel: async (user_id, level = 0, arr = []) => {
@@ -110,7 +164,7 @@ module.exports = {
         }
     },
 
-    
+
 
     // returns the vacancy in binary registration
     getTerminalId: async (referId, position) => {
@@ -133,10 +187,10 @@ module.exports = {
                 const defaultUser = await userDbHandler.getOneByQuery({ is_default: true }, { _id: 1 });
                 referId = defaultUser._id;
             }
-    
+
             let placementId = referId;
             let currentLevelResults = await userDbHandler.getByQuery({ placement_id: placementId }, { _id: 1 });
-            
+
             // Check if the current referrer has completed their matrix
             if (currentLevelResults.length < unum) {
                 return placementId;
@@ -145,16 +199,16 @@ module.exports = {
             // Traverse the matrix levels until we find an available spot
             while (true) {
                 let nextLevelResults = [];
-                
+
                 // Traverse all users in the current level
                 for (const result of currentLevelResults) {
                     const nestedResults = await userDbHandler.getByQuery({ placement_id: result._id }, { _id: 1 });
-                    
+
                     // If a user in the current level has not completed their matrix, place the new user under them
                     if (nestedResults.length < unum) {
                         return result._id;
                     }
-                    
+
                     nextLevelResults.push(...nestedResults);
                 }
 
@@ -193,7 +247,7 @@ module.exports = {
     //                     } else {
     //                         placementId = result._id;
     //                         found = true;
-                            
+
     //                     }
     //                 }
 

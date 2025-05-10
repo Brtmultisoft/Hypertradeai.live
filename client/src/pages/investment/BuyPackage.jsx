@@ -974,7 +974,6 @@ const BuyPackage = () => {
                       ? mode === 'dark' ? '0 4px 10px rgba(51, 117, 187, 0.3)' : '0 4px 10px rgba(0, 0, 0, 0.1)'
                       : 'none',
                     position: 'relative',
-                    overflow: 'hidden',
                     '&::before': percent === 100 ? {
                       content: '""',
                       position: 'absolute',

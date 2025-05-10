@@ -302,9 +302,20 @@ const TeamStructure = () => {
 
   // Process team data to calculate statistics and transform to tree structure
   const processTeamData = (data) => {
-    if (!data || !data.result || !Array.isArray(data.result)) return;
+    if (!data) return;
 
-    const nestedArray = data.result;
+    // Check if we have the new response structure with levels and allUsers
+    const hasNewStructure = data.data && data.data.levels && Array.isArray(data.data.levels);
+
+    // Get the nested array from either the new or old structure
+    const nestedArray = hasNewStructure ? data.data.levels : (data.result || []);
+    const allUsersFlat = hasNewStructure ? (data.data.allUsers || []) : [];
+
+    if (!Array.isArray(nestedArray)) {
+      console.error("Invalid team data structure:", data);
+      return;
+    }
+
     let totalInvestment = 0;
     let activeMembers = 0;
     let maxDepth = nestedArray.length - 1; // The depth is the number of levels in the array
@@ -318,10 +329,10 @@ const TeamStructure = () => {
       members: []
     }));
 
-    // Flatten the nested array structure
+    // Process the nested array structure
     nestedArray.forEach((level, levelIndex) => {
       if (Array.isArray(level)) {
-        // Skip level 0 (user's own data)
+        // Skip level 0 (user's own data) if not withInitial
         if (levelIndex > 0 && levelIndex <= 10) {
           // Update level stats
           levelStatsArray[levelIndex - 1].memberCount = level.length;
@@ -343,7 +354,7 @@ const TeamStructure = () => {
               name: member.name || 'Unknown',
               username: member.username || 'unknown',
               email: member.email || 'N/A',
-              phone: member.phone || 'N/A',
+              phone: member.phone_number || 'N/A',
               investment: member.total_investment || 0,
               joinDate: member.created_at || 'N/A',
               status: member.total_investment > 0 ? 'Active' : 'Inactive',
@@ -360,13 +371,19 @@ const TeamStructure = () => {
       }
     });
 
+    // If we have the flat allUsers array from the new structure, use it to supplement our data
+    if (allUsersFlat.length > 0) {
+      // We can use this for additional processing if needed
+      console.log(`Found ${allUsersFlat.length} users in the flat structure`);
+    }
+
     // Update level stats state
     setLevelStats(levelStatsArray);
 
     // Transform flat structure to hierarchical tree
     const buildTree = () => {
       // Find the root user (current user)
-      const currentUser = allMembers.find(member => member.level === 0) || {
+      const currentUser = nestedArray[0]?.[0] || {
         id: 'root',
         name: user?.name || 'You',
         username: user?.username || 'Current User',
@@ -505,7 +522,8 @@ const TeamStructure = () => {
 
   // Process team data when it changes
   useEffect(() => {
-    if (teamData?.result) {
+    if (teamData) {
+      console.log("Team data received:", teamData);
       processTeamData(teamData);
     }
   }, [teamData]);
@@ -513,7 +531,11 @@ const TeamStructure = () => {
   // Update UI when team count data changes
   useEffect(() => {
     if (teamCountData) {
-      processTeamData(teamData);
+      console.log("Team count data received:", teamCountData);
+      // Only process if we have both data sets
+      if (teamData) {
+        processTeamData(teamData);
+      }
     }
   }, [teamData, teamCountData]);
 
@@ -728,7 +750,12 @@ const TeamStructure = () => {
             }
           }}
         >
-          {teamError.msg || 'Failed to load team data. Please try again.'}
+          {teamError.msg || teamError.error || 'Failed to load team data. Please try again.'}
+          {teamError.details && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Details: {teamError.details}
+            </Typography>
+          )}
         </Alert>
       )}
 
