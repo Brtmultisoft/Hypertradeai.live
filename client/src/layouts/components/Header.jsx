@@ -115,7 +115,7 @@ const Header = ({ onToggleSidebar }) => {
               >
                 <Typography
                   component={Link}
-                  to="/dashboard"
+                  to="/settings"
                   variant="h6"
                   color="inherit"
                   noWrap
@@ -475,7 +475,7 @@ const Header = ({ onToggleSidebar }) => {
             }
           }}
         >
-          <MenuItem component={Link} to="/profile" onClick={handleMenuClose}>
+          <MenuItem component={Link} to="/settings" onClick={handleMenuClose}>
             Profile
           </MenuItem>
 
