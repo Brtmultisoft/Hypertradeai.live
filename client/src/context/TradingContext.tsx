@@ -115,7 +115,7 @@ export const TradingContextProvider: React.FC<TradingContextProviderProps> = ({ 
   const [loadingTrades, setLoadingTrades] = useState(false);
   const [refreshData, setRefreshData] = useState(false);
   const [autoRotate, setAutoRotate] = useState<boolean>(true);
-  const [autoRotateTimer, setAutoRotateTimer] = useState<NodeJS.Timeout | null>(null);
+  const [autoRotateTimer, setAutoRotateTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [userData, setUserData] = useState<UserData | null>({
     _id: 'mock-user-id',
     total_investment: 5000,
