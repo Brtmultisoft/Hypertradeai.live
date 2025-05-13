@@ -12,6 +12,7 @@ const ActivationPanel: React.FC<ActivationPanelProps> = ({
   activatingProfit,
   onActivate
 }) => {
+  
   const isActive = userData?.dailyProfitActivated === true;
   const hasInvestment = userData && userData.total_investment > 0;
 

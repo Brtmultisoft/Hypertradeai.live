@@ -131,3 +131,10 @@ export const formatFileSize = (bytes, decimals = 2) => {
 
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${sizes[i]}`;
 };
+
+export const formatTiming = (seconds) => {
+  const hours = Math.floor(seconds / 3600).toString().padStart(2, '0');
+  const minutes = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}:${secs}`;
+};
