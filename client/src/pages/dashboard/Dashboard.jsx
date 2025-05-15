@@ -2257,7 +2257,7 @@ const Dashboard = () => {
                     padding: 1,
                   }}
                   onError={(e) => {
-                    e.target.src = `https://via.placeholder.com/60x60/3375BB/FFFFFF?text=${item.category || 'News'}`;
+                    // e.target.src = `https://via.placeholder.com/60x60/3375BB/FFFFFF?text=${item.category || 'News'}`;
                   }}
                 />
                 <Box sx={{ flex: 1 }}>

@@ -117,12 +117,12 @@ const login = async (credentials) => {
       // Update state with user data immediately
       setToken(newToken);
       setUser(userData);
-      
+
       // Set authorization header for future requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
 
       console.log('Login successful, token stored and headers set');
-      
+
       // Load user profile data to ensure we have the most up-to-date information
       // try {
       //   await loadUser(newToken);
@@ -144,6 +144,20 @@ const login = async (credentials) => {
     }
   } catch (err) {
     console.error('Login error:', err);
+
+    // Check if the error is due to a blocked account
+    if (err.response?.status === 403 && err.response?.data?.msg?.includes('blocked')) {
+      const blockReason = err.response?.data?.block_reason || 'No reason provided';
+      const errorMessage = `Your account has been blocked. Reason: ${blockReason}`;
+      setError(errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+        isBlocked: true,
+        blockReason: blockReason
+      };
+    }
+
     const errorMessage = err.response?.data?.msg || err.response?.data?.message || 'Login failed';
     setError(errorMessage);
     return { success: false, error: errorMessage };

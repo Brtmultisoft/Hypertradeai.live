@@ -104,6 +104,8 @@ class User {
                 wallet_address:1,
                 city: 1,
                 total_investment:1,
+                is_blocked: 1,
+                block_reason: 1,
                 referrer_name: {
                     $ifNull: ["$referrer.name", ""]
                 },

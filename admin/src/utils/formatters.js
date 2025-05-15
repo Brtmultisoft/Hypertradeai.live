@@ -34,7 +34,7 @@ export const formatNumber = (value, decimals = 0) => {
  */
 export const formatDate = (date, options = {}) => {
   if (!date) return 'N/A';
-  
+
   const defaultOptions = {
     year: 'numeric',
     month: 'short',
@@ -42,10 +42,44 @@ export const formatDate = (date, options = {}) => {
     hour: '2-digit',
     minute: '2-digit',
   };
-  
+
   const mergedOptions = { ...defaultOptions, ...options };
-  
-  return new Intl.DateTimeFormat('en-US', mergedOptions).format(new Date(date));
+
+  try {
+    // Handle different date formats
+    let dateObj;
+
+    if (date instanceof Date) {
+      dateObj = date;
+    } else if (typeof date === 'string') {
+      // Try to parse the date string
+      if (date.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+        // ISO format
+        dateObj = new Date(date);
+      } else if (date.match(/^\d+$/)) {
+        // Unix timestamp (milliseconds)
+        dateObj = new Date(parseInt(date, 10));
+      } else {
+        // Other string formats
+        dateObj = new Date(date);
+      }
+    } else if (typeof date === 'number') {
+      // Unix timestamp
+      dateObj = new Date(date);
+    } else {
+      return 'Invalid Date';
+    }
+
+    // Check if the date is valid
+    if (isNaN(dateObj.getTime())) {
+      return 'Invalid Date';
+    }
+
+    return new Intl.DateTimeFormat('en-US', mergedOptions).format(dateObj);
+  } catch (error) {
+    console.error('Error formatting date:', error, date);
+    return 'Date Error';
+  }
 };
 
 /**
@@ -55,35 +89,74 @@ export const formatDate = (date, options = {}) => {
  */
 export const formatRelativeTime = (date) => {
   if (!date) return 'N/A';
-  
-  const now = new Date();
-  const then = new Date(date);
-  const diffInSeconds = Math.floor((now - then) / 1000);
-  
-  if (diffInSeconds < 60) {
-    return 'just now';
+
+  try {
+    // Handle different date formats
+    let dateObj;
+
+    if (date instanceof Date) {
+      dateObj = date;
+    } else if (typeof date === 'string') {
+      // Try to parse the date string
+      if (date.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+        // ISO format
+        dateObj = new Date(date);
+      } else if (date.match(/^\d+$/)) {
+        // Unix timestamp (milliseconds)
+        dateObj = new Date(parseInt(date, 10));
+      } else {
+        // Other string formats
+        dateObj = new Date(date);
+      }
+    } else if (typeof date === 'number') {
+      // Unix timestamp
+      dateObj = new Date(date);
+    } else {
+      return 'Invalid Date';
+    }
+
+    // Check if the date is valid
+    if (isNaN(dateObj.getTime())) {
+      return 'Invalid Date';
+    }
+
+    const now = new Date();
+    const then = dateObj;
+    const diffInSeconds = Math.floor((now - then) / 1000);
+
+    if (diffInSeconds < 0) {
+      // Future date
+      return 'in the future';
+    }
+
+    if (diffInSeconds < 60) {
+      return 'just now';
+    }
+
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
+    }
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    }
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 30) {
+      return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+    }
+
+    const diffInMonths = Math.floor(diffInDays / 30);
+    if (diffInMonths < 12) {
+      return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
+    }
+
+    const diffInYears = Math.floor(diffInMonths / 12);
+    return `${diffInYears} year${diffInYears > 1 ? 's' : ''} ago`;
+  } catch (error) {
+    console.error('Error formatting relative time:', error, date);
+    return 'Date Error';
   }
-  
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) {
-    return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
-  }
-  
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) {
-    return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-  }
-  
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 30) {
-    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-  }
-  
-  const diffInMonths = Math.floor(diffInDays / 30);
-  if (diffInMonths < 12) {
-    return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
-  }
-  
-  const diffInYears = Math.floor(diffInMonths / 12);
-  return `${diffInYears} year${diffInYears > 1 ? 's' : ''} ago`;
 };

@@ -24,6 +24,15 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Typography,
+  Switch,
+  FormControlLabel,
+  Avatar,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -32,12 +41,17 @@ import {
   Edit as EditIcon,
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
+  Block as BlockIcon,
+  LockOpen as UnblockIcon,
+  Warning as WarningIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import useAuth from '../../hooks/useAuth';
 import useDebounce from '../../hooks/useDebounce';
 import UserService from '../../services/user.service';
 import ApiService from '../../services/api.service';
+import axios from 'axios';
 import PageHeader from '../../components/PageHeader';
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, API_URL } from '../../config';
 
@@ -57,6 +71,15 @@ const AllTeam = () => {
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterReferrer, setFilterReferrer] = useState('');
   const [referrers, setReferrers] = useState([]);
+  const [blockingUser, setBlockingUser] = useState(null);
+  const [unblockingUser, setUnblockingUser] = useState(null);
+  const [blockReason, setBlockReason] = useState('');
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showUnblockDialog, setShowUnblockDialog] = useState(false);
+
+  // User details dialog state
+  const [showUserDetailsDialog, setShowUserDetailsDialog] = useState(false);
+  const [selectedUserDetails, setSelectedUserDetails] = useState(null);
 
   // Use debounced search term to prevent excessive API calls
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
@@ -110,7 +133,7 @@ const AllTeam = () => {
           token,
         });
       } else {
-        setError(response?.message || 'Failed to fetch users');
+        // setError(response?.message || 'Failed to fetch users');
       }
     } catch (err) {
       // Enhanced error logging with more details
@@ -230,6 +253,197 @@ const AllTeam = () => {
     setPage(0);
   };
 
+  // Open block dialog
+  const openBlockDialog = (userId) => {
+    setBlockingUser(userId);
+    setBlockReason('Blocked by administrator');
+    setShowBlockDialog(true);
+  };
+
+  // Close block dialog
+  const closeBlockDialog = () => {
+    setShowBlockDialog(false);
+    setBlockingUser(null);
+    setBlockReason('');
+  };
+
+  // Handle block user
+  const handleBlockUser = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      // Get the admin token
+      const token = getToken();
+      if (!token) {
+        setError('Admin authentication token not found. Please log in again.');
+        closeBlockDialog();
+        return;
+      }
+
+      // Call the API to block the user
+      const response = await UserService.blockUser({
+        userId: blockingUser,
+        reason: blockReason,
+        token,
+      });
+
+      if (response && response.status) {
+        setSuccessMessage(response.msg || 'User has been blocked successfully');
+        // Refresh the user list
+        fetchUsers();
+        closeBlockDialog();
+      } else {
+        setError(response?.msg || 'Failed to block user');
+        closeBlockDialog();
+      }
+    } catch (err) {
+      console.error('Error blocking user:', err);
+      setError(err.response?.data?.msg || 'An error occurred while blocking the user');
+      closeBlockDialog();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open unblock dialog
+  const openUnblockDialog = (userId) => {
+    setUnblockingUser(userId);
+    setShowUnblockDialog(true);
+  };
+
+  // Close unblock dialog
+  const closeUnblockDialog = () => {
+    setShowUnblockDialog(false);
+    setUnblockingUser(null);
+  };
+
+  // Handle unblock user
+  const handleUnblockUser = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      // Get the admin token
+      const token = getToken();
+      if (!token) {
+        setError('Admin authentication token not found. Please log in again.');
+        closeUnblockDialog();
+        return;
+      }
+
+      // Call the API to unblock the user
+      const response = await UserService.unblockUser({
+        userId: unblockingUser,
+        token,
+      });
+
+      if (response && response.status) {
+        setSuccessMessage(response.msg || 'User has been unblocked successfully');
+        // Refresh the user list
+        fetchUsers();
+        closeUnblockDialog();
+      } else {
+        setError(response?.msg || 'Failed to unblock user');
+        closeUnblockDialog();
+      }
+    } catch (err) {
+      console.error('Error unblocking user:', err);
+      setError(err.response?.data?.msg || 'An error occurred while unblocking the user');
+      closeUnblockDialog();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle view user details
+  const handleViewUser = async (userId) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get the admin token
+      const token = getToken();
+      if (!token) {
+        setError('Admin authentication token not found. Please log in again.');
+        return;
+      }
+
+      console.log(`Fetching user details for ID: ${userId}`);
+
+      // Try direct axios call first as a fallback
+      try {
+        const directResponse = await axios.get(`${API_URL}/admin/get-user/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        console.log('Direct API call response:', directResponse.data);
+
+        if (directResponse.data && directResponse.data.status) {
+          const userData = directResponse.data.data || directResponse.data.result;
+          if (!userData) {
+            throw new Error('User data not found in the response');
+          }
+
+          console.log('Setting user details from direct call:', userData);
+          setSelectedUserDetails(userData);
+          setShowUserDetailsDialog(true);
+          setLoading(false);
+          return;
+        }
+      } catch (directError) {
+        console.error('Direct API call failed, trying UserService:', directError);
+      }
+
+      // If direct call fails, try the UserService
+      const response = await UserService.getUserById(userId, token);
+
+      console.log('UserService response:', response);
+
+      if (response && response.status) {
+        const userData = response.data || response.result;
+        if (!userData) {
+          console.error('User data is null or undefined');
+          setError('User data not found in the response');
+          setLoading(false);
+          return;
+        }
+
+        console.log('Setting user details from UserService:', userData);
+        setSelectedUserDetails(userData);
+        setShowUserDetailsDialog(true);
+      } else {
+        console.error('Failed to fetch user details:', response);
+        setError(response?.msg || 'Failed to fetch user details');
+      }
+    } catch (err) {
+      console.error('Error fetching user details:', err);
+      if (err.response) {
+        console.error('Error response:', err.response.data);
+        setError(err.response.data?.msg || 'Server error while fetching user details');
+      } else if (err.request) {
+        console.error('No response received:', err.request);
+        setError('No response received from server. Please check your connection.');
+      } else {
+        console.error('Error message:', err.message);
+        setError(`Error: ${err.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Close user details dialog
+  const closeUserDetailsDialog = () => {
+    setShowUserDetailsDialog(false);
+    setSelectedUserDetails(null);
+  };
+
   // Handle login as user with a single click - optimized version
   const handleLoginAsUser = async (userId) => {
     try {
@@ -292,7 +506,7 @@ const AllTeam = () => {
         const newWindow = window.open(loginUrl, '_blank', 'noopener,noreferrer');
 
         if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-          setError('Failed to open login window. Please allow popups for this site.');
+          // setError('Failed to open login window. Please allow popups for this site.');
           setLoading(false);
         } else {
           // Set up a listener to detect when the window is closed
@@ -472,7 +686,7 @@ const AllTeam = () => {
                     }}
                     onClick={() => handleSort('transaction_id')}
                   >
-                    Serial No. {renderSortIcon('transaction_id')}
+                    S.No. {renderSortIcon('transaction_id')}
                   </Box>
                 </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>
@@ -546,7 +760,7 @@ const AllTeam = () => {
                     }}
                     onClick={() => handleSort('wallet')}
                   >
-                    Wallet (Max First) {renderSortIcon('wallet')}
+                    Wallet (Max) {renderSortIcon('wallet')}
                   </Box>
                 </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>
@@ -642,13 +856,27 @@ const AllTeam = () => {
                     <TableCell>{index+1}</TableCell>
                     <TableCell>{user.sponsorID || 'N/A'}</TableCell>
                     <TableCell>
-                      <Button
-                        color="primary"
-                        sx={{ textTransform: 'none', fontWeight: 'normal', p: 0, minWidth: 'auto' }}
-                        onClick={() => handleLoginAsUser(user._id)}
-                      >
-                        {user.name}
-                      </Button>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Button
+                          color="primary"
+                          sx={{ textTransform: 'none', fontWeight: 'normal', p: 0, minWidth: 'auto' }}
+                          onClick={() => handleLoginAsUser(user._id)}
+                        >
+                          {user.name}
+                        </Button>
+                        {user.is_blocked && (
+                          <Tooltip title={user.block_reason || 'User is blocked'}>
+                            <Chip
+                              icon={<WarningIcon />}
+                              label="Blocked"
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              sx={{ ml: 1 }}
+                            />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
@@ -697,7 +925,7 @@ const AllTeam = () => {
                           size="small"
                           color="primary"
                           sx={{ mr: 1 }}
-                        // onClick={() => handleViewUser(user._id)}
+                          onClick={() => handleViewUser(user._id)}
                         >
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
@@ -706,10 +934,29 @@ const AllTeam = () => {
                         <IconButton
                           size="small"
                           color="secondary"
+                          sx={{ mr: 1 }}
                           onClick={() => navigate(`/edit-user/${user._id}`)}
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
+                      </Tooltip>
+                      <Tooltip title={user.is_blocked ? "Unblock User" : "Block User"}>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={!user.is_blocked}
+                              onChange={() => user.is_blocked ? openUnblockDialog(user._id) : openBlockDialog(user._id)}
+                              color={user.is_blocked ? "error" : "success"}
+                              size="small"
+                            />
+                          }
+                          label={
+                            <Typography variant="caption" color={user.is_blocked ? "error" : "success"}>
+                              {user.is_blocked ? "Blocked" : "Active"}
+                            </Typography>
+                          }
+                          sx={{ ml: 0, mr: 0 }}
+                        />
                       </Tooltip>
                     </TableCell>
                   </TableRow>
@@ -728,6 +975,464 @@ const AllTeam = () => {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </Paper>
+
+      {/* Block User Dialog */}
+      <Dialog
+        open={showBlockDialog}
+        onClose={closeBlockDialog}
+        aria-labelledby="block-dialog-title"
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderTop: '4px solid',
+            borderColor: 'error.main',
+            borderRadius: '8px',
+          }
+        }}
+      >
+        <DialogTitle id="block-dialog-title">
+          <Box display="flex" alignItems="center">
+            <Avatar sx={{ bgcolor: 'error.main', mr: 2 }}>
+              <BlockIcon />
+            </Avatar>
+            <Box>
+              <Typography variant="h6">Block User Account</Typography>
+              <Typography variant="caption" color="text.secondary">
+                This action will prevent the user from accessing the platform
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 3, p: 2, bgcolor: 'error.light', borderRadius: 1, color: 'error.dark' }}>
+            <Typography variant="body2">
+              <strong>Warning:</strong> Blocking this user will prevent them from logging in and using the platform.
+              They will not be able to activate daily trading or access any features.
+            </Typography>
+          </Box>
+
+          <TextField
+            autoFocus
+            margin="dense"
+            id="block-reason"
+            label="Reason for blocking"
+            placeholder="Please provide a reason for blocking this user"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={blockReason}
+            onChange={(e) => setBlockReason(e.target.value)}
+            helperText="This reason will be shown to the user when they attempt to log in"
+            required
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={closeBlockDialog} variant="outlined">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleBlockUser}
+            variant="contained"
+            color="error"
+            startIcon={<BlockIcon />}
+            disabled={!blockReason.trim()}
+          >
+            Block User
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Unblock User Dialog */}
+      <
+
+
+
+
+        Dialog
+        open={showUnblockDialog}
+        onClose={closeUnblockDialog}
+        aria-labelledby="unblock-dialog-title"
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderTop: '4px solid',
+            borderColor: 'success.main',
+            borderRadius: '8px',
+          }
+        }}
+      >
+        <DialogTitle id="unblock-dialog-title">
+          <Box display="flex" alignItems="center">
+            <Avatar sx={{ bgcolor: 'success.main', mr: 2 }}>
+              <UnblockIcon />
+            </Avatar>
+            <Box>
+              <Typography variant="h6">Unblock User Account</Typography>
+              <Typography variant="caption" color="text.secondary">
+                This action will restore user access to the platform
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 3, p: 2, bgcolor: 'success.light', borderRadius: 1, color: 'success.dark' }}>
+            <Typography variant="body2">
+              <strong>Note:</strong> Unblocking this user will allow them to log in and use the platform again.
+              They will be able to activate daily trading and access all features.
+            </Typography>
+          </Box>
+
+          <DialogContentText>
+            Are you sure you want to unblock this user?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={closeUnblockDialog} variant="outlined">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUnblockUser}
+            variant="contained"
+            color="success"
+            startIcon={<UnblockIcon />}
+          >
+            Unblock User
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* User Details Dialog */}
+      <Dialog
+        open={showUserDetailsDialog}
+        onClose={closeUserDetailsDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '8px',
+            maxHeight: '90vh',
+          }
+        }}
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box display="flex" alignItems="center">
+              <Avatar
+                src={selectedUserDetails?.avatar}
+                sx={{
+                  width: 56,
+                  height: 56,
+                  mr: 2,
+                  bgcolor: theme.palette.primary.main,
+                  color: theme.palette.primary.contrastText,
+                }}
+              >
+                {selectedUserDetails?.name?.charAt(0) || selectedUserDetails?.username?.charAt(0) || 'U'}
+              </Avatar>
+              <Box>
+                <Typography variant="h6">
+                  {selectedUserDetails?.name || 'User Details'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {selectedUserDetails?.email || 'No email available'}
+                </Typography>
+              </Box>
+            </Box>
+            <IconButton onClick={closeUserDetailsDialog} edge="end">
+              <ArrowBackIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ p: 0 }}>
+          {selectedUserDetails && selectedUserDetails._id ? (
+            <Box sx={{ p: 0 }}>
+              <Grid container spacing={0}>
+                {/* Left Column - Basic Information */}
+                <Grid item xs={12} md={6} sx={{ borderRight: { md: `1px solid ${theme.palette.divider}` } }}>
+                  <Box sx={{ p: 3 }}>
+                    <Typography variant="h6" gutterBottom sx={{ borderBottom: `1px solid ${theme.palette.divider}`, pb: 1, mb: 2 }}>
+                      Basic Information
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">User ID</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails._id || 'N/A'}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Sponsor ID</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.sponsorID || 'N/A'}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Username</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.username || 'N/A'}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Phone Number</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.phone_number || 'N/A'}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Status</Typography>
+                        <Chip
+                          label={selectedUserDetails.status ? "Active" : "Inactive"}
+                          color={selectedUserDetails.status ? "success" : "error"}
+                          size="small"
+                        />
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Block Status</Typography>
+                        <Chip
+                          label={selectedUserDetails.is_blocked ? "Blocked" : "Not Blocked"}
+                          color={selectedUserDetails.is_blocked ? "error" : "success"}
+                          size="small"
+                        />
+                      </Grid>
+
+                      {selectedUserDetails.is_blocked && (
+                        <Grid item xs={12}>
+                          <Typography variant="subtitle2" color="text.secondary">Block Reason</Typography>
+                          <Typography variant="body2" color="error" gutterBottom>
+                            {selectedUserDetails.block_reason || 'No reason provided'}
+                          </Typography>
+                        </Grid>
+                      )}
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Joined On</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.created_at ? formatDate(selectedUserDetails.created_at) : 'N/A'}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Last Updated</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.updated_at ? formatDate(selectedUserDetails.updated_at) : 'N/A'}</Typography>
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Typography variant="subtitle2" color="text.secondary">Referred By</Typography>
+                        <Typography variant="body2" gutterBottom>
+                          {selectedUserDetails.referrer_name ? (
+                            `${selectedUserDetails.referrer_name} (${selectedUserDetails.referrer_email || 'No email'})`
+                          ) : (
+                            selectedUserDetails.refer_id === 'admin' ? 'Admin' : (selectedUserDetails.refer_id || 'N/A')
+                          )}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+
+                    <Typography variant="h6" gutterBottom sx={{ borderBottom: `1px solid ${theme.palette.divider}`, pb: 1, mb: 2, mt: 4 }}>
+                      Location Information
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Country</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.country || 'N/A'}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Country Code</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.country_code || 'N/A'}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">State</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.state || 'N/A'}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">City</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.city || 'N/A'}</Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Grid>
+
+                {/* Right Column - Financial Information */}
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ p: 3 }}>
+                    <Typography variant="h6" gutterBottom sx={{ borderBottom: `1px solid ${theme.palette.divider}`, pb: 1, mb: 2 }}>
+                      Financial Information
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Main Wallet</Typography>
+                        <Typography variant="body1" fontWeight="bold" color="primary" gutterBottom>
+                          {formatCurrency(selectedUserDetails.wallet || 0)}
+                        </Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Topup Wallet</Typography>
+                        <Typography variant="body1" fontWeight="bold" color="secondary" gutterBottom>
+                          {formatCurrency(selectedUserDetails.wallet_topup || 0)}
+                        </Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Total Investment</Typography>
+                        <Typography variant="body2" gutterBottom>{formatCurrency(selectedUserDetails.total_investment || 0)}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Last Investment Amount</Typography>
+                        <Typography variant="body2" gutterBottom>{formatCurrency(selectedUserDetails.last_investment_amount || 0)}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Reward Points</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.reward || 0}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Rank</Typography>
+                        <Chip
+                          label={selectedUserDetails.rank || 'ACTIVE'}
+                          color="primary"
+                          size="small"
+                        />
+                      </Grid>
+                    </Grid>
+
+                    <Typography variant="h6" gutterBottom sx={{ borderBottom: `1px solid ${theme.palette.divider}`, pb: 1, mb: 2, mt: 4 }}>
+                      Trading Information
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Daily Profit Activated</Typography>
+                        <Chip
+                          label={selectedUserDetails.dailyProfitActivated ? "Yes" : "No"}
+                          color={selectedUserDetails.dailyProfitActivated ? "success" : "default"}
+                          size="small"
+                        />
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Last Activation</Typography>
+                        <Typography variant="body2" gutterBottom>
+                          {selectedUserDetails.lastDailyProfitActivation ?
+                            (typeof selectedUserDetails.lastDailyProfitActivation === 'string' ?
+                              formatDate(selectedUserDetails.lastDailyProfitActivation) :
+                              selectedUserDetails.lastDailyProfitActivation.toString()) :
+                            'Never'}
+                        </Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Trade Booster</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.trade_booster || 0}%</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Level ROI Income</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.level_roi_income || 0}</Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Last Login</Typography>
+                        <Typography variant="body2" gutterBottom>
+                          {selectedUserDetails.last_login_date ?
+                            (typeof selectedUserDetails.last_login_date === 'string' ?
+                              formatDate(selectedUserDetails.last_login_date) :
+                              selectedUserDetails.last_login_date.toString()) :
+                            'Never'}
+                        </Typography>
+                      </Grid>
+
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle2" color="text.secondary">Daily Logins</Typography>
+                        <Typography variant="body2" gutterBottom>{selectedUserDetails.daily_logins || 0}</Typography>
+                      </Grid>
+                    </Grid>
+
+                    <Typography variant="h6" gutterBottom sx={{ borderBottom: `1px solid ${theme.palette.divider}`, pb: 1, mb: 2, mt: 4 }}>
+                      Wallet Addresses
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <Typography variant="subtitle2" color="text.secondary">Wallet Address</Typography>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-all' }} gutterBottom>
+                          {selectedUserDetails.wallet_address || 'N/A'}
+                        </Typography>
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Typography variant="subtitle2" color="text.secondary">Withdraw Wallet</Typography>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-all' }} gutterBottom>
+                          {selectedUserDetails.withdraw_wallet || 'N/A'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', p: 5 }}>
+              {loading ? (
+                <CircularProgress />
+              ) : (
+                <>
+                  <Typography variant="h6" color="error" gutterBottom>
+                    Error Loading User Details
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {error || 'Could not load user details. Please try again.'}
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    sx={{ mt: 2 }}
+                    onClick={() => {
+                      if (selectedUserDetails?._id) {
+                        handleViewUser(selectedUserDetails._id);
+                      } else {
+                        closeUserDetailsDialog();
+                      }
+                    }}
+                  >
+                    Retry
+                  </Button>
+                </>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
+          <Button
+            onClick={() => {
+              closeUserDetailsDialog();
+              if (selectedUserDetails?._id) {
+                navigate(`/edit-user/${selectedUserDetails._id}`);
+              }
+            }}
+            color="primary"
+            startIcon={<EditIcon />}
+          >
+            Edit User
+          </Button>
+
+          <Button
+            onClick={closeUserDetailsDialog}
+            variant="contained"
+            color="primary"
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -253,6 +253,14 @@ const userSchema = new Schema({
     last_investment_amount: {
         type: Number,
         default: 0 // Amount of user's last investment
+    },
+    is_blocked: {
+        type: Boolean,
+        default: false // Whether user is blocked by admin
+    },
+    block_reason: {
+        type: String,
+        default: '' // Reason for blocking the user
     }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

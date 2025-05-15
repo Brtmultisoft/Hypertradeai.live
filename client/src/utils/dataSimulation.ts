@@ -173,9 +173,17 @@ export const simulatePriceChange = (currentPrice: number): number => {
   return currentPrice * (1 + randomWalk);
 };
 
-export const generateOrderBook = (currentPrice: number) => {
-  const asks = [];
-  const bids = [];
+// Define type for order book entries
+export interface OrderBookEntry {
+  price: number;
+  amount: string;
+  total: string;
+  depth: number;
+}
+
+export const generateOrderBook = (currentPrice: number): { asks: OrderBookEntry[], bids: OrderBookEntry[] } => {
+  const asks: OrderBookEntry[] = [];
+  const bids: OrderBookEntry[] = [];
 
   // Generate asks (sell orders)
   for (let i = 0; i < 15; i++) {

@@ -308,6 +308,14 @@ module.exports = {
                 return responseHelper.error(res, responseData);
             }
             console.log(getUser);
+
+            // Check if user is blocked
+            if (getUser[0].is_blocked) {
+                responseData.msg = "Your account has been blocked. Please contact support for assistance.";
+                responseData.block_reason = getUser[0].block_reason || 'No reason provided';
+                return responseHelper.forbidden(res, responseData);
+            }
+
             // Check if password matches
             try {
                 const checkPassword = await _comparePassword(reqObj ?.password, getUser[0].password);
@@ -411,7 +419,7 @@ module.exports = {
             return responseHelper.success2(res, responseData);
         }
     },
-    
+
 
     /**
      * Method to handle user login request from Admin Side

@@ -7,7 +7,7 @@ module.exports = {
   login: Joi.object().keys({
     userAddress: Joi.string().trim().optional().allow("").min(6).max(50).label("User Name"),
 
-    email: Joi.string().trim().optional().allow("").max(3).max(100).email().label('Email'),
+    email: Joi.string().trim().optional().allow("").min(3).max(100).email().label('Email'),
     address: Joi.string().trim().optional().allow("").min(32).max(64).label("Address"),
     password: Joi.string().optional().allow("").min(8).max(20).custom(password).label('Password'),
   }),
@@ -32,7 +32,7 @@ module.exports = {
     username: Joi.string().trim().optional().allow("").min(6).max(100).label("User Name"),
     userAddress: Joi.string().trim().optional().allow("").min(6).max(100).label("User Name"),
 
-    email: Joi.string().trim().optional().allow("").max(3).max(100).email().label('Email'),
+    email: Joi.string().trim().optional().allow("").min(3).max(100).email().label('Email'),
     address: Joi.string().trim().optional().allow("").min(32).max(64).label("Address"),
     phone_number: Joi.string().optional().allow("").max(10).label("Phone Number"),
     password: Joi.string().optional().allow("").min(8).max(20).custom(password).label('Password'),

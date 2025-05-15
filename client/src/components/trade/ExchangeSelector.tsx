@@ -1,6 +1,5 @@
 import React from 'react';
-import { Paper, Box, Typography, Card, CardContent, Avatar, Chip, CircularProgress } from '@mui/material';
-import CustomGrid from '../common/CustomGrid';
+import { Paper, Box, Typography, Card, Avatar, Chip, CircularProgress } from '@mui/material';
 import { Exchange } from '../../types/types';
 
 interface ExchangeSelectorProps {
@@ -67,17 +66,7 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
       volume: '$4.5B',
       pairs: '400+',
       status: 'ready'
-    },
-
-    {
-      name: 'Gate.io',
-      id: 'gate1',
-      logo: 'https://cryptologos.cc/logos/gate-token-gt-logo.png',
-      volume: '$2.8B',
-      pairs: '320+',
-      status: 'ready'
-    },
-
+    }
   ];
 
   // No loading or error state since we're using hardcoded data
@@ -93,16 +82,20 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
   return (
     <Paper
       sx={{
-        background: '#12151c',
-        borderRadius: '16px',
-        padding: '15px',
+        background: 'linear-gradient(180deg, rgba(24, 27, 36, 0.9) 0%, rgba(18, 21, 28, 0.95) 100%)',
+        borderRadius: '12px',
+        padding: { xs: '12px 8px', sm: '15px 10px', md: '18px 12px' },
         mb: 2,
         position: 'relative',
         overflow: 'hidden',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.25)',
         width: '100%',
         maxWidth: '100%',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        border: '1px solid rgba(255, 255, 255, 0.05)'
       }}
     >
       {!tradingActive && (
@@ -132,8 +125,20 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 1,
-          mb: 1.5
+          width: '100%',
+          gap: 2,
+          mb: 1.5,
+          position: 'relative',
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            bottom: -8,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '60px',
+            height: '2px',
+            background: 'rgba(255, 255, 255, 0.1)'
+          }
         }}
       >
         <Typography
@@ -142,7 +147,8 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
             fontWeight: 600,
             color: 'text.secondary',
             textTransform: 'uppercase',
-            letterSpacing: 1
+            letterSpacing: 1.2,
+            fontSize: '0.9rem'
           }}
         >
           Trading Exchanges
@@ -187,34 +193,83 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
           </Typography>
         </Box>
       ) : (
-        <CustomGrid container spacing={1} sx={{ width: '100%', maxWidth: '100%', margin: 0 }}>
+        <Box
+          sx={{
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            overflowX: 'auto',
+            padding: '15px 10px',
+            margin: '5px auto 10px',
+            gap: { xs: 1.5, sm: 2, md: 2.5 },
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255, 255, 255, 0.1) transparent',
+            '&::-webkit-scrollbar': {
+              height: '6px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '3px',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'transparent',
+            },
+            '&::after': {
+              content: '""',
+              minWidth: '10px'
+            },
+            '&::before': {
+              content: '""',
+              minWidth: '10px'
+            }
+          }}
+        >
           {exchanges.map((exchange) => (
-            <CustomGrid item xs={6} sm={4} md={2} key={exchange.id || `${exchange.name}-${Math.random()}`}>
+            <Box
+              key={exchange.id || `${exchange.name}-${Math.random()}`}
+              sx={{
+                flex: '1 0 auto',
+                minWidth: { xs: '140px', sm: '160px', md: '180px' },
+                maxWidth: { xs: '160px', sm: '180px', md: '200px' },
+                padding: '0 4px',
+                transition: 'all 0.3s ease'
+              }}
+            >
               <Card
                 sx={{
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  borderRadius: 3,
+                  background: (exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
+                          (!exchange.id && !currentExchange.id && exchange.name === currentExchange.name)
+                    ? 'linear-gradient(135deg, rgba(20, 30, 48, 0.95), rgba(36, 59, 85, 0.95))'
+                    : 'linear-gradient(135deg, rgba(18, 21, 28, 0.8), rgba(24, 27, 36, 0.8))',
+                  borderRadius: 2,
                   overflow: 'hidden',
                   transition: 'all 0.3s ease',
                   border: (exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
                           (!exchange.id && !currentExchange.id && exchange.name === currentExchange.name)
-                    ? '1px solid rgba(240, 185, 11, 0.3)'
+                    ? '1px solid rgba(240, 185, 11, 0.5)'
                     : '1px solid rgba(255, 255, 255, 0.05)',
                   position: 'relative',
                   cursor: tradingActive ? 'pointer' : 'default',
                   display: 'flex',
-                  flexDirection: 'column',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  width: '100%',
+                  height: '56px',
                   boxShadow: (exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
                           (!exchange.id && !currentExchange.id && exchange.name === currentExchange.name)
-                    ? '0 0 20px rgba(240, 185, 11, 0.2)'
-                    : '0 4px 12px rgba(0, 0, 0, 0.2)',
+                    ? '0 4px 20px rgba(240, 185, 11, 0.25)'
+                    : '0 4px 12px rgba(0, 0, 0, 0.15)',
                   transform: (exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
                           (!exchange.id && !currentExchange.id && exchange.name === currentExchange.name)
-                    ? 'translateY(-5px)'
+                    ? 'translateY(-2px)'
                     : 'none',
                   '&:hover': tradingActive ? {
-                    transform: 'translateY(-5px)',
-                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.3)'
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 6px 16px rgba(0, 0, 0, 0.25)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)'
                   } : {},
                   '&::before': {
                     content: '""',
@@ -245,25 +300,54 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
                 }}
                 onClick={() => handleExchangeSelect(exchange)}
               >
-                {/* {exchange.badge && (
+                {exchange.badge && (
                   <Chip
                     label={exchange.badge.text}
                     size="small"
                     sx={{
                       position: 'absolute',
-                      top: 10,
-                      right: 10,
+                      top: 8,
+                      right: 8,
                       background: exchange.badge.color,
                       color: exchange.badge.textColor || '#000',
-                      fontSize: '10px',
-                      fontWeight: 600,
-                      padding: '3px 8px',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      padding: '2px 6px',
                       height: 'auto',
                       zIndex: 10,
-                      animation: 'badgePulse 2s infinite'
+                      borderRadius: '4px',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                      animation: 'badgePulse 2s infinite',
+                      letterSpacing: '0.3px',
+                      textTransform: 'uppercase'
                     }}
                   />
-                )} */}
+                )}
+
+                {/* Show "Selected" badge for current exchange */}
+                {tradingActive && ((exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
+                  (!exchange.id && !currentExchange.id && exchange.name === currentExchange.name)) && !exchange.badge && (
+                  <Chip
+                    label="Active"
+                    size="small"
+                    sx={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      background: 'rgba(14, 203, 129, 0.15)',
+                      color: 'secondary.main',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      padding: '2px 6px',
+                      height: 'auto',
+                      zIndex: 10,
+                      borderRadius: '4px',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                      letterSpacing: '0.3px',
+                      textTransform: 'uppercase'
+                    }}
+                  />
+                )}
 
                 {/* Show a pulsing indicator for the current exchange when trading is active */}
                 {tradingActive && ((exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
@@ -283,42 +367,51 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
                   />
                 )}
 
-                <CardContent
+                <Box
                   sx={{
                     display: 'flex',
-                    flexDirection: 'column',
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    p: 1,
-                    '&:last-child': { pb: 1 }
+                    justifyContent: 'flex-start',
+                    p: '0 12px',
+                    width: '100%',
+                    height: '100%'
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                    <Avatar
-                      src={exchange.logo}
-                      alt={exchange.name}
-                      sx={{
-                        width: 24,
-                        height: 24,
-                        mr: 1,
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        padding: '2px'
-                      }}
-                    />
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        fontWeight: 600,
-                        fontSize: '16px',
-                        color: (exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
-                            (!exchange.id && !currentExchange.id && exchange.name === currentExchange.name)
-                          ? 'primary.main'
-                          : 'text.primary'
-                      }}
-                    >
-                      {exchange.name}
-                    </Typography>
-                  </Box>
+                  <Avatar
+                    src={exchange.logo}
+                    alt={exchange.name}
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      mr: 1.5,
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      padding: '3px',
+                      border: (exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
+                          (!exchange.id && !currentExchange.id && exchange.name === currentExchange.name)
+                        ? '1px solid rgba(240, 185, 11, 0.3)'
+                        : '1px solid rgba(255, 255, 255, 0.1)',
+                      boxShadow: (exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
+                          (!exchange.id && !currentExchange.id && exchange.name === currentExchange.name)
+                        ? '0 0 10px rgba(240, 185, 11, 0.2)'
+                        : 'none'
+                    }}
+                  />
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: '14px',
+                      letterSpacing: '0.2px',
+                      color: (exchange.id && currentExchange.id && exchange.id === currentExchange.id) ||
+                          (!exchange.id && !currentExchange.id && exchange.name === currentExchange.name)
+                        ? 'primary.main'
+                        : 'text.primary',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {exchange.name}
+                  </Typography>
 
                   {/* Always show BTCUSDT as base price */}
                   {/* <Typography
@@ -332,11 +425,11 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
                   >
                     BTC: {exchange.price || 'N/A'}
                   </Typography> */}
-                </CardContent>
+                </Box>
               </Card>
-            </CustomGrid>
+            </Box>
           ))}
-        </CustomGrid>
+        </Box>
       )}
 
       <Box
@@ -344,28 +437,40 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 1,
-          mt: 1.5,
-          background: 'rgba(0, 0, 0, 0.3)',
-          padding: '10px 15px',
-          borderRadius: '30px',
-          border: '1px solid rgba(255, 255, 255, 0.05)'
+          width: '100%',
+          gap: 2,
+          mt: 2,
+          background: 'linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.4) 100%)',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
+          boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.03)'
         }}
       >
-        {/* <Box
-          sx={{
-            width: 8,
-            height: 8,
-            bgcolor: 'secondary.main',
-            borderRadius: '50%',
-            animation: 'pulse 1.5s infinite'
-          }}
-        /> */}
-        {/* <Typography variant="body2">
-          Currently trading on <Typography component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>
-            {currentExchange.name}
+        {tradingActive && (
+          <>
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                bgcolor: 'secondary.main',
+                borderRadius: '50%',
+                animation: 'pulse 1.5s infinite',
+                boxShadow: '0 0 10px rgba(14, 203, 129, 0.5)'
+              }}
+            />
+            <Typography variant="body2" sx={{ fontSize: '0.85rem', letterSpacing: '0.2px' }}>
+              Currently trading on <Typography component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>
+                {currentExchange.name}
+              </Typography>
+            </Typography>
+          </>
+        )}
+        {!tradingActive && (
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.85rem', letterSpacing: '0.2px' }}>
+            Activate trading to select an exchange
           </Typography>
-        </Typography> */}
+        )}
       </Box>
     </Paper>
   );

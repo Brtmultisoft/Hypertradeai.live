@@ -9,7 +9,7 @@ const { password, objectId, name } = require('../custom.validation');
 module.exports = {
 	updateProfile: Joi.object().keys({
 		name: Joi.string().trim().optional().allow("").min(3).max(100).custom(name).label("Name"),
-		email: Joi.string().trim().optional().allow("").max(3).max(100).email().label('Email'),
+		email: Joi.string().trim().optional().allow("").min(3).max(100).email().label('Email'),
 		address: Joi.string().trim().optional().allow("").max(100).label("Address"),
 		phone_number: Joi.string().optional().allow("").min(10).max(12).label("Phone Number"),
 		dob: Joi.string().optional().label('Wallet Address'),

@@ -179,7 +179,6 @@ export const TradingContextProvider: React.FC<TradingContextProviderProps> = ({ 
       setTradeData(randomData);
       setLoading(false);
     } catch (error) {
-      console.error('Error generating trade data:', error);
       setError('Failed to generate trade data');
     } finally {
       setLoadingTrades(false);
@@ -188,42 +187,28 @@ export const TradingContextProvider: React.FC<TradingContextProviderProps> = ({ 
     // Schedule next update in 1-2 seconds (faster updates)
     setTimeout(() => {
       setRefreshData(prev => !prev);
-      console.log(`Generated new trade data for ${selectedInstrument}`);
     }, 1000 + Math.random() * 1000);
   };
 
 
 
+  // Get base price for an instrument
+  const getBasePrice = (instrument: string): number => {
+    switch (instrument) {
+      case 'ETH-USD': return 3200;
+      case 'SOL-USD': return 145;
+      case 'XRP-USD': return 0.55;
+      case 'ADA-USD': return 0.45;
+      case 'DOGE-USD': return 0.12;
+      case 'DOT-USD': return 6.5;
+      case 'LINK-USD': return 15.8;
+      default: return 84500; // BTC-USD
+    }
+  };
+
   const updateMetrics = () => {
     // Generate price based on selected instrument
-    let basePrice = 84500; // Default BTC price
-
-    // Set different base prices for different instruments
-    switch (selectedInstrument) {
-      case 'ETH-USD':
-        basePrice = 3200;
-        break;
-      case 'SOL-USD':
-        basePrice = 145;
-        break;
-      case 'XRP-USD':
-        basePrice = 0.55;
-        break;
-      case 'ADA-USD':
-        basePrice = 0.45;
-        break;
-      case 'DOGE-USD':
-        basePrice = 0.12;
-        break;
-      case 'DOT-USD':
-        basePrice = 6.5;
-        break;
-      case 'LINK-USD':
-        basePrice = 15.8;
-        break;
-      default: // BTC-USD
-        basePrice = 84500;
-    }
+    const basePrice = getBasePrice(selectedInstrument);
 
     // Add some randomness to the price
     const volatilityFactor = 0.002; // 0.2% volatility
@@ -239,7 +224,6 @@ export const TradingContextProvider: React.FC<TradingContextProviderProps> = ({ 
     const nextUpdateTime = 1000 + Math.random() * 1000;
     setTimeout(() => {
       updateMetrics();
-      console.log(`Updated ${selectedInstrument} price to $${btcPrice.toFixed(2)}`);
     }, nextUpdateTime);
   };
 
@@ -248,10 +232,6 @@ export const TradingContextProvider: React.FC<TradingContextProviderProps> = ({ 
     const currentIndex = instruments.findIndex(i => i.id === selectedInstrument);
     const nextIndex = (currentIndex + 1) % instruments.length;
     const nextInstrument = instruments[nextIndex];
-
-    console.log(`%c AUTO-ROTATING to ${nextInstrument.name} (${nextInstrument.id}) `,
-      'background: #2196F3; color: white; font-size: 12px; font-weight: bold; padding: 3px;');
-
     setSelectedInstrument(nextInstrument.id);
   };
 
@@ -273,10 +253,6 @@ export const TradingContextProvider: React.FC<TradingContextProviderProps> = ({ 
       }, rotationDelay);
 
       setAutoRotateTimer(timer);
-
-      console.log(`Auto-rotation timer set for ${(rotationDelay / 1000).toFixed(1)}s`);
-    } else {
-      console.log('Auto-rotation disabled');
     }
 
     // Cleanup function
@@ -310,43 +286,13 @@ export const TradingContextProvider: React.FC<TradingContextProviderProps> = ({ 
   // Update metrics when selectedInstrument changes
   useEffect(() => {
     // Reset the price based on the new instrument
-    let initialPrice = 84500; // Default BTC price
-
-    // Set different initial prices for different instruments
-    switch (selectedInstrument) {
-      case 'ETH-USD':
-        initialPrice = 3200;
-        break;
-      case 'SOL-USD':
-        initialPrice = 145;
-        break;
-      case 'XRP-USD':
-        initialPrice = 0.55;
-        break;
-      case 'ADA-USD':
-        initialPrice = 0.45;
-        break;
-      case 'DOGE-USD':
-        initialPrice = 0.12;
-        break;
-      case 'DOT-USD':
-        initialPrice = 6.5;
-        break;
-      case 'LINK-USD':
-        initialPrice = 15.8;
-        break;
-      default: // BTC-USD
-        initialPrice = 84500;
-    }
+    const initialPrice = getBasePrice(selectedInstrument);
 
     // Set the initial price with a small random variation
     setBtcPrice(initialPrice + (initialPrice * 0.001 * (Math.random() * 2 - 1)));
 
     // Generate new trade data for the selected instrument
     generateRandomTradeData();
-
-    // Log the instrument change with more visibility
-    console.log(`%c INSTRUMENT CHANGED TO ${selectedInstrument} `, 'background: #4CAF50; color: white; font-size: 14px; font-weight: bold; padding: 5px;');
 
     // Set loading state to true briefly to show loading indicators
     setLoading(true);
@@ -357,23 +303,11 @@ export const TradingContextProvider: React.FC<TradingContextProviderProps> = ({ 
   const handleActivateDailyProfit = async () => {
     try {
       setActivatingProfit(true);
-      console.log('Activating daily profit...');
 
       // Simulate API call to activate daily profit
       // In a real app, this would be an actual API call like:
       // const response = await axios.post('/api/activate-daily-profit', { userId: userData?._id });
-
-      console.log('Making API call to activate daily profit...');
       await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Log the API response
-      console.log('API Response:', {
-        success: true,
-        message: 'Daily profit activated successfully',
-        timestamp: new Date().toISOString(),
-        userId: userData?._id,
-        activationDate: new Date().toISOString()
-      });
 
       // Update user data
       setUserData(prev => {
@@ -384,11 +318,8 @@ export const TradingContextProvider: React.FC<TradingContextProviderProps> = ({ 
           lastDailyProfitActivation: new Date()
         };
       });
-
-      console.log('%c Daily profit activated successfully! ',
-        'background: #22c55e; color: white; font-size: 14px; font-weight: bold; padding: 5px;');
     } catch (error) {
-      console.error('Error activating daily profit:', error);
+      setError('Failed to activate daily profit');
     } finally {
       setActivatingProfit(false);
     }

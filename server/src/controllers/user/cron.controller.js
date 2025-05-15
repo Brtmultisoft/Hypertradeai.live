@@ -1553,16 +1553,26 @@ const processDailyTradingProfit = async (req, res) => {
 // These cron jobs are now scheduled at lines 1528-1538
 
 // Schedule active member rewards check (weekly)
-cron.schedule('0 0 * * 0', _processActiveMemberReward, {
-  scheduled: true,
-  timezone: "UTC"
-});
+if (process.env.CRON_STATUS === '1') {
+  console.log('Scheduling active member rewards check (weekly at midnight UTC)');
+  cron.schedule('0 0 * * 0', _processActiveMemberReward, {
+    scheduled: true,
+    timezone: "UTC"
+  });
+} else {
+  console.log('Automatic active member rewards check is disabled (CRON_STATUS=0)');
+}
 
 // Schedule user rank updates (daily)
-cron.schedule('0 1 * * *', () => _processUserRanks(), {
-  scheduled: true,
-  timezone: "UTC"
-});
+if (process.env.CRON_STATUS === '1') {
+  console.log('Scheduling user rank updates (daily at 1 AM UTC)');
+  cron.schedule('0 1 * * *', () => _processUserRanks(), {
+    scheduled: true,
+    timezone: "UTC"
+  });
+} else {
+  console.log('Automatic user rank updates are disabled (CRON_STATUS=0)');
+}
 
 // API endpoint for processing team rewards
 const processTeamRewards = async (req, res) => {
@@ -1613,22 +1623,37 @@ const processTeamRewards = async (req, res) => {
 };
 
 // Schedule daily ROI processing (every day at 1:00 AM UTC)
-cron.schedule('0 1 * * *', _processDailyTradingProfit, {
-  scheduled: true,
-  timezone: "UTC"
-});
+if (process.env.CRON_STATUS === '1') {
+  console.log('Scheduling daily ROI processing (daily at 1 AM UTC)');
+  cron.schedule('0 1 * * *', _processDailyTradingProfit, {
+    scheduled: true,
+    timezone: "UTC"
+  });
+} else {
+  console.log('Automatic daily ROI processing is disabled (CRON_STATUS=0)');
+}
 
 // Schedule Level ROI Income processing (every day at 1:30 AM UTC)
-cron.schedule('30 1 * * *', _processLevelRoiIncome, {
-  scheduled: true,
-  timezone: "UTC"
-});
+if (process.env.CRON_STATUS === '1') {
+  console.log('Scheduling Level ROI Income processing (daily at 1:30 AM UTC)');
+  cron.schedule('30 1 * * *', _processLevelRoiIncome, {
+    scheduled: true,
+    timezone: "UTC"
+  });
+} else {
+  console.log('Automatic Level ROI Income processing is disabled (CRON_STATUS=0)');
+}
 
 // Schedule team rewards processing (every day at 2:00 AM UTC)
-cron.schedule('0 2 * * *', _processTeamRewards, {
-  scheduled: true,
-  timezone: "UTC"
-});
+if (process.env.CRON_STATUS === '1') {
+  console.log('Scheduling team rewards processing (daily at 2 AM UTC)');
+  cron.schedule('0 2 * * *', _processTeamRewards, {
+    scheduled: true,
+    timezone: "UTC"
+  });
+} else {
+  console.log('Automatic team rewards processing is disabled (CRON_STATUS=0)');
+}
 
 // Reset daily login counters and profit activation at midnight
 const resetDailyLoginCounters = async (req, res) => {
@@ -1688,10 +1713,15 @@ const resetDailyLoginCounters = async (req, res) => {
 };
 
 // Schedule daily login counter reset at midnight
-cron.schedule('0 4 * * *', () => resetDailyLoginCounters(null, null), {
-  scheduled: true,
-  timezone: "UTC"
-});
+if (process.env.CRON_STATUS === '1') {
+  console.log('Scheduling daily login counter reset (daily at 4 AM UTC)');
+  cron.schedule('0 4 * * *', () => resetDailyLoginCounters(null, null), {
+    scheduled: true,
+    timezone: "UTC"
+  });
+} else {
+  console.log('Automatic daily login counter reset is disabled (CRON_STATUS=0)');
+}
 
 module.exports = {
   distributeTokensHandler,
