@@ -115,6 +115,10 @@ module.exports = () => {
     Router.get("/update-last-investment-amounts", adminUserController.updateLastInvestmentAmounts);
     Router.get("/search-users", adminUserController.searchUsers);
 
+    // User block/unblock endpoints
+    Router.post("/block-user", validationMiddleware(userValidation.blockUser, 'body'), adminUserController.blockUser);
+    Router.post("/unblock-user", validationMiddleware(userValidation.unblockUser, 'body'), adminUserController.unblockUser);
+
 
     // USER SOCIAL VWERIFICATION
     Router.post('/approveSocial/', adminController.approveSocial)

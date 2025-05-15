@@ -309,11 +309,26 @@ const LiveTrading = () => {
       }
     } catch (error) {
       console.error('Error activating daily profit:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: error.message || 'Failed to activate daily profit. Please try again later.'
-      });
+
+      // Check if the error is due to a blocked account
+      if (error.response?.status === 403 && error.response?.data?.msg?.includes('blocked')) {
+        const blockReason = error.response?.data?.block_reason || 'No reason provided';
+        Swal.fire({
+          icon: 'error',
+          title: 'Account Blocked',
+          html: `<p>Your account has been blocked. You cannot activate daily profit.</p>
+                <div style="margin-top: 15px; padding: 10px; background: #f8d7da; border-radius: 5px; text-align: left;">
+                  <strong>Reason:</strong> ${blockReason}
+                </div>
+                <p style="margin-top: 15px;">Please contact support for assistance.</p>`
+        });
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.message || 'Failed to activate daily profit. Please try again later.'
+        });
+      }
     } finally {
       setActivatingProfit(false);
     }

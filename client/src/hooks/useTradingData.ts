@@ -28,57 +28,57 @@ export const useTradingData = () => {
 
   // Fetch live trade data from CoinDesk API
   const fetchLiveTradeData = async () => {
-    try {
-      setLoadingTrades(true);
+    // try {
+    //   setLoadingTrades(true);
 
-      const params = { api_key: COINDESK_API.apiKey };
-      const url = new URL(COINDESK_API.baseUrl);
-      url.search = new URLSearchParams(params).toString();
+    //   const params = { api_key: COINDESK_API.apiKey };
+    //   const url = new URL(COINDESK_API.baseUrl);
+    //   url.search = new URLSearchParams(params).toString();
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { "Content-type": "application/json; charset=UTF-8" }
-      });
+    //   const response = await fetch(url, {
+    //     method: 'GET',
+    //     headers: { "Content-type": "application/json; charset=UTF-8" }
+    //   });
 
-      const data = await response.json();
+    //   const data = await response.json();
 
-      // Transform API data to match our format
-      let formattedData: TradeData[] = [];
+    //   // Transform API data to match our format
+    //   let formattedData: TradeData[] = [];
 
-      if (data?.data && Array.isArray(data.data)) {
-        formattedData = data.data.slice(0, 15).map((item: any, index: number) => {
-          const type: 'buy' | 'sell' = Math.random() > 0.5 ? 'buy' : 'sell'; // Randomize for demo
-          return {
-            exchange: item.exchange || 'CoinDesk',
-            type,
-            orderId: item.id || `CD${Math.floor(Math.random() * 10000000000)}`,
-            price: item.price || (Math.random() * 0.01 + 0.001).toFixed(6),
-            amount: item.amount || (84500 + Math.random() * 200).toFixed(2),
-            total: item.total || (Math.random() * 1000 + 50).toFixed(2),
-            timestamp: new Date().toLocaleTimeString(),
-            id: `trade-${Date.now()}-${index}`
-          };
-        });
-      } else {
-        // Fallback to random data if API format is unexpected
-        generateRandomTradeData();
-        return;
-      }
+    //   if (data?.data && Array.isArray(data.data)) {
+    //     formattedData = data.data.slice(0, 15).map((item: any, index: number) => {
+    //       const type: 'buy' | 'sell' = Math.random() > 0.5 ? 'buy' : 'sell'; // Randomize for demo
+    //       return {
+    //         exchange: item.exchange || 'CoinDesk',
+    //         type,
+    //         orderId: item.id || `CD${Math.floor(Math.random() * 10000000000)}`,
+    //         price: item.price || (Math.random() * 0.01 + 0.001).toFixed(6),
+    //         amount: item.amount || (84500 + Math.random() * 200).toFixed(2),
+    //         total: item.total || (Math.random() * 1000 + 50).toFixed(2),
+    //         timestamp: new Date().toLocaleTimeString(),
+    //         id: `trade-${Date.now()}-${index}`
+    //       };
+    //     });
+    //   } else {
+    //     // Fallback to random data if API format is unexpected
+    //     generateRandomTradeData();
+    //     return;
+    //   }
 
-      setTradeData(formattedData);
+    //   setTradeData(formattedData);
 
-      // Schedule next update in 8-12 seconds (slower updates)
-      const nextUpdateTime = 8000 + Math.random() * 4000;
-      setTimeout(() => {
-        setRefreshData(prev => !prev);
-      }, nextUpdateTime);
+    //   // Schedule next update in 8-12 seconds (slower updates)
+    //   const nextUpdateTime = 8000 + Math.random() * 4000;
+    //   setTimeout(() => {
+    //     setRefreshData(prev => !prev);
+    //   }, nextUpdateTime);
 
-    } catch (error) {
-      console.error('Error fetching CoinDesk data:', error);
-      generateRandomTradeData();
-    } finally {
-      setLoadingTrades(false);
-    }
+    // } catch (error) {
+    //   console.error('Error fetching CoinDesk data:', error);
+    //   generateRandomTradeData();
+    // } finally {
+    //   setLoadingTrades(false);
+    // }
   };
 
   // Real API calls are now used instead of mock functions

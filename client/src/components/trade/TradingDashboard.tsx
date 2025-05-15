@@ -13,16 +13,17 @@ import PairSelector from './PairSelector';
 import BasePriceDisplay from './BasePriceDisplay';
 import FloatingProfits from './FloatingProfits';
 import { useTradingData } from '../../hooks/useTradingData';
+import UserService from '../../services/user.service';
 
 const TradingDashboard: React.FC = () => {
-const {
-    userData,
-    activatingProfit,
-    handleActivateDailyProfit,
+// const {
+//     userData,
+//     activatingProfit,
+//     handleActivateDailyProfit,
   
-    tradeData,
-    loading: dataLoading
-  } = useTradingData();
+//     tradeData,
+//     loading: dataLoading
+//   } = useTradingData();
 
   const {
     tradingActive,
@@ -40,6 +41,9 @@ const {
     fullName: 'Bitcoin'
   });
 
+
+  
+
   // Use the enhanced Binance price hook to get real-time price data with auto-rotation
   const {
     price: binancePrice,
@@ -56,6 +60,7 @@ const {
   // Store the BTCUSDT base price
   const [basePrice, setBasePrice] = useState<number | null>(null);
 
+  const [loading, setLoading] = useState<boolean>(true);
   // Update currentPrice when binancePrice changes
   useEffect(() => {
     if (binancePrice !== null) {
@@ -201,6 +206,31 @@ const {
   const handleActivateTrading = () => {
     setTradingActive(true);
   };
+  const getUserProfile = async () => {
+    try {
+      const response = await UserService.getUserProfile();
+      if (response && response.status) {
+        const user = response.result;
+        // setUserData(user);
+        console.log("res users",user,response);
+        if(user.dailyProfitActivated){
+        console.log("Trading activated",user.dailyProfitActivated,
+          "last actived", user.lastDailyProfitActivation
+        );
+        
+        }
+        
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    getUserProfile();
+  }, []);
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>

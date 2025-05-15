@@ -87,6 +87,15 @@ const UserService = {
       const response = await api.post('/user/activate-daily-profit');
       return response.data;
     } catch (error) {
+      // Check if the error is due to a blocked account
+      if (error.response?.status === 403 && error.response?.data?.msg?.includes('blocked')) {
+        const blockReason = error.response?.data?.block_reason || 'No reason provided';
+        throw {
+          msg: `Your account has been blocked. You cannot activate daily profit.`,
+          block_reason: blockReason,
+          isBlocked: true
+        };
+      }
       throw error.response?.data || { msg: 'Failed to activate daily profit' };
     }
   },

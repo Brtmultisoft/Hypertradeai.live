@@ -11,7 +11,10 @@ import {
   Alert,
   CircularProgress,
   Snackbar,
-  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Email as EmailIcon,
@@ -59,16 +62,17 @@ export const clearFrontendSession = () => {
 };
 
 const Login = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation(); // Needed for logging
-  const { login, loading, error, isAuthenticated, logout, logoutByAdmin } = useAuth();
+  const { login, loading, error, isAuthenticated } = useAuth();
 
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [processingHash, setProcessingHash] = useState(false);
   const [hashError, setHashError] = useState(null);
+  const [showBlockedDialog, setShowBlockedDialog] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
   const hasRedirected = useRef(false);
 
   const queryParams = useQueryParams();
@@ -284,6 +288,10 @@ const Login = () => {
         setSuccessMessage(result.message || 'Login successful!');
         setShowSuccessAlert(true);
         hasRedirected.current = false; // Let redirect happen again if needed
+      } else if (result.isBlocked) {
+        // Show blocked user dialog
+        setBlockReason(result.blockReason || 'No reason provided');
+        setShowBlockedDialog(true);
       }
     }
   );
@@ -400,6 +408,80 @@ const Login = () => {
           </Link>
         </Typography>
       </Box>
+
+      {/* Blocked User Dialog */}
+      <Dialog
+        open={showBlockedDialog}
+        onClose={() => setShowBlockedDialog(false)}
+        aria-labelledby="blocked-dialog-title"
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderTop: '4px solid',
+            borderColor: 'error.main',
+            borderRadius: '8px',
+          }
+        }}
+      >
+        <DialogTitle id="blocked-dialog-title">
+          <Box display="flex" alignItems="center">
+            <Box
+              sx={{
+                bgcolor: 'error.main',
+                color: 'white',
+                borderRadius: '50%',
+                width: 40,
+                height: 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mr: 2
+              }}
+            >
+              <LockIcon />
+            </Box>
+            <Box>
+              <Typography variant="h6">Account Blocked</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Your account has been restricted
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 3, p: 2, bgcolor: 'error.light', borderRadius: 1, color: 'error.dark' }}>
+            <Typography variant="body2">
+              Your account has been blocked by an administrator. You cannot log in or use the platform at this time.
+            </Typography>
+          </Box>
+
+          <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+              Reason for blocking:
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {blockReason || 'No reason provided'}
+            </Typography>
+          </Box>
+
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="body2">
+              If you believe this is an error, please contact support for assistance.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={() => setShowBlockedDialog(false)}
+            variant="contained"
+            color="primary"
+            fullWidth
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

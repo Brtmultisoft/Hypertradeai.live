@@ -1,4 +1,6 @@
+import axios from 'axios';
 import ApiService from './api.service';
+import { API_URL } from '../config';
 
 /**
  * User Service for handling user-related API calls
@@ -163,6 +165,82 @@ const UserService = {
       users: usersResponse,
       stats: statsResponse,
     };
+  },
+
+  /**
+   * Block a user
+   * @param {Object} options - Request options
+   * @returns {Promise} Block user response
+   */
+  async blockUser({ userId, reason, token }) {
+    return ApiService.request({
+      method: 'POST',
+      endpoint: '/admin/block-user',
+      data: {
+        id: userId,
+        block_reason: reason || 'Blocked by administrator',
+      },
+      token,
+      useCache: false,
+      requestId: `block_user_${userId}`,
+    });
+  },
+
+  /**
+   * Unblock a user
+   * @param {Object} options - Request options
+   * @returns {Promise} Unblock user response
+   */
+  async unblockUser({ userId, token }) {
+    return ApiService.request({
+      method: 'POST',
+      endpoint: '/admin/unblock-user',
+      data: {
+        id: userId,
+      },
+      token,
+      useCache: false,
+      requestId: `unblock_user_${userId}`,
+    });
+  },
+
+  /**
+   * Get user details by ID
+   * @param {string} userId - User ID
+   * @param {string} token - Authentication token
+   * @returns {Promise} User details
+   */
+  async getUserById(userId, token) {
+    try {
+      console.log(`Fetching user details for ID: ${userId} using token: ${token ? 'Valid token' : 'No token'}`);
+
+      // Direct axios call as a fallback if ApiService fails
+      const response = await axios.get(`${API_URL}/admin/get-user/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('User details response:', response.data);
+
+      if (response.data && response.data.status) {
+        return response.data;
+      } else {
+        console.error('API returned error:', response.data);
+        throw new Error(response.data?.msg || 'Failed to fetch user details');
+      }
+    } catch (error) {
+      console.error(`Error fetching user with ID ${userId}:`, error);
+
+      // Create a more informative error object
+      const enhancedError = new Error('Failed to fetch user details');
+      enhancedError.originalError = error;
+      enhancedError.response = error.response;
+      enhancedError.userId = userId;
+
+      throw enhancedError;
+    }
   },
 };
 

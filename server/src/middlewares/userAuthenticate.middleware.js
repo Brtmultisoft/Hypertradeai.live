@@ -34,8 +34,22 @@ module.exports = (req, res, next) => {
             req.user = decodedToken;
             req.headers.authorization = `Bearer ${token}`;
 
-            // Continue to the next middleware
-            next();
+            // Check if user is blocked
+            userDbHandler.getById(decodedToken.sub)
+                .then(user => {
+                    if (user && user.is_blocked) {
+                        responseData.msg = 'Your account has been blocked. Please contact support for assistance.';
+                        responseData.block_reason = user.block_reason || 'No reason provided';
+                        return responseHelper.forbidden(res, responseData);
+                    }
+                    // Continue to the next middleware if user is not blocked
+                    next();
+                })
+                .catch(err => {
+                    log.error('Failed to check user blocked status with error::', err);
+                    // Continue anyway if we can't check the blocked status
+                    next();
+                });
         } catch (error) {
             log.error('Failed to verify JWT token with error::', error);
 
