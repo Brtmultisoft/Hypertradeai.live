@@ -49,4 +49,21 @@ const messageSchema = new Schema({
 messageSchema.plugin(toJSON);
 messageSchema.plugin(paginate);
 
+// Add indexes for frequently queried fields
+messageSchema.index({ user_id: 1 });
+messageSchema.index({ user_id_from: 1 });
+messageSchema.index({ is_read: 1 });
+messageSchema.index({ status: 1 });
+messageSchema.index({ created_at: -1 });
+messageSchema.index({ type: 1 });
+
+// Add compound indexes for common query combinations
+messageSchema.index({ user_id: 1, is_read: 1 });
+messageSchema.index({ user_id: 1, created_at: -1 });
+messageSchema.index({ user_id: 1, status: 1 });
+messageSchema.index({ user_id_from: 1, user_id: 1 });
+
+// Add text index for search functionality
+messageSchema.index({ subject: 'text', message: 'text' });
+
 module.exports = mongoose.model('Messages', messageSchema);

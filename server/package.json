@@ -64,6 +64,7 @@
     "shelljs": "^0.8.5",
     "uuid": "^3.3.3",
     "web3": "^4.16.0",
+    "ws": "^8.18.2",
     "xss-clean": "^0.1.1"
   },
   "devDependencies": {

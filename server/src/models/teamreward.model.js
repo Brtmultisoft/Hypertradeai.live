@@ -51,4 +51,17 @@ const teamRewardSchema = new Schema({
 teamRewardSchema.plugin(toJSON);
 teamRewardSchema.plugin(paginate);
 
+// Add indexes for frequently queried fields
+teamRewardSchema.index({ user_id: 1 });
+teamRewardSchema.index({ status: 1 });
+teamRewardSchema.index({ created_at: -1 });
+teamRewardSchema.index({ start_date: -1 });
+teamRewardSchema.index({ end_date: -1 });
+teamRewardSchema.index({ reward_amount: -1 });
+
+// Add compound indexes for common query combinations
+teamRewardSchema.index({ user_id: 1, status: 1 });
+teamRewardSchema.index({ user_id: 1, created_at: -1 });
+teamRewardSchema.index({ status: 1, end_date: 1 });
+
 module.exports = mongoose.model('TeamRewards', teamRewardSchema);

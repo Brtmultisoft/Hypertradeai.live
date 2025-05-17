@@ -49,8 +49,12 @@ const tradeActivationSchema = new Schema({
     }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
-// Compound index for user_id and activation_date for faster filtering
+// Compound indexes for common query combinations
 tradeActivationSchema.index({ user_id: 1, activation_date: -1 });
+tradeActivationSchema.index({ user_id: 1, status: 1 });
+tradeActivationSchema.index({ status: 1, expiry_date: 1 });
+tradeActivationSchema.index({ created_at: -1 });
+tradeActivationSchema.index({ user_id: 1, created_at: -1 });
 
 // Add plugins
 tradeActivationSchema.plugin(toJSON);

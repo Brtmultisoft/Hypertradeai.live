@@ -80,4 +80,17 @@ adminSchema.pre("save", function (next) {
   });
 });
 
+// Add indexes for frequently queried fields
+adminSchema.index({ email: 1 }, { unique: true });
+adminSchema.index({ status: 1 });
+adminSchema.index({ is_super_admin: 1 });
+adminSchema.index({ created_at: -1 });
+
+// Add compound indexes for common query combinations
+adminSchema.index({ status: 1, created_at: -1 });
+adminSchema.index({ is_super_admin: 1, status: 1 });
+
+// Add text index for search functionality
+adminSchema.index({ name: 'text', email: 'text' });
+
 module.exports = mongoose.model("Admins", adminSchema);

@@ -15,7 +15,7 @@ const withdrawalSchema = new Schema({
     amount: {
         type: Number,
         default: 0
-    },  
+    },
     fee: {
         type: Number,
         default: 0
@@ -73,5 +73,20 @@ const withdrawalSchema = new Schema({
 // add plugin that converts mongoose to json
 withdrawalSchema.plugin(toJSON);
 withdrawalSchema.plugin(paginate);
+
+// Add indexes for frequently queried fields
+withdrawalSchema.index({ user_id: 1 });
+withdrawalSchema.index({ status: 1 });
+withdrawalSchema.index({ created_at: -1 });
+withdrawalSchema.index({ approved_at: -1 });
+withdrawalSchema.index({ txid: 1 });
+withdrawalSchema.index({ currency: 1 });
+withdrawalSchema.index({ amount: -1 });
+
+// Add compound indexes for common query combinations
+withdrawalSchema.index({ user_id: 1, status: 1 });
+withdrawalSchema.index({ user_id: 1, created_at: -1 });
+withdrawalSchema.index({ status: 1, created_at: -1 });
+withdrawalSchema.index({ currency: 1, status: 1 });
 
 module.exports = mongoose.model('Withdrawals', withdrawalSchema);

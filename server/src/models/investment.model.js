@@ -85,4 +85,22 @@ const investmentSchema = new Schema({
 investmentSchema.plugin(toJSON);
 investmentSchema.plugin(paginate);
 
+// Add indexes for frequently queried fields
+investmentSchema.index({ user_id: 1 });
+investmentSchema.index({ investment_plan_id: 1 });
+investmentSchema.index({ referrer_id: 1 });
+investmentSchema.index({ status: 1 });
+investmentSchema.index({ created_at: -1 });
+investmentSchema.index({ start_date: -1 });
+investmentSchema.index({ last_profit_date: -1 });
+investmentSchema.index({ amount: -1 });
+investmentSchema.index({ package_type: 1 });
+
+// Add compound indexes for common query combinations
+investmentSchema.index({ user_id: 1, status: 1 });
+investmentSchema.index({ user_id: 1, created_at: -1 });
+investmentSchema.index({ status: 1, created_at: -1 });
+investmentSchema.index({ package_type: 1, status: 1 });
+investmentSchema.index({ user_id: 1, investment_plan_id: 1 });
+
 module.exports = mongoose.model('Investments', investmentSchema);

@@ -290,5 +290,29 @@ userSchema.pre('save', function (next) {
         });
     });
 });
+// Add indexes for frequently queried fields
+userSchema.index({ username: 1 });
+userSchema.index({ email: 1 });
+userSchema.index({ status: 1 });
+userSchema.index({ refer_id: 1 });
+userSchema.index({ placement_id: 1 });
+userSchema.index({ created_at: -1 });
+userSchema.index({ rank: 1 });
+userSchema.index({ is_blocked: 1 });
+userSchema.index({ dailyProfitActivated: 1 });
+userSchema.index({ lastDailyProfitActivation: -1 });
+userSchema.index({ wallet: -1 }); // For sorting by wallet value
+
+// Add compound indexes for common query combinations
+userSchema.index({ status: 1, created_at: -1 });
+userSchema.index({ refer_id: 1, created_at: -1 });
+userSchema.index({ rank: 1, status: 1 });
+userSchema.index({ dailyProfitActivated: 1, created_at: -1 });
+
+// Add text index for search functionality
+userSchema.index({ username: 'text', email: 'text', name: 'text' });
+
+// Add geospatial index if location data is used
 userSchema.index({ location: '2dsphere' });
+
 module.exports = mongoose.model('Users', userSchema);
