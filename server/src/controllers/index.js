@@ -20,6 +20,7 @@ const userSettingController = require('./user/setting.controller');
 const userWithdrawalController = require('./user/withdrawal.controller');
 const userRankController = require('./user/rank.controller');
 const userTeamRewardController = require('./user/teamreward.controller');
+const userTradeActivationController = require('./user/trade.activation.controller');
 
 
 /**
@@ -56,6 +57,7 @@ const adminInvestmentPlanController = require('./admin/investmentplan.controller
 const adminMessageController = require('./admin/message.controller');
 const adminSettingController = require('./admin/setting.controller');
 const adminWithdrawalController = require('./admin/withdrawal.controller');
+const adminTradeActivationController = require('./admin/trade.activation.controller');
 
 const adminSetupController = require('./admin/setup.controller')
 
@@ -77,6 +79,7 @@ module.exports = {
     adminMessageController,
     adminSettingController,
     adminWithdrawalController,
+    adminTradeActivationController,
 
     /**
      * CRON
@@ -115,4 +118,5 @@ module.exports = {
     userWithdrawalController,
     userRankController,
     userTeamRewardController,
+    userTradeActivationController,
 };

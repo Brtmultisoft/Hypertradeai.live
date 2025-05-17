@@ -35,6 +35,7 @@ import WithdrawalHistory from './pages/wallet/WithdrawalHistory';
 // Announcements Pages
 import AnnouncementsList from './pages/announcements/AnnouncementsList';
 import AnnouncementsDisplay from './pages/announcements/AnnouncementsDisplay';
+import TradeActivationHistory from './pages/trading/TradeActivationHistory';
 
 // Error Page
 import NotFound from './pages/NotFound';
@@ -143,6 +144,9 @@ function App() {
             {/* Announcements Routes */}
             <Route path="/announcements" element={<AnnouncementsList />} />
             <Route path="/announcements-display" element={<AnnouncementsDisplay />} />
+
+            {/* Trading Routes */}
+            <Route path="/trade-activation-history" element={<TradeActivationHistory />} />
           </Route>
 
           {/* Default Route */}

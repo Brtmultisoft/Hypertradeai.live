@@ -18,6 +18,8 @@ import { keyframes } from '@mui/system';
 
 import { formatTiming } from '../../utils/formatters';
 import UserService from '../../services/user.service';
+import TradeHistoryButton from './TradeHistoryButton';
+import useTradeActivation from '../../hooks/useTradeActivation';
 
 interface TradingActivationProps {
   tradingActive: boolean;
@@ -159,6 +161,46 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
     return storedActivation === 'true' && storedDate === today;
   }, []);
 
+  // Define getUserProfile function first
+  const getUserProfile = async () => {
+    try {
+      const response = await UserService.getUserProfile();
+      if (response && response.status) {
+        const user = response.result;
+        setUserData(user); // Update userData state
+
+        // Calculate income trading values regardless of activation status
+        // This will show the counter with total invested amount and 0.266% profit calculation
+        const investedAmount = user.total_investment || 0;
+        const profitRate = 0.266; // 0.266% daily profit rate
+        const profitAmount = (investedAmount * profitRate) / 100;
+        const activationTime = user.lastDailyProfitActivation ? new Date(user.lastDailyProfitActivation) : null;
+
+        // Update individual state variables
+        setTotalInvested(investedAmount);
+        setDailyProfitAmount(profitAmount);
+        setLastActivationTime(activationTime);
+
+        // Store the calculated values in localStorage for persistence
+        localStorage.setItem('totalInvested', investedAmount.toString());
+        localStorage.setItem('dailyProfitAmount', profitAmount.toFixed(2));
+        localStorage.setItem('dailyProfitRate', profitRate.toString());
+
+        // If user has activated daily profit
+        if(user.dailyProfitActivated) {
+          // If trading is activated but the UI doesn't show it, update the UI
+          if (!tradingActive) {
+            onActivate();
+            setAlreadyActivated(true);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      showSnackbar('Failed to load user data. Please refresh the page.', 'error');
+    }
+  };
+
   // Fetch user profile data on component mount - optimized with useCallback
   const fetchUserProfile = useCallback(async () => {
     // Don't fetch if already activated
@@ -224,6 +266,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
     fetchUserProfile();
   }, [fetchUserProfile]);
 
+  // Use the trade activation hook
+  const { activateDailyTrading } = useTradeActivation();
+
   // Handle trading activation - optimized with useCallback
   const startTrading = useCallback(async () => {
     // If already active, do nothing
@@ -241,10 +286,10 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
     try {
       setActivatingProfit(true);
 
-      // Call the API to activate daily profit
-      const response = await UserService.activateDailyProfit();
+      // Call the API to activate daily trading using our new hook
+      const success = await activateDailyTrading();
 
-      if (response && response.status) {
+      if (success) {
         // Store activation state in localStorage
         if (userData && userData._id) {
           localStorage.setItem(`dailyProfitActivated_${userData._id}`, 'true');
@@ -255,12 +300,21 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
         onActivate();
         setAlreadyActivated(true);
 
+        // Show activation success animation
+        setShowActivationSuccess(true);
+        setTimeout(() => setShowActivationSuccess(false), 5000);
+
         // Show success message
         showSnackbar('Trading successfully activated! You will receive ROI and level ROI income for today.', 'success');
+
+        // Refresh user profile to get updated activation status
+        await getUserProfile();
       } else {
-        throw new Error(response?.message || 'Failed to activate daily profit');
+        throw new Error('Failed to activate daily trading');
       }
     } catch (error: any) {
+      console.error('Activation error:', error);
+
       // Check if user is blocked
       if (error.isBlocked) {
         showSnackbar(`Your account has been blocked. Reason: ${error.block_reason || 'No reason provided'}`, 'error');
@@ -270,6 +324,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
         showSnackbar('Daily profit already activated for today. Trading session started.', 'info');
         setAlreadyActivated(true);
         onActivate();
+
+        // Refresh user profile to get updated activation status
+        await getUserProfile();
       } else {
         // Show error message
         showSnackbar(error.message || 'There was an issue activating daily profit. Please try again.', 'error');
@@ -277,50 +334,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
     } finally {
       setActivatingProfit(false);
     }
-  }, [tradingActive, alreadyActivated, hasInvestment, userData, onActivate, showSnackbar]);
+  }, [tradingActive, alreadyActivated, hasInvestment, userData, onActivate, showSnackbar, activateDailyTrading, getUserProfile]);
 
 
-
-  const getUserProfile = async () => {
-    try {
-      const response = await UserService.getUserProfile();
-      if (response && response.status) {
-        const user = response.result;
-        setUserData(user); // Update userData state
-
-        // Calculate income trading values regardless of activation status
-        // This will show the counter with total invested amount and 0.266% profit calculation
-        const investedAmount = user.total_investment || 0;
-        const profitRate = 0.266; // 0.266% daily profit rate
-        const profitAmount = (investedAmount * profitRate) / 100;
-        const activationTime = user.lastDailyProfitActivation ? new Date(user.lastDailyProfitActivation) : null;
-
-        // Update individual state variables
-        setTotalInvested(investedAmount);
-        setDailyProfitAmount(profitAmount);
-        setLastActivationTime(activationTime);
-
-        // Store the calculated values in localStorage for persistence
-        localStorage.setItem('totalInvested', investedAmount.toString());
-        localStorage.setItem('dailyProfitAmount', profitAmount.toFixed(2));
-        localStorage.setItem('dailyProfitRate', profitRate.toString());
-
-        // If user has activated daily profit
-        if(user.dailyProfitActivated) {
-          // If trading is activated but the UI doesn't show it, update the UI
-          if (!tradingActive) {
-            onActivate();
-            // Show activation success animation with longer duration
-            setShowActivationSuccess(true);
-            setTimeout(() => setShowActivationSuccess(false), 5000);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      showSnackbar('Failed to load user data. Please refresh the page.', 'error');
-    }
-  };
 
   // Timer reference to clear on unmount
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -405,6 +421,7 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
 
   useEffect(() => {
     getUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -560,41 +577,46 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
           </Typography>
         </Box>
 
-        {/* Time Elapsed Badge - Only show when trading is active */}
-        {tradingActive && lastActivationTime && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              background: 'rgba(14, 203, 129, 0.1)',
-              borderRadius: '30px',
-              padding: '6px 16px',
-              border: '1px solid rgba(14, 203, 129, 0.2)',
-            }}
-          >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Trade History Button */}
+          <TradeHistoryButton color="secondary" size="medium" tooltip="View Trade Activation History" />
+
+          {/* Time Elapsed Badge - Only show when trading is active */}
+          {tradingActive && lastActivationTime && (
             <Box
               sx={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                bgcolor: 'secondary.main',
-                animation: `${pulseAnimation} 2.5s infinite`
-              }}
-            />
-            <Typography
-              variant="body2"
-              sx={{
-                fontFamily: "'Roboto Mono', monospace",
-                color: 'secondary.main',
-                fontWeight: 500,
-                animation: profitUpdated ? `${numberChangeAnimation} 1.2s ease-in-out` : 'none'
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                background: 'rgba(14, 203, 129, 0.1)',
+                borderRadius: '30px',
+                padding: '6px 16px',
+                border: '1px solid rgba(14, 203, 129, 0.2)',
               }}
             >
-              {timeElapsed}
-            </Typography>
-          </Box>
-        )}
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: 'secondary.main',
+                  animation: `${pulseAnimation} 2.5s infinite`
+                }}
+              />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontFamily: "'Roboto Mono', monospace",
+                  color: 'secondary.main',
+                  fontWeight: 500,
+                  animation: profitUpdated ? `${numberChangeAnimation} 1.2s ease-in-out` : 'none'
+                }}
+              >
+                {timeElapsed}
+              </Typography>
+            </Box>
+          )}
+        </Box>
       </Box>
 
         {/* <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -859,7 +881,7 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
                     }}
                   />
                   <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
-                    Max: {dailyProfitAmount.toFixed(2)} USDT
+                    {/* Max: {dailyProfitAmount.toFixed(2)} USDT */}
                   </Typography>
                 </Box>
 
@@ -892,7 +914,7 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
                           fontSize: '0.75rem',
                         }}
                       >
-                        {timeElapsed}
+                        {/* {timeElapsed} */}
                       </Typography>
                     </Box>
                   </Tooltip>

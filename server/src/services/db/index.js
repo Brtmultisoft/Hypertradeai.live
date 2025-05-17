@@ -22,5 +22,6 @@ module.exports = {
 	settingDbHandler: require('./setting.service'),
 	userLoginRequestDbHandler: require('./user.login.request.service'),
 	socialLinksDbHandler: require('./social.links.service'),
-	announcementDbHandler: require('./announcement.service')
+	announcementDbHandler: require('./announcement.service'),
+	tradeActivationDbHandler: require('./trade.activation.service')
 };

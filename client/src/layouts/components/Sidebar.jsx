@@ -252,6 +252,55 @@ const Sidebar = ({ open, onClose }) => {
           </ListItemButton>
         </ListItem>
 
+        {/* Trade Activation History */}
+        <ListItem disablePadding sx={{ mb: 0.5 }}>
+          <ListItemButton
+            component={Link}
+            to="/trade-activation-history"
+            selected={isActive('/trade-activation-history')}
+            onClick={handleItemClick}
+            sx={{
+              borderRadius: 2,
+              transition: 'all 0.2s ease',
+              '&.Mui-selected': {
+                backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                '&:hover': {
+                  backgroundColor: 'rgba(51, 117, 187, 0.12)',
+                },
+              },
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '8px',
+                  backgroundColor: isActive('/trade-activation-history') ? 'rgba(51, 117, 187, 0.12)' : 'transparent',
+                  color: isActive('/trade-activation-history') ? theme.palette.primary.main : theme.palette.text.secondary,
+                }}
+              >
+                <HistoryIcon fontSize="small" />
+              </Box>
+            </ListItemIcon>
+            <ListItemText
+              primary="Trade Activation History"
+              sx={{
+                '& .MuiTypography-root': {
+                  fontWeight: isActive('/trade-activation-history') ? 'bold' : 'medium',
+                  color: isActive('/trade-activation-history') ? theme.palette.primary.main : theme.palette.text.primary,
+                }
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+
         {/* Settings */}
         <ListItem disablePadding sx={{ mb: 0.5 }}>
           <ListItemButton

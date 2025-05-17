@@ -1373,7 +1373,8 @@ const _processLevelRoiIncome = async () => {
   }
 };
 
-// Process daily trading profit
+// Process daily trading profit - runs at a specific time (1 AM UTC) via cron job
+// instead of checking 24-hour differences
 const _processDailyTradingProfit = async () => {
   try {
     // Get all active investments
@@ -1384,96 +1385,94 @@ const _processDailyTradingProfit = async () => {
     let totalProfit = 0;
 
     for (const investment of activeInvestments) {
-      // Calculate days since last profit distribution
+      // Get the last profit date for reference
       const lastProfitDate = new Date(investment.last_profit_date || investment.created_at);
+
+      // Log the last profit date for debugging
+      console.log(`Investment ID: ${investment._id}, Last profit date: ${lastProfitDate}`);
+
+      // Process profit at the scheduled time regardless of the time difference
+      // This will rely on the cron job to run at the specific time (1 AM UTC)
+      // Get user information
+      const user = await userDbHandler.getById(investment.user_id);
+      if (!user) {
+        console.error(`User not found for investment ${investment._id}. Skipping...`);
+        continue;
+      }
+
+      // Check if user has activated daily profit for today
       const today = new Date();
-      const diffTime = Math.abs(today - lastProfitDate);
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      today.setHours(0, 0, 0, 0);
 
-      console.log(`Investment ID: ${investment._id}, Last profit date: ${lastProfitDate}, Days since last profit: ${diffDays}`);
+      // Get last activation date
+      const lastActivationDate = user.lastDailyProfitActivation ||
+                                (user.extra && user.extra.lastDailyProfitActivation);
 
-      if (diffDays >= 1) {
-        // Get user information
-        const user = await userDbHandler.getById(investment.user_id);
-        if (!user) {
-          console.error(`User not found for investment ${investment._id}. Skipping...`);
-          continue;
-        }
+      if (!lastActivationDate) {
+        console.log(`User ${user._id} has not activated daily profit yet. Skipping...`);
+        continue;
+      }
 
-        // Check if user has activated daily profit for today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+      const lastActivation = new Date(lastActivationDate);
+      lastActivation.setHours(0, 0, 0, 0);
 
-        // Get last activation date
-        const lastActivationDate = user.lastDailyProfitActivation ||
-                                  (user.extra && user.extra.lastDailyProfitActivation);
+      if (lastActivation.getTime() !== today.getTime()) {
+        console.log(`User ${user._id} has not activated daily profit today. Last activation: ${lastActivation.toISOString()}. Skipping...`);
+        continue;
+      }
 
-        if (!lastActivationDate) {
-          console.log(`User ${user._id} has not activated daily profit yet. Skipping...`);
-          continue;
-        }
+      console.log(`User ${user._id} has activated daily profit today. Processing ROI...`);
 
-        const lastActivation = new Date(lastActivationDate);
-        lastActivation.setHours(0, 0, 0, 0);
+      // Get the investment plan to use its percentage value
+      const investmentPlan = await investmentPlanDbHandler.getById(investment.investment_plan_id);
 
-        if (lastActivation.getTime() !== today.getTime()) {
-          console.log(`User ${user._id} has not activated daily profit today. Last activation: ${lastActivation.toISOString()}. Skipping...`);
-          continue;
-        }
+      // Use the plan's percentage value or fall back to 8/30% if not available
+      const roiRate = investmentPlan ? investmentPlan.percentage : 8/30;
+      console.log(`Using ROI rate: ${roiRate}% for investment ${investment._id}`);
 
-        console.log(`User ${user._id} has activated daily profit today. Processing ROI...`);
+      // Calculate daily profit based on the investment amount and ROI rate
+      const dailyProfit = (investment.amount * roiRate) / 100;
+      totalProfit += dailyProfit;
 
-        // Get the investment plan to use its percentage value
-        const investmentPlan = await investmentPlanDbHandler.getById(investment.investment_plan_id);
+      console.log(`Processing profit for investment ${investment._id}: $${dailyProfit} (${roiRate}% of $${investment.amount})`);
 
-        // Use the plan's percentage value or fall back to 8/30% if not available
-        const roiRate = investmentPlan ? investmentPlan.percentage : 8/30;
-        console.log(`Using ROI rate: ${roiRate}% for investment ${investment._id}`);
+      try {
+        // Add profit to user's wallet
+        const walletUpdate = await userDbHandler.updateOneByQuery({_id : investment.user_id}, {
+          $inc: {
+            wallet: +dailyProfit,
+            "extra.dailyProfit": dailyProfit
+          }
+        });
 
-        // Calculate daily profit based on the investment amount and ROI rate
-        const dailyProfit = (investment.amount * roiRate) / 100;
-        totalProfit += dailyProfit;
+        console.log(`Wallet update result for user ${investment.user_id}: ${walletUpdate ? 'Success' : 'Failed'}`);
 
-        console.log(`Processing profit for investment ${investment._id}: $${dailyProfit} (${roiRate}% of $${investment.amount})`);
+        // Create income record
+        const incomeRecord = await incomeDbHandler.create({
+          user_id: ObjectId(investment.user_id),
+          investment_id: investment._id,
+          type: 'daily_profit',
+          amount: dailyProfit,
+          status: 'credited',
+          description: 'Daily ROI',
+          extra: {
+            investmentAmount: investment.amount,
+            profitPercentage: roiRate
+          }
+        });
 
-        try {
-          // Add profit to user's wallet
-          const walletUpdate = await userDbHandler.updateOneByQuery({_id : investment.user_id}, {
-            $inc: {
-              wallet: +dailyProfit,
-              "extra.dailyProfit": dailyProfit
-            }
-          });
+        console.log(`Income record created: ${incomeRecord ? 'Success' : 'Failed'}`);
 
-          console.log(`Wallet update result for user ${investment.user_id}: ${walletUpdate ? 'Success' : 'Failed'}`);
+        // Update last profit date
+        const dateUpdate = await investmentDbHandler.updateByQuery({_id: investment._id}, {
+          last_profit_date: today
+        });
 
-          // Create income record
-          const incomeRecord = await incomeDbHandler.create({
-            user_id: ObjectId(investment.user_id),
-            investment_id: investment._id,
-            type: 'daily_profit',
-            amount: dailyProfit,
-            status: 'credited',
-            description: 'Daily ROI',
-            extra: {
-              investmentAmount: investment.amount,
-              profitPercentage: roiRate
-            }
-          });
+        console.log(`Last profit date updated: ${dateUpdate ? 'Success' : 'Failed'}`);
 
-          console.log(`Income record created: ${incomeRecord ? 'Success' : 'Failed'}`);
-
-          // Update last profit date
-          const dateUpdate = await investmentDbHandler.updateByQuery({_id: investment._id}, {
-            last_profit_date: today
-          });
-
-          console.log(`Last profit date updated: ${dateUpdate ? 'Success' : 'Failed'}`);
-
-          processedCount++;
-        } catch (investmentError) {
-          console.error(`Error processing profit for investment ${investment._id}:`, investmentError);
-        }
+        processedCount++;
+      } catch (investmentError) {
+        console.error(`Error processing profit for investment ${investment._id}:`, investmentError);
       }
     }
 
@@ -1622,9 +1621,9 @@ const processTeamRewards = async (req, res) => {
   }
 };
 
-// Schedule daily ROI processing (every day at 1:00 AM UTC)
+// Schedule daily ROI processing (exactly at 1:00 AM UTC every day)
 if (process.env.CRON_STATUS === '1') {
-  console.log('Scheduling daily ROI processing (daily at 1 AM UTC)');
+  console.log('Scheduling daily ROI processing (exactly at 1 AM UTC every day)');
   cron.schedule('0 1 * * *', _processDailyTradingProfit, {
     scheduled: true,
     timezone: "UTC"
