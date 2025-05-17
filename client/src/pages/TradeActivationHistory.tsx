@@ -4,10 +4,8 @@ import {
   Typography,
   Paper,
   Box,
-  Grid,
   Card,
   CardContent,
-  Divider,
   Chip,
   CircularProgress,
   Button,
@@ -35,9 +33,8 @@ import {
   CalendarToday as CalendarTodayIcon,
   Computer as ComputerIcon,
   FilterList as FilterListIcon,
-  DevicesOther as DevicesOtherIcon,
 } from '@mui/icons-material';
-import useTradeActivation, { TradeActivation } from '../hooks/useTradeActivation';
+import useTradeActivation from '../hooks/useTradeActivation';
 import { format, parseISO, subDays } from 'date-fns';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -108,7 +105,7 @@ const TradeActivationHistory: React.FC = () => {
   };
 
   // Handle page change
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => {
     updatePagination(newPage + 1); // API uses 1-based pagination
   };
 
@@ -157,7 +154,7 @@ const TradeActivationHistory: React.FC = () => {
   };
 
   // Get status icon
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string): React.ReactElement | undefined => {
     switch (status) {
       case 'active':
         return <CheckCircleIcon fontSize="small" color="success" />;
@@ -166,7 +163,7 @@ const TradeActivationHistory: React.FC = () => {
       case 'cancelled':
         return <CancelIcon fontSize="small" color="error" />;
       default:
-        return null;
+        return undefined;
     }
   };
 
@@ -227,40 +224,39 @@ const TradeActivationHistory: React.FC = () => {
                     <CheckCircleIcon color="success" sx={{ mr: 1 }} />
                     Today's Activation
                   </Typography>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={4}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <CalendarTodayIcon fontSize="small" sx={{ mr: 1 }} />
-                        <Typography variant="body2">
-                          Date: {formatDate(todayActivation.activation_date)}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <AccessTimeIcon fontSize="small" sx={{ mr: 1 }} />
-                        <Typography variant="body2">
-                          Time: {formatTime(todayActivation.activation_time)}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        {getStatusIcon(todayActivation.status)}
-                        <Typography variant="body2" sx={{ ml: 1 }}>
-                          Status: {todayActivation.status.charAt(0).toUpperCase() + todayActivation.status.slice(1)}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <ComputerIcon fontSize="small" sx={{ mr: 1 }} />
-                        <Typography variant="body2" noWrap>
-                          Device: {todayActivation.device_info?.platform || 'Unknown Device'}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
+                  <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: { xs: 2, sm: 3 },
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap'
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <CalendarTodayIcon fontSize="small" sx={{ mr: 1 }} />
+                      <Typography variant="body2" noWrap>
+                        {formatDate(todayActivation.activation_date)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <AccessTimeIcon fontSize="small" sx={{ mr: 1 }} />
+                      <Typography variant="body2" noWrap>
+                        {formatTime(todayActivation.activation_time)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      {getStatusIcon(todayActivation.status)}
+                      <Typography variant="body2" sx={{ ml: 1 }} noWrap>
+                        {todayActivation.status.charAt(0).toUpperCase() + todayActivation.status.slice(1)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <ComputerIcon fontSize="small" sx={{ mr: 1 }} />
+                      <Typography variant="body2" noWrap>
+                        {todayActivation.device_info?.platform || 'Unknown Device'}
+                      </Typography>
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
             </Fade>
@@ -268,8 +264,8 @@ const TradeActivationHistory: React.FC = () => {
 
           {/* Date Filter Bar */}
           <Box sx={{ mb: 3 }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6} md={4}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ width: { xs: '100%', md: '30%' } }}>
                 <Button
                   variant="outlined"
                   color="secondary"
@@ -280,27 +276,25 @@ const TradeActivationHistory: React.FC = () => {
                 >
                   {showFilters ? 'Hide Date Filter' : 'Show Date Filter'}
                 </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    variant="text"
-                    color="inherit"
-                    onClick={handleResetFilters}
-                    size="small"
-                  >
-                    Reset to Last 10 Days
-                  </Button>
-                </Box>
-              </Grid>
-              <Grid item xs={12} sm={12} md={4} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: { xs: '100%', md: '30%' } }}>
+                <Button
+                  variant="text"
+                  color="inherit"
+                  onClick={handleResetFilters}
+                  size="small"
+                >
+                  Reset to Last 10 Days
+                </Button>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: { xs: '100%', md: '30%' } }}>
                 <Tooltip title="Refresh Data">
                   <IconButton onClick={handleRefresh} disabled={loading} color="primary">
                     {loading ? <CircularProgress size={24} /> : <RefreshIcon />}
                   </IconButton>
                 </Tooltip>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             {/* Date Filter */}
             <Collapse in={showFilters}>
@@ -314,24 +308,24 @@ const TradeActivationHistory: React.FC = () => {
                   bgcolor: 'background.default',
                 }}
               >
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} sm={6} md={4}>
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ width: { xs: '100%', md: '30%' } }}>
                     <DatePicker
                       label="Start Date"
                       value={startDate}
                       onChange={handleStartDateChange}
                       slotProps={{ textField: { size: 'small', fullWidth: true } }}
                     />
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4}>
+                  </Box>
+                  <Box sx={{ width: { xs: '100%', md: '30%' } }}>
                     <DatePicker
                       label="End Date"
                       value={endDate}
                       onChange={handleEndDateChange}
                       slotProps={{ textField: { size: 'small', fullWidth: true } }}
                     />
-                  </Grid>
-                  <Grid item xs={12} sm={12} md={4}>
+                  </Box>
+                  <Box sx={{ width: { xs: '100%', md: '30%' } }}>
                     <Button
                       variant="contained"
                       color="primary"
@@ -341,8 +335,8 @@ const TradeActivationHistory: React.FC = () => {
                     >
                       Apply Date Filter
                     </Button>
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               </Paper>
             </Collapse>
           </Box>
@@ -452,12 +446,17 @@ const TradeActivationHistory: React.FC = () => {
                       </TableCell>
                       <TableCell>{formatTime(activation.activation_time)}</TableCell>
                       <TableCell>
-                        <Chip
-                          label={activation.status.charAt(0).toUpperCase() + activation.status.slice(1)}
-                          color={getStatusColor(activation.status) as any}
-                          size="small"
-                          icon={getStatusIcon(activation.status)}
-                        />
+                        {(() => {
+                          const statusIcon = getStatusIcon(activation.status);
+                          return (
+                            <Chip
+                              label={activation.status.charAt(0).toUpperCase() + activation.status.slice(1)}
+                              color={getStatusColor(activation.status) as any}
+                              size="small"
+                              {...(statusIcon ? { icon: statusIcon } : {})}
+                            />
+                          );
+                        })()}
                       </TableCell>
                       {!isMobile && (
                         <TableCell>

@@ -137,7 +137,7 @@ const TradeActivationHistory = () => {
       case 'cancelled':
         return <CancelIcon fontSize="small" color="error" />;
       default:
-        return null;
+        return undefined;
     }
   };
 
@@ -642,12 +642,17 @@ const TradeActivationHistory = () => {
                       </TableCell>
                       <TableCell>{formatTime(activation.activation_time)}</TableCell>
                       <TableCell>
-                        <Chip
-                          label={activation.status.charAt(0).toUpperCase() + activation.status.slice(1)}
-                          color={getStatusColor(activation.status)}
-                          size="small"
-                          icon={getStatusIcon(activation.status)}
-                        />
+                        {(() => {
+                          const statusIcon = getStatusIcon(activation.status);
+                          return (
+                            <Chip
+                              label={activation.status.charAt(0).toUpperCase() + activation.status.slice(1)}
+                              color={getStatusColor(activation.status)}
+                              size="small"
+                              {...(statusIcon ? { icon: statusIcon } : {})}
+                            />
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Tooltip title={activation.device_info?.userAgent || 'Unknown'}>
