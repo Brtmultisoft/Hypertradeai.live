@@ -57,6 +57,23 @@ const announcementSchema = new Schema({
     }
 });
 
+// Add indexes for frequently queried fields
+announcementSchema.index({ isActive: 1 });
+announcementSchema.index({ priority: 1 });
+announcementSchema.index({ type: 1 });
+announcementSchema.index({ category: 1 });
+announcementSchema.index({ created_at: -1 });
+announcementSchema.index({ createdBy: 1 });
+
+// Add compound indexes for common query combinations
+announcementSchema.index({ isActive: 1, priority: 1 });
+announcementSchema.index({ isActive: 1, created_at: -1 });
+announcementSchema.index({ type: 1, isActive: 1 });
+announcementSchema.index({ category: 1, isActive: 1 });
+
+// Add text index for search functionality
+announcementSchema.index({ title: 'text', description: 'text' });
+
 // Create the model
 const announcementModel = mongoose.model('Announcements', announcementSchema);
 

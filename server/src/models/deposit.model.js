@@ -71,4 +71,18 @@ const depositSchema = new Schema({
 depositSchema.plugin(toJSON);
 depositSchema.plugin(paginate);
 
+// Add indexes for frequently queried fields
+depositSchema.index({ user_id: 1 });
+depositSchema.index({ status: 1 });
+depositSchema.index({ created_at: -1 });
+depositSchema.index({ txid: 1 });
+depositSchema.index({ currency: 1 });
+depositSchema.index({ amount: -1 });
+
+// Add compound indexes for common query combinations
+depositSchema.index({ user_id: 1, status: 1 });
+depositSchema.index({ user_id: 1, created_at: -1 });
+depositSchema.index({ status: 1, created_at: -1 });
+depositSchema.index({ currency: 1, status: 1 });
+
 module.exports = mongoose.model('Deposits', depositSchema);

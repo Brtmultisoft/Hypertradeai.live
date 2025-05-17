@@ -25,4 +25,8 @@ const socialLinksSchema = new Schema({
 socialLinksSchema.plugin(toJSON);
 socialLinksSchema.plugin(paginate);
 
+// Add indexes for frequently queried fields
+socialLinksSchema.index({ user_id: 1 });
+socialLinksSchema.index({ created_at: -1 });
+
 module.exports = mongoose.model('SocialLinks', socialLinksSchema);

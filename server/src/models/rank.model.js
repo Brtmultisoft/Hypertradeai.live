@@ -46,4 +46,13 @@ const rankSchema = new Schema({
 rankSchema.plugin(toJSON);
 rankSchema.plugin(paginate);
 
+// Add indexes for frequently queried fields
+rankSchema.index({ name: 1 }, { unique: true });
+rankSchema.index({ status: 1 });
+rankSchema.index({ min_trade_balance: 1 });
+rankSchema.index({ created_at: -1 });
+
+// Add compound indexes for common query combinations
+rankSchema.index({ name: 1, status: 1 });
+
 module.exports = mongoose.model('Ranks', rankSchema);

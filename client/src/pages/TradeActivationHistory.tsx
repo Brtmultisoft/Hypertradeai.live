@@ -491,4 +491,5 @@ const TradeActivationHistory: React.FC = () => {
   );
 };
 
+
 export default TradeActivationHistory;

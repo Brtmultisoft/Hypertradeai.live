@@ -13,4 +13,7 @@ const counterSchema = new Schema({
     seq: { type: Number, default: 0 }
 });
 
+// Add index for model field (should be unique)
+counterSchema.index({ model: 1 }, { unique: true });
+
 module.exports = mongoose.model('Counters', counterSchema);
