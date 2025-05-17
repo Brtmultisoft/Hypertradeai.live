@@ -33,6 +33,7 @@ import Withdraw from './pages/wallet/Withdraw';
 import LiveTrading from './pages/live_trading/LiveTrading';
 import TransactionHistory from './pages/wallet/TransactionHistory';
 import Settings from './pages/settings/Settings';
+import TradeActivationHistory from './pages/TradeActivationHistory';
 
 // Common Components
 
@@ -83,8 +84,9 @@ function App() {
               <Route path="/withdraw" element={<Withdraw />} />
               <Route path="/transaction-history" element={<TransactionHistory />} />
 
-              {/* Live Trading Route */}
+              {/* Live Trading Routes */}
               <Route path="/live-trading" element={<LiveTrading />} />
+              <Route path="/trade-activation-history" element={<TradeActivationHistory />} />
 
               {/* Settings Route */}
               <Route path="/settings" element={<Settings />} />

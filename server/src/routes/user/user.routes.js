@@ -17,7 +17,8 @@ const {
     userSettingController,
     userWithdrawalController,
     userRankController,
-    userTeamRewardController
+    userTeamRewardController,
+    userTradeActivationController
 } = require('../../controllers');
 
 // Import own_pay functions
@@ -248,9 +249,11 @@ module.exports = () => {
 
     /**
      * Routes for daily profit activation and status
+     * Note: These routes are kept for backward compatibility
+     * New implementations should use the /trade routes
      */
-    Router.post("/user/activate-daily-profit", userInfoController.activateDailyProfit);
-    Router.get("/user/check-daily-profit-status", userInfoController.checkDailyProfitStatus);
+    Router.post("/user/activate-daily-profit", userTradeActivationController.activateDailyTrading);
+    Router.get("/user/check-daily-profit-status", userTradeActivationController.getDailyTradingStatus);
 
     /**
      * Routes for handling admin login requests
@@ -306,6 +309,12 @@ module.exports = () => {
      */
     const announcementRoutes = require('./announcement.route');
     Router.use('/', announcementRoutes);
+
+    /**
+     * Trade activation routes for users
+     */
+    const tradeActivationRoutes = require('./trade.activation.routes');
+    Router.use('/trade', tradeActivationRoutes);
 
     /**************************
      * END OF AUTHORIZED ROUTES

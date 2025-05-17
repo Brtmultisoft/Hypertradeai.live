@@ -36,6 +36,8 @@ import {
   Announcement as AnnouncementIcon,
   Edit as EditIcon,
   Visibility as VisibilityIcon,
+  TrendingUp as TrendingUpIcon,
+  AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
 import useAuth from '../../hooks/useAuth';
 
@@ -58,6 +60,7 @@ const Sidebar = ({ open, onClose }) => {
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(true);
   const [announcementsOpen, setAnnouncementsOpen] = useState(false);
+  const [tradingOpen, setTradingOpen] = useState(false);
 
   // State for touch feedback on mobile
   const [touchedItem, setTouchedItem] = useState(null);
@@ -754,6 +757,57 @@ const Sidebar = ({ open, onClose }) => {
                 />
               </ListItemIcon>
               <ListItemText primary="All Investments" />
+            </ListItemButton>
+          </List>
+        </Collapse>
+
+        {/* Trading Management */}
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={() => setTradingOpen(!tradingOpen)}
+            sx={{
+              borderRadius: 1,
+              mb: 0.5,
+              '&.Mui-selected': {
+                backgroundColor: `${theme.palette.primary.main}20`,
+                '&:hover': {
+                  backgroundColor: `${theme.palette.primary.main}30`,
+                },
+              },
+            }}
+          >
+            <ListItemIcon>
+              <TrendingUpIcon color={tradingOpen ? 'primary' : 'inherit'} />
+            </ListItemIcon>
+            <ListItemText primary="Trading" />
+            {tradingOpen ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+        </ListItem>
+        <Collapse in={tradingOpen} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            <ListItemButton
+              component={Link}
+              to="/trade-activation-history"
+              selected={isActive('/trade-activation-history')}
+              onClick={handleItemClick}
+              sx={{
+                pl: 4,
+                borderRadius: 1,
+                mb: 0.5,
+                '&.Mui-selected': {
+                  backgroundColor: `${theme.palette.primary.main}20`,
+                  '&:hover': {
+                    backgroundColor: `${theme.palette.primary.main}30`,
+                  },
+                },
+              }}
+            >
+              <ListItemIcon>
+                <AccessTimeIcon
+                  color={isActive('/trade-activation-history') ? 'primary' : 'inherit'}
+                />
+              </ListItemIcon>
+              <ListItemText primary="Activation History" />
             </ListItemButton>
           </List>
         </Collapse>

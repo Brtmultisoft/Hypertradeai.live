@@ -328,6 +328,10 @@ module.exports = () => {
     const announcementRoutes = require('./announcement.route');
     Router.use('/', announcementRoutes);
 
+    // Trade Activation routes
+    const tradeActivationRoutes = require('./trade.activation.routes');
+    Router.use('/', tradeActivationRoutes);
+
     /**************************
      * END OF AUTHORIZED ROUTES
      **************************/
