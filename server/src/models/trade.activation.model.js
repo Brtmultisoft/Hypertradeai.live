@@ -43,6 +43,33 @@ const tradeActivationSchema = new Schema({
         required: true,
         index: true // Add index for expiry date queries
     },
+    profit_status: {
+        type: String,
+        enum: ['pending', 'processed', 'failed', 'skipped'],
+        default: 'pending',
+        index: true // Add index for profit status queries
+    },
+    profit_processed_at: {
+        type: Date,
+        default: null
+    },
+    profit_amount: {
+        type: Number,
+        default: 0
+    },
+    profit_details: {
+        type: Object,
+        default: {}
+    },
+    profit_error: {
+        type: String,
+        default: null
+    },
+    cron_execution_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CronExecution',
+        default: null
+    },
     metadata: {
         type: Object,
         default: {}

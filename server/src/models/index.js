@@ -18,3 +18,4 @@ module.exports.userLoginRequestModel = require('./user.login.request.model');
 module.exports.socialLinksModel = require('./social.links.model');
 module.exports.announcementModel = require('./announcement.model');
 module.exports.tradeActivationModel = require('./trade.activation.model');
+module.exports.cronExecutionModel = require('./cron.execution.model');

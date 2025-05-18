@@ -64,7 +64,33 @@ Promise.all([
 });
 
 /**
+ * Import the recovery script
+ */
+const { recoverMissedCrons } = require('./src/scripts/recover-missed-crons');
+
+/**
  * START THE SERVER
  */
 const appServer = new server();
-appServer.start();
+appServer.start()
+  .catch(error => {
+    log.error('Failed to start server:', error);
+    process.exit(1);
+  });
+
+/**
+ * Run the recovery script after server startup
+ */
+setTimeout(async () => {
+  try {
+    log.info('Running missed cron recovery script...');
+    const result = await recoverMissedCrons();
+    if (result.success) {
+      log.info('Missed cron recovery completed successfully');
+    } else {
+      log.error('Missed cron recovery failed:', result.error);
+    }
+  } catch (error) {
+    log.error('Error running missed cron recovery script:', error);
+  }
+}, 10000); // Wait 10 seconds after server startup

@@ -59,25 +59,27 @@ adminSchema.plugin(paginate);
 
 /**
  * Method to Encrypt Admin password before Saving to Database
+ * Using enhanced password service with pepper and stronger hashing
  */
-adminSchema.pre("save", function (next) {
-  let admin = this;
-  let salt = config.bcrypt.saltValue;
-  // only hash the password if it has been modified (or is new)
-  if (!admin.isModified("password")) {
-    return next();
+adminSchema.pre("save", async function (next) {
+  try {
+    const admin = this;
+
+    // Only hash the password if it has been modified (or is new)
+    if (!admin.isModified("password")) {
+      return next();
+    }
+
+    // Import password service
+    const passwordService = require('../services/password.service');
+
+    // Hash the password with enhanced security
+    admin.password = await passwordService.hashPassword(admin.password);
+
+    next();
+  } catch (error) {
+    next(error);
   }
-  // generate a salt
-  bcrypt.genSalt(salt, function (err, salt) {
-    if (err) return next(err);
-    // hash the password with new salt
-    bcrypt.hash(admin.password, salt, function (err, hash) {
-      if (err) return next(err);
-      // override the plain password with the hashed one
-      admin.password = hash;
-      next();
-    });
-  });
 });
 
 // Add indexes for frequently queried fields

@@ -33,6 +33,7 @@
     "child_process": "^1.0.2",
     "cjson": "^0.5.0",
     "compression": "^1.7.4",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dayjs": "^1.11.10",

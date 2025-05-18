@@ -8,11 +8,22 @@ const helmet = require('helmet');
 const passport = require('passport');
 const compression = require('compression');
 const mongoSanitize = require('express-mongo-sanitize');
+const cookieParser = require('cookie-parser');
 const connectDatabase = require('./utils/connection');
 const log = require('./services/logger').getAppLevelInstance();
 const passportService = require('./services/passport');
 const routeService = require('./routes');
-const { securityHeaders, sanitizeRequest, preventParameterPollution, xss } = require('./middlewares/security.middleware');
+const {
+    securityHeaders,
+    sanitizeRequest,
+    preventParameterPollution,
+    xss,
+    apiLimiter,
+    authLimiter,
+    generateCsrfToken,
+    verifyCsrfToken,
+    securityLogger
+} = require('./middlewares/security.middleware');
 /********************************
  * LOAD SERVER EXPRESS SERVER
  ********************************/
@@ -20,17 +31,17 @@ class Server {
     constructor() {
         //Intializing Express Function
         this._app = express();
-        this._initializeApp();
         this._server = new http.createServer(this._app);
+        // Note: _initializeApp is now async and will be called in start()
     }
 
-    _initializeApp() {
+    async _initializeApp() {
         this._loadCors();
         this._loadBodyParser();
         this._loadCompression();
         this._loadMongoSanitize();
         this._loadHelmet();
-        this._loadDatabaseConnection();
+        await this._loadDatabaseConnection();
         this._loadPassPort();
         this._loadStaticFiles();
         this._loadSecurityMiddlewares();
@@ -67,9 +78,15 @@ class Server {
         //sanitize mongodb query
         this._app.use(mongoSanitize());
     }
-    _loadDatabaseConnection() {
+    async _loadDatabaseConnection() {
         //Connect to mongodb
-        connectDatabase();
+        try {
+            await connectDatabase();
+            log.info('Database connection loaded successfully');
+        } catch (error) {
+            log.error('Failed to load database connection:', error);
+            throw error; // Rethrow to stop server startup
+        }
     }
     _loadPassPort() {
         //initialize passport and invoke passport jwt token authentication function
@@ -81,39 +98,79 @@ class Server {
         routeService(this._app);
     }
     _loadSecurityMiddlewares() {
-        // Security middlewares
+        // Parse cookies for CSRF protection
+        this._app.use(cookieParser());
+
+        // Security headers
         this._app.use(securityHeaders);
-        // API limiter removed to prevent rate limiting issues
+
+        // Security logging
+        this._app.use(securityLogger);
+
+        // API rate limiting - apply to all routes
+        this._app.use(apiLimiter);
+
+        // Stricter rate limiting for auth routes
+        this._app.use('/admin/login', authLimiter);
+        this._app.use('/user/login', authLimiter);
+        this._app.use('/user/signup', authLimiter);
+        this._app.use('/user/forgot/password', authLimiter);
+
+        // CSRF protection
+        this._app.use(generateCsrfToken);
+        this._app.use(verifyCsrfToken);
+
+        // Data sanitization
         this._app.use(sanitizeRequest);
         this._app.use(preventParameterPollution);
         this._app.use(xss());
+
+        // Add security headers to response
+        this._app.use((req, res, next) => {
+            // Set additional security headers
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+            res.setHeader('X-Frame-Options', 'DENY');
+            res.setHeader('X-XSS-Protection', '1; mode=block');
+
+            // Add Cache-Control headers to prevent sensitive information caching
+            if (req.path.includes('/admin') || req.path.includes('/user')) {
+                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+                res.setHeader('Pragma', 'no-cache');
+                res.setHeader('Expires', '0');
+                res.setHeader('Surrogate-Control', 'no-store');
+            }
+
+            next();
+        });
     }
-    start() {
+    async start() {
         //Start Express Server
-        return Promise.resolve()
-            .then(() => {
-                this._loadRoutes();
-            })
-            .then(() => {
-                return new Promise((resolve, reject) => {
-                    this._server.listen(process.env.NODE_PORT, (err) => {
-                        if (err) {
-                            reject(err);
-                        } else {
-                            resolve();
-                        }
-                    });
-                    this._server.on('error', (this._onError = this._onError.bind(this)));
-                    this._server.on(
-                        'listening',
-                        (this._onListening = this._onListening.bind(this))
-                    );
+        try {
+            // Initialize the app (includes database connection)
+            await this._initializeApp();
+
+            // Load routes
+            this._loadRoutes();
+
+            // Start the server
+            return new Promise((resolve, reject) => {
+                this._server.listen(process.env.NODE_PORT, (err) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
                 });
-            })
-            .catch((error) => {
-                this._onError(error);
-                return Promise.reject(error);
+                this._server.on('error', (this._onError = this._onError.bind(this)));
+                this._server.on(
+                    'listening',
+                    (this._onListening = this._onListening.bind(this))
+                );
             });
+        } catch (error) {
+            this._onError(error);
+            return Promise.reject(error);
+        }
     }
     _onError(error) {
         log.error('failed to start API server with error::', error);

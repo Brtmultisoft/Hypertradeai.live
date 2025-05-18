@@ -14,6 +14,134 @@ const { userDbHandler } = require('../../services/db');
  */
 const adminTradeActivationController = {
     /**
+     * Update profit status for trade activations within a date range
+     * @param {Object} req - Request object
+     * @param {Object} res - Response object
+     * @returns {Object} Response
+     */
+    updateProfitStatus: async (req, res) => {
+        log.info('Received request to update profit status for trade activations');
+        let responseData = {};
+
+        try {
+            const {
+                startDate,
+                endDate,
+                profitStatus,
+                userId = null,
+                profitAmount = 0,
+                profitError = null,
+                cronExecutionId = null
+            } = req.body;
+
+            // Validate required fields
+            if (!startDate || !endDate || !profitStatus) {
+                responseData.msg = 'Start date, end date, and profit status are required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Validate profit status
+            const validProfitStatuses = ['pending', 'processed', 'failed', 'skipped'];
+            if (!validProfitStatuses.includes(profitStatus)) {
+                responseData.msg = `Invalid profit status. Must be one of: ${validProfitStatuses.join(', ')}`;
+                return responseHelper.error(res, responseData);
+            }
+
+            // Parse dates
+            const parsedStartDate = new Date(startDate);
+            const parsedEndDate = new Date(endDate);
+
+            // Set end date to end of day
+            parsedEndDate.setHours(23, 59, 59, 999);
+
+            if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+                responseData.msg = 'Invalid date format';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Build query
+            const query = {
+                activation_date: {
+                    $gte: parsedStartDate,
+                    $lte: parsedEndDate
+                }
+            };
+
+            // Add user filter if provided
+            if (userId) {
+                try {
+                    query.user_id = mongoose.Types.ObjectId(userId);
+                } catch (error) {
+                    responseData.msg = 'Invalid user ID format';
+                    return responseHelper.error(res, responseData);
+                }
+            }
+
+            // Get count of matching activations
+            const activationCount = await tradeActivationDbHandler.countByQuery(query);
+
+            if (activationCount === 0) {
+                responseData.msg = 'No trade activations found for the specified criteria';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Prepare update data
+            const updateData = {
+                profit_status: profitStatus,
+                updated_at: new Date()
+            };
+
+            // Add additional fields based on profit status
+            if (profitStatus === 'processed') {
+                updateData.profit_processed_at = new Date();
+                updateData.profit_amount = profitAmount || 0;
+
+                if (cronExecutionId) {
+                    try {
+                        updateData.cron_execution_id = mongoose.Types.ObjectId(cronExecutionId);
+                    } catch (error) {
+                        log.warn('Invalid cron execution ID format, skipping this field');
+                    }
+                }
+            } else if (profitStatus === 'failed' || profitStatus === 'skipped') {
+                updateData.profit_error = profitError || `Manually set to ${profitStatus} by admin`;
+
+                if (cronExecutionId) {
+                    try {
+                        updateData.cron_execution_id = mongoose.Types.ObjectId(cronExecutionId);
+                    } catch (error) {
+                        log.warn('Invalid cron execution ID format, skipping this field');
+                    }
+                }
+            }
+
+            // Update all matching activations
+            const updateResult = await tradeActivationDbHandler._model.updateMany(
+                query,
+                { $set: updateData }
+            );
+
+            log.info(`Updated ${updateResult.modifiedCount} trade activations to profit status: ${profitStatus}`);
+
+            responseData.msg = 'Trade activation profit status updated successfully';
+            responseData.data = {
+                matchedCount: updateResult.matchedCount,
+                modifiedCount: updateResult.modifiedCount,
+                dateRange: {
+                    startDate: parsedStartDate,
+                    endDate: parsedEndDate
+                },
+                profitStatus,
+                query
+            };
+            return responseHelper.success(res, responseData);
+        } catch (error) {
+            log.error('Failed to update profit status with error:', error);
+            responseData.msg = 'Failed to update profit status: ' + error.message;
+            return responseHelper.error(res, responseData);
+        }
+    },
+    /**
      * Update metadata for all trade activations
      * @param {Object} req - Request object
      * @param {Object} res - Response object
@@ -338,6 +466,7 @@ const adminTradeActivationController = {
             const userId = req.query.userId || '';
             const email = req.query.email || '';
             const status = req.query.status || '';
+            const profitStatus = req.query.profitStatus || '';
             const startDate = req.query.startDate ? new Date(req.query.startDate) : null;
             const endDate = req.query.endDate ? new Date(req.query.endDate) : null;
 
@@ -412,6 +541,11 @@ const adminTradeActivationController = {
                 query.status = status;
             }
 
+            // Add profit status filter if provided
+            if (profitStatus) {
+                query.profit_status = profitStatus;
+            }
+
             // Add date range filter if provided
             if (startDate || endDate) {
                 query.activation_date = {};
@@ -437,12 +571,42 @@ const adminTradeActivationController = {
                     .sort(sort)
                     .skip(skip)
                     .limit(limit)
+                    .populate({
+                        path: 'cron_execution_id',
+                        select: 'cron_name status start_time end_time duration_ms'
+                    })
                     .lean(),
                 tradeActivationDbHandler._model.countDocuments(query)
             ]);
 
-            // Use activations as is, metadata should already contain user details
-            const enhancedActivations = activations;
+            // Enhance activations with profit status information
+            const enhancedActivations = activations.map(activation => {
+                // Add a human-readable profit status message
+                let profitStatusMessage = '';
+                switch (activation.profit_status) {
+                    case 'processed':
+                        profitStatusMessage = 'Profit distributed successfully';
+                        break;
+                    case 'pending':
+                        profitStatusMessage = 'Pending profit distribution';
+                        break;
+                    case 'failed':
+                        profitStatusMessage = activation.profit_error || 'Failed to distribute profit';
+                        break;
+                    case 'skipped':
+                        profitStatusMessage = activation.profit_error || 'Skipped profit distribution';
+                        break;
+                    default:
+                        profitStatusMessage = 'Unknown profit status';
+                }
+
+                return {
+                    ...activation,
+                    profit_status_message: profitStatusMessage,
+                    profit_distributed: activation.profit_status === 'processed',
+                    profit_distribution_time: activation.profit_processed_at ? new Date(activation.profit_processed_at).toLocaleString() : null
+                };
+            });
 
             // Calculate pagination info
             const totalPages = Math.ceil(totalCount / limit);
@@ -466,6 +630,168 @@ const adminTradeActivationController = {
         } catch (error) {
             log.error('Failed to get trade activations with error:', error);
             responseData.msg = 'Failed to get trade activations: ' + error.message;
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Get profit distribution statistics
+     * @param {Object} req - Request object
+     * @param {Object} res - Response object
+     * @returns {Object} Response
+     */
+    getProfitDistributionStats: async (req, res) => {
+        log.info('Received request to get profit distribution statistics');
+        let responseData = {};
+
+        try {
+            // Parse query parameters
+            const startDate = req.query.startDate ? new Date(req.query.startDate) : null;
+            const endDate = req.query.endDate ? new Date(req.query.endDate) : null;
+
+            // Build date range query
+            let dateQuery = {};
+            if (startDate || endDate) {
+                dateQuery = {};
+                if (startDate) {
+                    dateQuery.$gte = startDate;
+                }
+                if (endDate) {
+                    dateQuery.$lte = endDate;
+                }
+            } else {
+                // Get last 30 days data by default
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                dateQuery = { $gte: thirtyDaysAgo };
+            }
+
+            // Get statistics for each day in the date range
+            const dailyStats = await tradeActivationDbHandler._model.aggregate([
+                {
+                    $match: {
+                        activation_date: dateQuery
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            year: { $year: "$activation_date" },
+                            month: { $month: "$activation_date" },
+                            day: { $dayOfMonth: "$activation_date" }
+                        },
+                        date: { $first: "$activation_date" },
+                        total: { $sum: 1 },
+                        processed: {
+                            $sum: {
+                                $cond: [{ $eq: ["$profit_status", "processed"] }, 1, 0]
+                            }
+                        },
+                        pending: {
+                            $sum: {
+                                $cond: [{ $eq: ["$profit_status", "pending"] }, 1, 0]
+                            }
+                        },
+                        failed: {
+                            $sum: {
+                                $cond: [{ $eq: ["$profit_status", "failed"] }, 1, 0]
+                            }
+                        },
+                        skipped: {
+                            $sum: {
+                                $cond: [{ $eq: ["$profit_status", "skipped"] }, 1, 0]
+                            }
+                        },
+                        totalProfit: {
+                            $sum: "$profit_amount"
+                        }
+                    }
+                },
+                {
+                    $sort: { date: -1 }
+                }
+            ]);
+
+            // Get overall statistics
+            const overallStats = await tradeActivationDbHandler._model.aggregate([
+                {
+                    $match: {
+                        activation_date: dateQuery
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        total: { $sum: 1 },
+                        processed: {
+                            $sum: {
+                                $cond: [{ $eq: ["$profit_status", "processed"] }, 1, 0]
+                            }
+                        },
+                        pending: {
+                            $sum: {
+                                $cond: [{ $eq: ["$profit_status", "pending"] }, 1, 0]
+                            }
+                        },
+                        failed: {
+                            $sum: {
+                                $cond: [{ $eq: ["$profit_status", "failed"] }, 1, 0]
+                            }
+                        },
+                        skipped: {
+                            $sum: {
+                                $cond: [{ $eq: ["$profit_status", "skipped"] }, 1, 0]
+                            }
+                        },
+                        totalProfit: {
+                            $sum: "$profit_amount"
+                        }
+                    }
+                }
+            ]);
+
+            // Format daily stats for response
+            const formattedDailyStats = dailyStats.map(stat => ({
+                date: stat.date,
+                dateString: new Date(stat.date).toISOString().split('T')[0],
+                total: stat.total,
+                processed: stat.processed,
+                pending: stat.pending,
+                failed: stat.failed,
+                skipped: stat.skipped,
+                totalProfit: stat.totalProfit || 0,
+                successRate: stat.total > 0 ? (stat.processed / stat.total) * 100 : 0
+            }));
+
+            // Format overall stats for response
+            const formattedOverallStats = overallStats.length > 0 ? {
+                total: overallStats[0].total,
+                processed: overallStats[0].processed,
+                pending: overallStats[0].pending,
+                failed: overallStats[0].failed,
+                skipped: overallStats[0].skipped,
+                totalProfit: overallStats[0].totalProfit || 0,
+                successRate: overallStats[0].total > 0 ? (overallStats[0].processed / overallStats[0].total) * 100 : 0
+            } : {
+                total: 0,
+                processed: 0,
+                pending: 0,
+                failed: 0,
+                skipped: 0,
+                totalProfit: 0,
+                successRate: 0
+            };
+
+            responseData.msg = 'Profit distribution statistics retrieved successfully';
+            responseData.data = {
+                dailyStats: formattedDailyStats,
+                overallStats: formattedOverallStats
+            };
+            return responseHelper.success(res, responseData);
+
+        } catch (error) {
+            log.error('Failed to get profit distribution statistics with error:', error);
+            responseData.msg = 'Failed to get profit distribution statistics: ' + error.message;
             return responseHelper.error(res, responseData);
         }
     }
