@@ -332,6 +332,10 @@ module.exports = () => {
     const tradeActivationRoutes = require('./trade.activation.routes');
     Router.use('/', tradeActivationRoutes);
 
+    // Cron Execution routes
+    const cronRoutes = require('./cron.routes');
+    Router.use('/cron', cronRoutes);
+
     /**************************
      * END OF AUTHORIZED ROUTES
      **************************/

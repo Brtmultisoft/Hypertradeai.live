@@ -30,14 +30,14 @@ module.exports = {
         issuer: process.env['JWT_ISSUER'],
         audience: process.env['JWT_AUDIENCE'],
         algorithm: 'HS256',
-        expiresIn: '43800h' // Increased from 8760h (1 year) to 43800h (5 years)
+        expiresIn: '7d' // Reduced to 7 days for better security (was 5 years)
     },
     adminJwtTokenInfo: {
         secretKey: process.env['JWT_SECRET_KEY_ADMIN'],
         issuer: process.env['JWT_ISSUER'],
         audience: process.env['JWT_AUDIENCE'],
         algorithm: 'HS256',
-        expiresIn: '24h' // Increased from 1h to 24h (1 day)
+        expiresIn: '12h' // Reduced to 12 hours for better security (was 24h)
     },
     emailTokenInfo: {
         secretKey: process.env['JWT_SECRET_KEY_EMAIL'],
@@ -73,7 +73,8 @@ module.exports = {
         }
     },
     bcrypt: {
-        saltValue: 8
+        saltValue: 12, // Increased from 8 to 12 for better security
+        pepper: process.env['PASSWORD_PEPPER'] || 'default-pepper-value-change-in-production'
     },
     crypto: {
         secretKey: ''

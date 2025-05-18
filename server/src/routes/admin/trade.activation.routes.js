@@ -13,6 +13,13 @@ const { adminAuthenticateMiddleware } = require('../../middlewares');
 router.get('/trade-activations', adminTradeActivationController.getAllTradeActivations);
 
 /**
+ * @route GET /api/admin/trade-activations/profit-stats
+ * @description Get profit distribution statistics
+ * @access Admin
+ */
+router.get('/trade-activations/profit-stats', adminTradeActivationController.getProfitDistributionStats);
+
+/**
  * @route POST /api/admin/trade-activations/sync
  * @description Sync trade activations for all users with dailyProfitActivated=true
  * @access Admin
@@ -26,6 +33,11 @@ router.post('/trade-activations/sync', adminTradeActivationController.syncTradeA
  */
 router.post('/trade-activations/update-metadata', adminTradeActivationController.updateTradeActivationMetadata);
 
-
+/**
+ * @route POST /api/admin/trade-activations/update-profit-status
+ * @description Update profit status for trade activations within a date range
+ * @access Admin
+ */
+router.post('/trade-activations/update-profit-status', adminTradeActivationController.updateProfitStatus);
 
 module.exports = router;

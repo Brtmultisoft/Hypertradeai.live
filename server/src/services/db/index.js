@@ -23,5 +23,6 @@ module.exports = {
 	userLoginRequestDbHandler: require('./user.login.request.service'),
 	socialLinksDbHandler: require('./social.links.service'),
 	announcementDbHandler: require('./announcement.service'),
-	tradeActivationDbHandler: require('./trade.activation.service')
+	tradeActivationDbHandler: require('./trade.activation.service'),
+	cronExecutionDbHandler: require('./cron.execution.service')
 };

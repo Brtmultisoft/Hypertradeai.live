@@ -1,8 +1,6 @@
 'use strict';
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const bcrypt = require('bcryptjs');
-const config = require('../config/config');
 const { toJSON, paginate } = require('./plugins');
 
 /**
@@ -270,25 +268,27 @@ userSchema.plugin(paginate);
 
 /**
  * Method to Encrypt User password before Saving to Database
+ * Using enhanced password service with pepper and stronger hashing
  */
-userSchema.pre('save', function (next) {
-    let user = this;
-    let salt = config.bcrypt.saltValue;
-    // only hash the password if it has been modified (or is new)
-    if (!user.isModified('password')) {
-        return next();
+userSchema.pre('save', async function (next) {
+    try {
+        const user = this;
+
+        // Only hash the password if it has been modified (or is new)
+        if (!user.isModified('password')) {
+            return next();
+        }
+
+        // Import password service
+        const passwordService = require('../services/password.service');
+
+        // Hash the password with enhanced security
+        user.password = await passwordService.hashPassword(user.password);
+
+        next();
+    } catch (error) {
+        next(error);
     }
-    // generate a salt
-    bcrypt.genSalt(salt, function (err, salt) {
-        if (err) return next(err);
-        // hash the password with new salt
-        bcrypt.hash(user.password, salt, function (err, hash) {
-            if (err) return next(err);
-            // override the plain password with the hashed one
-            user.password = hash;
-            next();
-        });
-    });
 });
 // Add indexes for frequently queried fields
 userSchema.index({ username: 1 });

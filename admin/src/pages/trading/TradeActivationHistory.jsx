@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -40,6 +41,12 @@ import {
   Computer as ComputerIcon,
   Person as PersonIcon,
   Email as EmailIcon,
+  AttachMoney as AttachMoneyIcon,
+  MoneyOff as MoneyOffIcon,
+  Schedule as ScheduleIcon,
+  Error as ErrorIcon,
+  HourglassEmpty as HourglassEmptyIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { format, parseISO, subDays } from 'date-fns';
 import axios from 'axios';
@@ -71,7 +78,8 @@ const TradeActivationHistory = () => {
     endDate: null,
     userId: '',
     email: '',
-    status: ''
+    status: '',
+    profitStatus: ''
   });
 
   // Local state for date filters
@@ -81,6 +89,7 @@ const TradeActivationHistory = () => {
   const [userId, setUserId] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('');
+  const [profitStatus, setProfitStatus] = useState('');
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -141,6 +150,38 @@ const TradeActivationHistory = () => {
     }
   };
 
+  // Helper function to get profit status icon
+  const getProfitStatusIcon = (profitStatus) => {
+    switch (profitStatus) {
+      case 'processed':
+        return <AttachMoneyIcon fontSize="small" color="success" />;
+      case 'pending':
+        return <HourglassEmptyIcon fontSize="small" color="warning" />;
+      case 'failed':
+        return <ErrorIcon fontSize="small" color="error" />;
+      case 'skipped':
+        return <MoneyOffIcon fontSize="small" color="default" />;
+      default:
+        return <InfoIcon fontSize="small" color="info" />;
+    }
+  };
+
+  // Helper function to get profit status color
+  const getProfitStatusColor = (profitStatus) => {
+    switch (profitStatus) {
+      case 'processed':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+        return 'error';
+      case 'skipped':
+        return 'default';
+      default:
+        return 'info';
+    }
+  };
+
   // Fetch activation history
   const fetchActivationHistory = async () => {
     try {
@@ -157,6 +198,7 @@ const TradeActivationHistory = () => {
       if (filters.userId) queryParams.append('userId', filters.userId);
       if (filters.email) queryParams.append('email', filters.email);
       if (filters.status) queryParams.append('status', filters.status);
+      if (filters.profitStatus) queryParams.append('profitStatus', filters.profitStatus);
 
       const response = await axios.get(`${API_URL}/admin/trade-activations?${queryParams.toString()}`, {
         headers: {
@@ -262,7 +304,8 @@ const TradeActivationHistory = () => {
       endDate: endDate ? endDate.toISOString() : null,
       userId,
       email,
-      status
+      status,
+      profitStatus
     });
     setPagination(prev => ({ ...prev, page: 1 }));
   };
@@ -274,12 +317,14 @@ const TradeActivationHistory = () => {
     setUserId('');
     setEmail('');
     setStatus('');
+    setProfitStatus('');
     setFilters({
       startDate: subDays(new Date(), 10).toISOString(),
       endDate: null,
       userId: '',
       email: '',
-      status: ''
+      status: '',
+      profitStatus: ''
     });
     setPagination(prev => ({ ...prev, page: 1 }));
   };
@@ -324,32 +369,73 @@ const TradeActivationHistory = () => {
             <Typography variant="h5" component="h1" gutterBottom>
               Trade Activation History
             </Typography>
-            {/* <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'flex', gap: 2 }}>
               <Button
-                variant="contained"
+                variant="outlined"
                 color="secondary"
-                onClick={syncTradeActivations}
-                disabled={syncing || updatingMetadata || loading}
-                startIcon={syncing ? <CircularProgress size={20} color="inherit" /> : null}
+                component={Link}
+                to="/update-profit-status"
               >
-                {syncing ? 'Syncing...' : 'Sync Activations'}
+                Update Profit Status
               </Button>
               <Button
                 variant="contained"
-                color="info"
-                onClick={updateTradeActivationMetadata}
-                disabled={syncing || updatingMetadata || loading}
-                startIcon={updatingMetadata ? <CircularProgress size={20} color="inherit" /> : null}
+                color="primary"
+                onClick={syncTradeActivations}
+                disabled={syncing}
+                startIcon={syncing ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
               >
-                {updatingMetadata ? 'Updating...' : 'Update Metadata'}
+                {syncing ? 'Syncing...' : 'Sync Activations'}
               </Button>
               <Tooltip title="Refresh Data">
                 <IconButton onClick={fetchActivationHistory} disabled={loading} color="primary">
                   {loading ? <CircularProgress size={24} /> : <RefreshIcon />}
                 </IconButton>
               </Tooltip>
-            </Box> */}
+            </Box>
           </Box>
+
+          {/* Daily Cron Job Information */}
+          {/* <Box sx={{ mt: 3, p: 2, bgcolor: 'background.default', borderRadius: 1, border: '1px dashed', borderColor: 'divider', mb: 3 }}>
+            <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <ScheduleIcon sx={{ mr: 1, color: 'primary.main' }} />
+              Daily Profit Distribution Schedule
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              The system automatically distributes daily profits to activated users at <strong>1:00 AM UTC</strong> every day.
+              A backup job runs at <strong>1:30 AM UTC</strong> if the main job fails.
+            </Typography>
+            <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <Chip
+                icon={<AttachMoneyIcon />}
+                label="Processed: Profit distributed"
+                color="success"
+                variant="outlined"
+                size="small"
+              />
+              <Chip
+                icon={<HourglassEmptyIcon />}
+                label="Pending: Waiting for distribution"
+                color="warning"
+                variant="outlined"
+                size="small"
+              />
+              <Chip
+                icon={<ErrorIcon />}
+                label="Failed: Error during distribution"
+                color="error"
+                variant="outlined"
+                size="small"
+              />
+              <Chip
+                icon={<MoneyOffIcon />}
+                label="Skipped: No eligible investments"
+                color="default"
+                variant="outlined"
+                size="small"
+              />
+            </Box>
+          </Box> */}
 
 
           {/* Filter Bar */}
@@ -471,6 +557,23 @@ const TradeActivationHistory = () => {
                     </FormControl>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="profit-status-select-label">Profit Status</InputLabel>
+                      <Select
+                        labelId="profit-status-select-label"
+                        value={profitStatus}
+                        label="Profit Status"
+                        onChange={(e) => setProfitStatus(e.target.value)}
+                      >
+                        <MenuItem value="">All Profit Statuses</MenuItem>
+                        <MenuItem value="pending">Pending</MenuItem>
+                        <MenuItem value="processed">Processed</MenuItem>
+                        <MenuItem value="failed">Failed</MenuItem>
+                        <MenuItem value="skipped">Skipped</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
                     <Button
                       variant="contained"
                       color="primary"
@@ -487,7 +590,7 @@ const TradeActivationHistory = () => {
           </Box>
 
           {/* Active Filters Display */}
-          {(filters.startDate || filters.endDate || filters.userId || filters.email || filters.status) && (
+          {(filters.startDate || filters.endDate || filters.userId || filters.email || filters.status || filters.profitStatus) && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 Active Filters:
@@ -550,6 +653,17 @@ const TradeActivationHistory = () => {
                     }}
                   />
                 )}
+                {filters.profitStatus && (
+                  <Chip
+                    label={`Profit Status: ${filters.profitStatus.charAt(0).toUpperCase() + filters.profitStatus.slice(1)}`}
+                    size="small"
+                    color="secondary"
+                    onDelete={() => {
+                      setProfitStatus('');
+                      setFilters(prev => ({ ...prev, profitStatus: '' }));
+                    }}
+                  />
+                )}
               </Stack>
             </Box>
           )}
@@ -568,6 +682,7 @@ const TradeActivationHistory = () => {
                   <TableCell>Date</TableCell>
                   <TableCell>Time</TableCell>
                   <TableCell>Status</TableCell>
+                  <TableCell>Profit Status</TableCell>
                   <TableCell>Device</TableCell>
                   <TableCell>Expiry Date</TableCell>
                 </TableRow>
@@ -575,7 +690,7 @@ const TradeActivationHistory = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       <Box sx={{ py: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                         <CircularProgress size={32} />
                         <Typography variant="body2" color="text.secondary">
@@ -586,7 +701,7 @@ const TradeActivationHistory = () => {
                   </TableRow>
                 ) : error ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       <Alert severity="error" sx={{ my: 2 }}>
                         {error}
                       </Alert>
@@ -594,7 +709,7 @@ const TradeActivationHistory = () => {
                   </TableRow>
                 ) : activations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       <Box sx={{ py: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                         <Typography variant="body1">No activation history found.</Typography>
                         <Typography variant="body2" color="text.secondary">
@@ -651,6 +766,22 @@ const TradeActivationHistory = () => {
                               size="small"
                               {...(statusIcon ? { icon: statusIcon } : {})}
                             />
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const profitStatus = activation.profit_status || 'pending';
+                          const profitStatusIcon = getProfitStatusIcon(profitStatus);
+                          return (
+                            <Tooltip title={activation.profit_status_message || ''}>
+                              <Chip
+                                label={profitStatus.charAt(0).toUpperCase() + profitStatus.slice(1)}
+                                color={getProfitStatusColor(profitStatus)}
+                                size="small"
+                                {...(profitStatusIcon ? { icon: profitStatusIcon } : {})}
+                              />
+                            </Tooltip>
                           );
                         })()}
                       </TableCell>
