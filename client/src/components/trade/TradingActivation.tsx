@@ -161,45 +161,119 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
     return storedActivation === 'true' && storedDate === today;
   }, []);
 
-  // Define getUserProfile function first
-  const getUserProfile = async () => {
+  // Define getUserProfile function with enhanced caching mechanism
+  const getUserProfile = useCallback(async (forceRefresh = false) => {
+    // Constants for cache configuration
+    const CACHE_DURATION = 60000; // Cache duration in ms (60 seconds) - increased from 30 seconds
+    const STALE_CACHE_DURATION = 300000; // Stale cache duration in ms (5 minutes)
+
+    // Check if we have cached data
+    const cachedData = localStorage.getItem('userProfileCache');
+    const cachedTimestamp = localStorage.getItem('userProfileCacheTimestamp');
+    const now = Date.now();
+
+    // Track if we're using cached data
+    let usingCache = false;
+    let usingStaleCache = false;
+
+    // Use cached data if available and not forcing refresh
+    if (!forceRefresh && cachedData && cachedTimestamp) {
+      const cacheAge = now - parseInt(cachedTimestamp);
+
+      // Cache is fresh (less than CACHE_DURATION old)
+      if (cacheAge < CACHE_DURATION) {
+        try {
+          console.log('Using fresh cached user profile data');
+          const user = JSON.parse(cachedData);
+          usingCache = true;
+
+          // Process the cached user data
+          processUserData(user);
+
+          // If we're using fresh cache, we can return early
+          return;
+        } catch (error) {
+          console.error('Error parsing cached user data:', error);
+          // Continue to fetch fresh data if cache parsing fails
+        }
+      }
+      // Cache is stale but still usable while we fetch fresh data
+      else if (cacheAge < STALE_CACHE_DURATION) {
+        try {
+          console.log('Using stale cached user profile data while fetching fresh data');
+          const user = JSON.parse(cachedData);
+          usingStaleCache = true;
+
+          // Process the cached user data
+          processUserData(user);
+
+          // We'll continue to fetch fresh data in the background
+        } catch (error) {
+          console.error('Error parsing stale cached user data:', error);
+        }
+      }
+    }
+
+    // Fetch fresh data if no cache, cache is expired, or we're using stale cache
     try {
+      // If we're using stale cache, don't show loading state
+      if (!usingStaleCache) {
+        setIsLoading(true);
+      }
+
+      console.log('Fetching fresh user profile data');
       const response = await UserService.getUserProfile();
+
       if (response && response.status) {
         const user = response.result;
-        setUserData(user); // Update userData state
 
-        // Calculate income trading values regardless of activation status
-        // This will show the counter with total invested amount and 0.266% profit calculation
-        const investedAmount = user.total_investment || 0;
-        const profitRate = 0.266; // 0.266% daily profit rate
-        const profitAmount = (investedAmount * profitRate) / 100;
-        const activationTime = user.lastDailyProfitActivation ? new Date(user.lastDailyProfitActivation) : null;
+        // Cache the user data
+        localStorage.setItem('userProfileCache', JSON.stringify(user));
+        localStorage.setItem('userProfileCacheTimestamp', now.toString());
 
-        // Update individual state variables
-        setTotalInvested(investedAmount);
-        setDailyProfitAmount(profitAmount);
-        setLastActivationTime(activationTime);
-
-        // Store the calculated values in localStorage for persistence
-        localStorage.setItem('totalInvested', investedAmount.toString());
-        localStorage.setItem('dailyProfitAmount', profitAmount.toFixed(2));
-        localStorage.setItem('dailyProfitRate', profitRate.toString());
-
-        // If user has activated daily profit
-        if(user.dailyProfitActivated) {
-          // If trading is activated but the UI doesn't show it, update the UI
-          if (!tradingActive) {
-            onActivate();
-            setAlreadyActivated(true);
-          }
+        // Only process the data if we weren't already using fresh cache
+        if (!usingCache) {
+          processUserData(user);
         }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      showSnackbar('Failed to load user data. Please refresh the page.', 'error');
+
+      // Only show error if we don't have any cached data to fall back on
+      if (!usingCache && !usingStaleCache) {
+        showSnackbar('Failed to load user data. Please refresh the page.', 'error');
+      }
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [tradingActive, onActivate, showSnackbar]);
+
+  // Helper function to process user data (extracted to avoid code duplication)
+  const processUserData = useCallback((user: any) => {
+    setUserData(user);
+
+    // Calculate income trading values
+    const investedAmount = user.total_investment || 0;
+    const profitRate = 0.266; // 0.266% daily profit rate
+    const profitAmount = (investedAmount * profitRate) / 100;
+    const activationTime = user.lastDailyProfitActivation ? new Date(user.lastDailyProfitActivation) : null;
+
+    // Update individual state variables
+    setTotalInvested(investedAmount);
+    setDailyProfitAmount(profitAmount);
+    setLastActivationTime(activationTime);
+
+    // Store the calculated values in localStorage for persistence
+    localStorage.setItem('totalInvested', investedAmount.toString());
+    localStorage.setItem('dailyProfitAmount', profitAmount.toFixed(2));
+    localStorage.setItem('dailyProfitRate', profitRate.toString());
+
+    // If user has activated daily profit
+    if (user.dailyProfitActivated && !tradingActive) {
+      onActivate();
+      setAlreadyActivated(true);
+    }
+  }, [tradingActive, onActivate]);
 
   // Fetch user profile data on component mount - optimized with useCallback
   const fetchUserProfile = useCallback(async () => {
@@ -211,55 +285,20 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
 
     try {
       setIsLoading(true);
-      const response = await UserService.getUserProfile();
+      // Use the cached getUserProfile function instead of making a direct API call
+      await getUserProfile(false);
 
-      if (response && response.status) {
-        const user = response.result;
-        setUserData(user);
+      // Set initial values for timer-related states
+      setCurrentProfit(0); // Will be updated by the timer
+      setTimeElapsed('00:00:00'); // Will be updated by the timer
 
-        // Calculate income trading values
-        if (user.total_investment) {
-          const totalInvested = user.total_investment;
-          const dailyProfitRate = 0.266; // 0.266% daily profit rate
-          const dailyProfitAmount = (totalInvested * dailyProfitRate) / 100;
-
-          // Get last activation time if available
-          const lastActivationTime = user.lastDailyProfitActivation ? new Date(user.lastDailyProfitActivation) : null;
-
-          // Update individual state variables
-          setTotalInvested(totalInvested);
-          setDailyProfitAmount(dailyProfitAmount);
-          setLastActivationTime(lastActivationTime);
-          setCurrentProfit(0); // Will be updated by the timer
-          setTimeElapsed('00:00:00'); // Will be updated by the timer
-        }
-
-        // Check if daily profit is already activated from server
-        const isActivatedFromServer = user.dailyProfitActivated === true;
-
-        // Check localStorage only if not activated on server
-        let isActivatedFromLocalStorage = false;
-        if (!isActivatedFromServer && user._id) {
-          isActivatedFromLocalStorage = checkLocalStorageActivation(user._id);
-        }
-
-        // If activated from either source, update state
-        if (isActivatedFromServer || isActivatedFromLocalStorage) {
-          setAlreadyActivated(true);
-
-          // If already activated but trading is not active, activate it
-          if (!tradingActive) {
-            onActivate();
-          }
-        }
-      }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('Error in fetchUserProfile:', error);
       showSnackbar('Failed to load user data. Please refresh the page.', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [tradingActive, onActivate, checkLocalStorageActivation, showSnackbar]);
+  }, [tradingActive, getUserProfile, showSnackbar]);
 
   // Fetch user data on mount
   useEffect(() => {
@@ -307,8 +346,8 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
         // Show success message
         showSnackbar('Trading successfully activated! You will receive ROI and level ROI income for today.', 'success');
 
-        // Refresh user profile to get updated activation status
-        await getUserProfile();
+        // Refresh user profile to get updated activation status - force refresh to bypass cache
+        await getUserProfile(true);
       } else {
         throw new Error('Failed to activate daily trading');
       }
@@ -325,8 +364,8 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
         setAlreadyActivated(true);
         onActivate();
 
-        // Refresh user profile to get updated activation status
-        await getUserProfile();
+        // Refresh user profile to get updated activation status - force refresh to bypass cache
+        await getUserProfile(true);
       } else {
         // Show error message
         showSnackbar(error.message || 'There was an issue activating daily profit. Please try again.', 'error');
@@ -339,7 +378,7 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
 
 
   // Timer reference to clear on unmount
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   // Function to format time elapsed since activation
   const formatTimeElapsed = useCallback(() => {
@@ -419,10 +458,8 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
     }
   }, [tradingActive, alreadyActivated, lastActivationTime, calculateCurrentProfit, formatTimeElapsed]);
 
-  useEffect(() => {
-    getUserProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // No need for a separate useEffect to call getUserProfile
+  // as it's already being called in fetchUserProfile which is called on mount
 
   return (
     <Paper

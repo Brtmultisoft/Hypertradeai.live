@@ -39,14 +39,15 @@ const OrderBook: React.FC<OrderBookProps> = ({ tradingActive, currentPair, curre
   return (
     <Paper
       sx={{
-        height: 500,
+        height: { xs: 'auto', sm: 450, md: 500 }, // Responsive height
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         background: '#12151c',
-        borderRadius: 1,
+        borderRadius: { xs: 0.5, sm: 1 },
         border: '1px solid rgba(255, 255, 255, 0.05)',
         position: 'relative',
+        minHeight: { xs: 350, sm: 400, md: 500 }, // Ensure minimum height on all devices
       }}
     >
       {!tradingActive && (
@@ -65,7 +66,13 @@ const OrderBook: React.FC<OrderBookProps> = ({ tradingActive, currentPair, curre
             backdropFilter: 'blur(3px)'
           }}
         >
-          <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+          <Typography
+            variant="body1"
+            sx={{
+              color: 'rgba(255, 255, 255, 0.7)',
+              fontSize: { xs: '0.875rem', sm: '1rem' }
+            }}
+          >
             Trading Inactive
           </Typography>
         </Box>
@@ -73,27 +80,44 @@ const OrderBook: React.FC<OrderBookProps> = ({ tradingActive, currentPair, curre
 
       <Box
         sx={{
-          padding: '12px 15px',
+          padding: { xs: '8px 12px', sm: '12px 15px' },
           borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          gap: { xs: 1, sm: 0 }
         }}
       >
-        <Typography variant="subtitle2" sx={{ color: 'text.primary' }}>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            color: 'text.primary',
+            fontSize: { xs: '0.8rem', sm: '0.875rem' },
+            fontWeight: 600,
+            width: { xs: '100%', sm: 'auto' }
+          }}
+        >
           Order Book
         </Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack
+          direction="row"
+          spacing={{ xs: 0.5, sm: 1 }}
+          sx={{
+            width: { xs: '100%', sm: 'auto' },
+            justifyContent: { xs: 'center', sm: 'flex-end' }
+          }}
+        >
           {['0.1', '0.01', '0.001'].map((value) => (
             <Button
               key={value}
               variant="text"
               size="small"
               sx={{
-                minWidth: 'auto',
-                py: 0.5,
-                px: 1,
-                fontSize: 12,
+                minWidth: { xs: '30px', sm: 'auto' },
+                py: { xs: 0.3, sm: 0.5 },
+                px: { xs: 0.5, sm: 1 },
+                fontSize: { xs: 10, sm: 12 },
                 background: precision === value ? alpha('#f0b90b', 0.1) : 'rgba(255, 255, 255, 0.03)',
                 color: precision === value ? 'primary.main' : 'text.primary',
                 '&:hover': {
@@ -116,12 +140,14 @@ const OrderBook: React.FC<OrderBookProps> = ({ tradingActive, currentPair, curre
           overflow: 'hidden',
         }}
       >
+        {/* Asks Section - Sell Orders */}
         <Box
           sx={{
             flex: 1,
             overflowY: 'auto',
+            maxHeight: { xs: '150px', sm: '180px', md: '200px' }, // Responsive max height
             '&::-webkit-scrollbar': {
-              width: '4px',
+              width: { xs: '3px', sm: '4px' },
             },
             '&::-webkit-scrollbar-thumb': {
               background: 'rgba(255, 255, 255, 0.1)',
@@ -135,18 +161,49 @@ const OrderBook: React.FC<OrderBookProps> = ({ tradingActive, currentPair, curre
               sx={{
                 display: 'grid',
                 gridTemplateColumns: '1.2fr 1fr 1fr',
-                padding: '5px 16px',
-                fontSize: 13,
+                padding: { xs: '4px 12px', sm: '5px 16px' },
+                fontSize: { xs: 11, sm: 12, md: 13 },
                 position: 'relative',
                 '&:hover': {
                   background: 'rgba(255, 255, 255, 0.03)'
                 },
-                color: 'error.main'
+                color: 'error.main',
+                height: { xs: '24px', sm: 'auto' }, // Fixed height on mobile for better touch
+                alignItems: 'center'
               }}
             >
-              <Box component="span" sx={{ position: 'relative', zIndex: 2 }}>{parseFloat(ask.price).toFixed(2)}</Box>
-              <Box component="span" sx={{ position: 'relative', zIndex: 2 }}>{ask.amount}</Box>
-              <Box component="span" sx={{ position: 'relative', zIndex: 2 }}>{ask.total}</Box>
+              <Box
+                component="span"
+                sx={{
+                  position: 'relative',
+                  zIndex: 2,
+                  fontFamily: "'Roboto Mono', monospace",
+                  fontWeight: { xs: 500, sm: 400 }
+                }}
+              >
+                {parseFloat(ask.price).toFixed(2)}
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  position: 'relative',
+                  zIndex: 2,
+                  textAlign: 'center'
+                }}
+              >
+                {ask.amount}
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  position: 'relative',
+                  zIndex: 2,
+                  textAlign: 'right',
+                  display: { xs: 'none', sm: 'block' } // Hide on very small screens
+                }}
+              >
+                {ask.total}
+              </Box>
               <Box
                 sx={{
                   position: 'absolute',
@@ -162,26 +219,45 @@ const OrderBook: React.FC<OrderBookProps> = ({ tradingActive, currentPair, curre
           ))}
         </Box>
 
+        {/* Spread Section */}
         <Box
           sx={{
-            padding: '7px 16px',
+            padding: { xs: '5px 12px', sm: '7px 16px' },
             background: 'rgba(0, 0, 0, 0.2)',
             display: 'flex',
             justifyContent: 'space-between',
-            fontSize: 13,
+            fontSize: { xs: 11, sm: 12, md: 13 },
             color: 'text.secondary'
           }}
         >
-          <Typography variant="caption" sx={{ fontSize: 13 }}>Spread</Typography>
-          <Typography variant="caption" sx={{ fontSize: 13 }}>$12.45 (0.03%)</Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: { xs: 11, sm: 12, md: 13 },
+              fontWeight: 500
+            }}
+          >
+            Spread
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: { xs: 11, sm: 12, md: 13 },
+              fontFamily: "'Roboto Mono', monospace",
+            }}
+          >
+            $12.45 (0.03%)
+          </Typography>
         </Box>
 
+        {/* Bids Section - Buy Orders */}
         <Box
           sx={{
             flex: 1,
             overflowY: 'auto',
+            maxHeight: { xs: '150px', sm: '180px', md: '200px' }, // Responsive max height
             '&::-webkit-scrollbar': {
-              width: '4px',
+              width: { xs: '3px', sm: '4px' },
             },
             '&::-webkit-scrollbar-thumb': {
               background: 'rgba(255, 255, 255, 0.1)',
@@ -195,18 +271,49 @@ const OrderBook: React.FC<OrderBookProps> = ({ tradingActive, currentPair, curre
               sx={{
                 display: 'grid',
                 gridTemplateColumns: '1.2fr 1fr 1fr',
-                padding: '5px 16px',
-                fontSize: 13,
+                padding: { xs: '4px 12px', sm: '5px 16px' },
+                fontSize: { xs: 11, sm: 12, md: 13 },
                 position: 'relative',
                 '&:hover': {
                   background: 'rgba(255, 255, 255, 0.03)'
                 },
-                color: 'secondary.main'
+                color: 'secondary.main',
+                height: { xs: '24px', sm: 'auto' }, // Fixed height on mobile for better touch
+                alignItems: 'center'
               }}
             >
-              <Box component="span" sx={{ position: 'relative', zIndex: 2 }}>{parseFloat(bid.price).toFixed(2)}</Box>
-              <Box component="span" sx={{ position: 'relative', zIndex: 2 }}>{bid.amount}</Box>
-              <Box component="span" sx={{ position: 'relative', zIndex: 2 }}>{bid.total}</Box>
+              <Box
+                component="span"
+                sx={{
+                  position: 'relative',
+                  zIndex: 2,
+                  fontFamily: "'Roboto Mono', monospace",
+                  fontWeight: { xs: 500, sm: 400 }
+                }}
+              >
+                {parseFloat(bid.price).toFixed(2)}
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  position: 'relative',
+                  zIndex: 2,
+                  textAlign: 'center'
+                }}
+              >
+                {bid.amount}
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  position: 'relative',
+                  zIndex: 2,
+                  textAlign: 'right',
+                  display: { xs: 'none', sm: 'block' } // Hide on very small screens
+                }}
+              >
+                {bid.total}
+              </Box>
               <Box
                 sx={{
                   position: 'absolute',

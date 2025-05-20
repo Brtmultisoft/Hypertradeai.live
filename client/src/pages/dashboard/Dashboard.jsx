@@ -126,7 +126,7 @@ const Dashboard = () => {
           id: item._id,
           title: item.title,
           description: item.description,
-          image: item.image || `https://via.placeholder.com/60x60/3375BB/FFFFFF?text=${item.category || 'News'}`,
+          image: item?.image || `https://picsum.photos/200/300'}`,
           date: new Date(item.created_at).toISOString().split('T')[0],
           category: item.category,
           backgroundColor: item.backgroundColor || 'rgba(51, 117, 187, 0.1)',
@@ -251,8 +251,8 @@ const Dashboard = () => {
     try {
       // Clear cache to force a fresh fetch
       CryptoService.clearCache();
-      const data = await CryptoService.getPrices();
-      setCryptoPrices(data);
+      // const data = await CryptoService.getPrices();
+      // setCryptoPrices(data);
     } catch (error) {
       console.error('Error fetching crypto prices:', error);
       // Don't show error to user since we're using fallback data
@@ -2256,9 +2256,10 @@ const Dashboard = () => {
                     backgroundColor: item.backgroundColor || 'rgba(51, 117, 187, 0.1)',
                     padding: 1,
                   }}
-                  onError={(e) => {
-                    // e.target.src = `https://via.placeholder.com/60x60/3375BB/FFFFFF?text=${item.category || 'News'}`;
-                  }}
+                  // onError={(e) => {
+                  //   // Use placehold.co instead of via.placeholder.com
+                  //   e.target.src = `https://placehold.co/60x60/3375BB/FFFFFF?text=${item.category || 'News'}`;
+                  // }}
                 />
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
@@ -2376,7 +2377,8 @@ const Dashboard = () => {
                   flexShrink: 0,
                 }}
                 onError={(e) => {
-                  e.target.src = `https://via.placeholder.com/80x80/3375BB/FFFFFF?text=${item.category || 'News'}`;
+                  // Use placehold.co instead of via.placeholder.com
+                  e.target.src = `https://placehold.co/80x80/3375BB/FFFFFF?text=${item.category || 'News'}`;
                 }}
               />
               <Box sx={{ flex: 1 }}>

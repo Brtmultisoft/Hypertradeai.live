@@ -27,7 +27,7 @@ const createTradingPackageInvestment = async (user_id, amount, plan) => {
             user_id,
             investment_plan_id: plan._id,
             amount: amount,
-            daily_profit: plan.percentage || 2.5,
+            daily_profit: plan.percentage || 0.266,
             status: "active", // Use numeric status 1 for active (for compatibility with both string and numeric status checks)
             package_type: 'trading',
             type: 0, // For compatibility with existing code
@@ -152,7 +152,7 @@ module.exports = {
                     title: 'Trading Package',
                     amount_from: 50, // Minimum investment $50
                     amount_to: 0,    // No maximum (unlimited)
-                    percentage: 8/30,    // 8/30% daily ROI (8% monthly distributed daily)
+                    percentage: 0.266,    // 0.266% daily ROI
                     days: 1,          // Daily distribution
                     frequency_in_days: 1,
                     referral_bonus: 3, // 3% direct referral commission

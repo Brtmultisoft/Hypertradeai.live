@@ -21,12 +21,14 @@ if (!window.binancePriceCache) {
 }
 
 // Configuration
-const CACHE_DURATION = 2000; // Cache duration in ms (2 seconds)
-const API_POLL_INTERVAL = 2000; // API polling interval in ms (2 seconds)
-const MAX_RETRY_ATTEMPTS = 3; // Maximum number of retry attempts
-const RETRY_DELAY = 1000; // Delay between retries in ms
+const CACHE_DURATION = 5000; // Cache duration in ms (5 seconds) - increased for stability
+const API_POLL_INTERVAL = 3000; // API polling interval in ms (3 seconds) - slightly increased to reduce API load
+const MAX_RETRY_ATTEMPTS = 5; // Maximum number of retry attempts - increased for better resilience
+const RETRY_DELAY = 1000; // Base delay between retries in ms
 const USE_WEBSOCKET = true; // Whether to use WebSocket for real-time updates
-const WEBSOCKET_RECONNECT_DELAY = 3000; // Delay before reconnecting WebSocket in ms
+const WEBSOCKET_RECONNECT_DELAY = 2000; // Base delay before reconnecting WebSocket in ms - reduced for faster recovery
+const WEBSOCKET_CONNECTION_TIMEOUT = 5000; // Timeout for WebSocket connection in ms
+const FETCH_TIMEOUT = 5000; // Timeout for fetch requests in ms
 
 const AVAILABLE_EXCHANGES: Exchange[] = [
   {
@@ -107,6 +109,7 @@ export const useBinancePrice = (
 
   /**
    * Fetch price data from Binance API with caching and retry logic
+   * Enhanced with multiple API endpoints and better error handling
    */
   const fetchPrice = useCallback(async (targetSymbol: string = 'BTCUSDT'): Promise<number | null> => {
     // Normalize symbol to uppercase
@@ -128,41 +131,80 @@ export const useBinancePrice = (
     activeCallRef.current = true;
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-      const response = await fetch(
+      // Define multiple Binance API endpoints to try
+      const endpoints = [
         `https://api.binance.com/api/v3/ticker/price?symbol=${normalizedSymbol}`,
-        { signal: controller.signal }
-      );
+        `https://api1.binance.com/api/v3/ticker/price?symbol=${normalizedSymbol}`,
+        `https://api2.binance.com/api/v3/ticker/price?symbol=${normalizedSymbol}`,
+        `https://api3.binance.com/api/v3/ticker/price?symbol=${normalizedSymbol}`
+      ];
 
-      clearTimeout(timeoutId);
+      // Try each endpoint until one succeeds
+      let priceValue = null;
+      let lastError = null;
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+      for (const endpoint of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+          console.log(`Fetching price from ${endpoint}`);
+          const response = await fetch(endpoint, {
+            signal: controller.signal,
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+          }
+
+          const data = await response.json();
+          priceValue = parseFloat(data.price);
+
+          // If we got a valid price, break the loop
+          if (!isNaN(priceValue) && priceValue > 0) {
+            console.log(`Successfully fetched price from ${endpoint}: ${priceValue}`);
+            break;
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch from ${endpoint}:`, err);
+          lastError = err;
+          // Continue to the next endpoint
+        }
       }
 
-      const data = await response.json();
-      const priceValue = parseFloat(data.price);
+      // If we got a valid price from any endpoint
+      if (priceValue !== null && !isNaN(priceValue) && priceValue > 0) {
+        // Update the cache
+        window.binancePriceCache[normalizedSymbol] = {
+          price: priceValue,
+          timestamp: now,
+          symbol: normalizedSymbol
+        };
 
-      // Update the cache
-      window.binancePriceCache[normalizedSymbol] = {
-        price: priceValue,
-        timestamp: now,
-        symbol: normalizedSymbol
-      };
+        // Reset retry counter on success
+        retryAttemptsRef.current = 0;
 
-      // Reset retry counter on success
-      retryAttemptsRef.current = 0;
+        return priceValue;
+      }
 
-      return priceValue;
+      // If all endpoints failed, throw the last error
+      throw lastError || new Error('All API endpoints failed');
     } catch (err) {
+      console.error('Error fetching price:', err);
+
       // Handle errors with retry logic
       if (retryAttemptsRef.current < MAX_RETRY_ATTEMPTS) {
         retryAttemptsRef.current++;
 
         // Exponential backoff for retries
         const backoffDelay = RETRY_DELAY * Math.pow(2, retryAttemptsRef.current - 1);
+        console.log(`Scheduling retry in ${backoffDelay}ms (attempt ${retryAttemptsRef.current}/${MAX_RETRY_ATTEMPTS})`);
 
         // Schedule retry
         setTimeout(() => {
@@ -171,10 +213,16 @@ export const useBinancePrice = (
         }, backoffDelay);
       } else {
         // Max retries reached, set error state
+        console.error(`Failed to fetch price after ${MAX_RETRY_ATTEMPTS} attempts`);
         setError(`Failed to fetch price after ${MAX_RETRY_ATTEMPTS} attempts`);
         retryAttemptsRef.current = 0;
       }
 
+      // Return the last cached price if available, otherwise null
+      if (cache) {
+        console.log('Returning stale cached price as fallback:', cache.price);
+        return cache.price;
+      }
       return null;
     } finally {
       activeCallRef.current = false;
@@ -203,11 +251,13 @@ export const useBinancePrice = (
 
   /**
    * Setup WebSocket connection for real-time price updates
+   * Enhanced with better error handling and reconnection logic
    */
   const setupWebSocket = useCallback(() => {
     // Close existing connection if any
     if (wsRef.current) {
       wsRef.current.close();
+      wsRef.current = null;
     }
 
     // Clear any pending reconnect timer
@@ -217,12 +267,33 @@ export const useBinancePrice = (
     }
 
     try {
-      // Connect to Binance WebSocket API for BTCUSDT ticker
-      const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
+      console.log('Attempting to connect to Binance WebSocket...');
+
+      // Try alternative WebSocket endpoints if the main one fails
+      // Binance provides multiple WebSocket endpoints
+      const endpoints = [
+        'wss://stream.binance.com:9443/ws/btcusdt@ticker',
+        'wss://stream.binance.com/ws/btcusdt@ticker',
+        'wss://fstream.binance.com/ws/btcusdt@ticker'
+      ];
+
+      // Use the first endpoint initially, will try others on failure
+      const ws = new WebSocket(endpoints[0]);
+
+      // Set a connection timeout
+      const connectionTimeoutId = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          console.warn('WebSocket connection timeout, closing and retrying...');
+          ws.close();
+        }
+      }, 5000); // 5 second connection timeout
 
       ws.onopen = () => {
         // Connection established
+        console.log('Binance WebSocket connection established successfully');
+        clearTimeout(connectionTimeoutId); // Clear the connection timeout
         retryAttemptsRef.current = 0;
+        setError(null); // Clear any previous error messages
       };
 
       ws.onmessage = (event) => {
@@ -248,27 +319,66 @@ export const useBinancePrice = (
           }
         } catch (err) {
           console.error('Error processing WebSocket message:', err);
+          // Don't fail completely on a single message error
         }
       };
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        // Fall back to REST API on WebSocket error
+        clearTimeout(connectionTimeoutId); // Clear the connection timeout
+
+        // Try the next endpoint if available
+        const currentEndpointIndex = endpoints.indexOf(ws.url);
+        if (currentEndpointIndex < endpoints.length - 1 && retryAttemptsRef.current < 1) {
+          console.log(`Trying alternative WebSocket endpoint: ${endpoints[currentEndpointIndex + 1]}`);
+          // Close current connection and try the next endpoint
+          ws.close();
+
+          // Small delay before trying the next endpoint
+          setTimeout(() => {
+            try {
+              const nextWs = new WebSocket(endpoints[currentEndpointIndex + 1]);
+              wsRef.current = nextWs;
+
+              // Set up the same event handlers for the new connection
+              nextWs.onopen = ws.onopen;
+              nextWs.onmessage = ws.onmessage;
+              nextWs.onerror = ws.onerror;
+              nextWs.onclose = ws.onclose;
+            } catch (err) {
+              console.error('Error setting up alternative WebSocket:', err);
+              setError('WebSocket connection error, falling back to REST API');
+              setupRESTPolling();
+            }
+          }, 1000);
+
+          return;
+        }
+
+        // If we've tried all endpoints or too many retries, fall back to REST API
         setError('WebSocket connection error, falling back to REST API');
+        setupRESTPolling();
       };
 
-      ws.onclose = () => {
-        // Schedule reconnection
+      ws.onclose = (event) => {
+        console.log(`WebSocket connection closed with code: ${event.code}, reason: ${event.reason}`);
+        clearTimeout(connectionTimeoutId); // Clear the connection timeout
+
+        // Schedule reconnection with exponential backoff
+        const backoffDelay = WEBSOCKET_RECONNECT_DELAY * Math.pow(2, retryAttemptsRef.current);
+        console.log(`Scheduling WebSocket reconnection in ${backoffDelay}ms (attempt ${retryAttemptsRef.current + 1}/${MAX_RETRY_ATTEMPTS})`);
+
         wsReconnectTimerRef.current = window.setTimeout(() => {
           if (retryAttemptsRef.current < MAX_RETRY_ATTEMPTS) {
             retryAttemptsRef.current++;
             setupWebSocket();
           } else {
-            setError('WebSocket connection failed, using REST API fallback');
+            console.log('Maximum WebSocket reconnection attempts reached, switching to REST API polling');
+            setError('WebSocket connection failed after multiple attempts, using REST API fallback');
             // Fall back to REST API polling
             setupRESTPolling();
           }
-        }, WEBSOCKET_RECONNECT_DELAY);
+        }, backoffDelay);
       };
 
       wsRef.current = ws;
@@ -281,22 +391,87 @@ export const useBinancePrice = (
 
   /**
    * Setup REST API polling as fallback
+   * Enhanced with better error handling and retry logic
    */
   const setupRESTPolling = useCallback(() => {
+    console.log('Setting up REST API polling as fallback for price data');
+
     // Clear any existing polling interval
     if (pollTimerRef.current !== null) {
       clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
     }
 
-    const fetchAndUpdatePrices = async () => {
-      // Always fetch BTCUSDT as the base price
-      const btcPriceValue = await fetchPrice('BTCUSDT');
+    // Reset retry counter for REST API
+    retryAttemptsRef.current = 0;
 
-      if (btcPriceValue !== null) {
-        setBtcPrice(btcPriceValue);
-        setPrice(btcPriceValue); // Also set as the main price
-        updateExchangePrices(btcPriceValue);
-        setLoading(false);
+    const fetchAndUpdatePrices = async () => {
+      try {
+        console.log('Fetching price data via REST API...');
+
+        // Try multiple price sources in case one fails
+        let btcPriceValue = null;
+
+        // First try Binance API
+        btcPriceValue = await fetchPrice('BTCUSDT');
+
+        // If Binance API fails, try alternative APIs
+        if (btcPriceValue === null) {
+          console.log('Primary API failed, trying alternative sources...');
+
+          try {
+            // Try CoinGecko as a backup
+            const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+            if (response.ok) {
+              const data = await response.json();
+              if (data && data.bitcoin && data.bitcoin.usd) {
+                btcPriceValue = data.bitcoin.usd;
+                console.log('Successfully fetched price from CoinGecko:', btcPriceValue);
+              }
+            }
+          } catch (backupError) {
+            console.error('Error fetching from backup API:', backupError);
+          }
+        }
+
+        // If we have a valid price, update the UI
+        if (btcPriceValue !== null) {
+          // Update the cache
+          window.binancePriceCache['BTCUSDT'] = {
+            price: btcPriceValue,
+            timestamp: Date.now(),
+            symbol: 'BTCUSDT'
+          };
+
+          // Update state
+          setBtcPrice(btcPriceValue);
+          setPrice(btcPriceValue); // Also set as the main price
+          updateExchangePrices(btcPriceValue);
+          setLoading(false);
+          setError(null); // Clear any previous errors
+
+          // Reset retry counter on success
+          retryAttemptsRef.current = 0;
+        } else {
+          // If all APIs failed, increment retry counter
+          retryAttemptsRef.current++;
+
+          if (retryAttemptsRef.current >= MAX_RETRY_ATTEMPTS) {
+            console.error(`Failed to fetch price data after ${MAX_RETRY_ATTEMPTS} attempts`);
+            setError(`Failed to fetch price data after ${MAX_RETRY_ATTEMPTS} attempts. Using last known price.`);
+
+            // Use last known price from cache if available
+            const cachedPrice = window.binancePriceCache['BTCUSDT'];
+            if (cachedPrice && cachedPrice.price) {
+              console.log('Using last cached price:', cachedPrice.price);
+              setBtcPrice(cachedPrice.price);
+              setPrice(cachedPrice.price);
+              updateExchangePrices(cachedPrice.price);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error in fetchAndUpdatePrices:', error);
       }
     };
 
@@ -304,53 +479,99 @@ export const useBinancePrice = (
     fetchAndUpdatePrices();
 
     // Set up polling with a ref to allow cleanup
+    // Use a slightly faster interval for REST API to compensate for WebSocket
     pollTimerRef.current = window.setInterval(fetchAndUpdatePrices, API_POLL_INTERVAL);
+
+    return () => {
+      if (pollTimerRef.current !== null) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
   }, [fetchPrice, updateExchangePrices]);
 
   /**
    * Main effect for setting up data fetching strategy (WebSocket or REST)
+   * Enhanced with better initialization and cleanup
    */
   useEffect(() => {
     let mounted = true;
+    console.log('Initializing price data fetching strategy...');
 
-    if (USE_WEBSOCKET) {
-      setupWebSocket();
-    } else {
-      setupRESTPolling();
-    }
+    // Initial fetch to ensure we have data immediately
+    const initialFetch = async () => {
+      try {
+        console.log('Performing initial price fetch...');
+        const price = await fetchPrice('BTCUSDT');
 
-    // Initial fetch to ensure we have data while WebSocket connects
-    fetchPrice('BTCUSDT').then(price => {
-      if (mounted && price !== null) {
-        setBtcPrice(price);
-        setPrice(price);
-        updateExchangePrices(price);
-        setLoading(false);
+        if (mounted && price !== null) {
+          console.log('Initial price fetch successful:', price);
+          setBtcPrice(price);
+          setPrice(price);
+          updateExchangePrices(price);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error during initial price fetch:', error);
+        // Continue with setup even if initial fetch fails
+      }
+    };
+
+    // Start with initial fetch
+    initialFetch().then(() => {
+      // Then set up the main data source
+      if (mounted) {
+        if (USE_WEBSOCKET) {
+          console.log('Using WebSocket as primary data source');
+          setupWebSocket();
+        } else {
+          console.log('Using REST API polling as primary data source');
+          setupRESTPolling();
+        }
       }
     });
 
+    // Set up a fallback mechanism in case the primary method fails
+    const fallbackTimerId = setTimeout(() => {
+      if (mounted && loading) {
+        console.log('Primary data source taking too long, setting up fallback...');
+        // If we're still loading after 10 seconds, try the alternative method
+        if (USE_WEBSOCKET) {
+          console.log('WebSocket taking too long, adding REST API polling as backup');
+          setupRESTPolling();
+        }
+      }
+    }, 10000); // 10 second fallback timeout
+
     return () => {
+      console.log('Cleaning up price data fetching resources...');
       mounted = false;
+
+      // Clear fallback timer
+      clearTimeout(fallbackTimerId);
 
       // Clean up WebSocket
       if (wsRef.current) {
+        console.log('Closing WebSocket connection');
         wsRef.current.close();
         wsRef.current = null;
       }
 
       // Clean up reconnect timer
       if (wsReconnectTimerRef.current !== null) {
+        console.log('Clearing WebSocket reconnect timer');
         clearTimeout(wsReconnectTimerRef.current);
         wsReconnectTimerRef.current = null;
       }
 
       // Clean up polling interval
       if (pollTimerRef.current !== null) {
+        console.log('Clearing REST API polling interval');
         clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
       }
     };
-  }, [fetchPrice, setupWebSocket, setupRESTPolling, updateExchangePrices]);
+  }, [fetchPrice, setupWebSocket, setupRESTPolling, updateExchangePrices, loading]);
 
   /**
    * Effect for exchange rotation

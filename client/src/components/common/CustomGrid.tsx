@@ -9,7 +9,7 @@ interface CustomGridProps extends MuiGridProps {
   md?: number | boolean;
   lg?: number | boolean;
   xl?: number | boolean;
-  spacing?: number;
+  spacing?: number | { xs?: number; sm?: number; md?: number; lg?: number; xl?: number };
 }
 
 const CustomGrid: React.FC<CustomGridProps> = (props) => {

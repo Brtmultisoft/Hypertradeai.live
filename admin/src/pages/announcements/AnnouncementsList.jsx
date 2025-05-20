@@ -419,7 +419,7 @@ const AnnouncementsList = () => {
                               backgroundColor: announcement.backgroundColor || 'rgba(51, 117, 187, 0.1)',
                             }}
                             onError={(e) => {
-                              e.target.src = `https://picsum.photos/200/300`;
+                              e.target.src = `https://placehold.co/40x40/3375BB/FFFFFF?text=${announcement.category || 'News'}`;
                             }}
                           />
                         )}
@@ -587,7 +587,7 @@ const AnnouncementsList = () => {
                       padding: 1,
                       flexShrink: 0,
                     }}
-                  
+
                   />
                   <Box sx={{ flex: 1 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
@@ -854,7 +854,7 @@ const AnnouncementsList = () => {
                         backgroundColor: 'rgba(51, 117, 187, 0.1)',
                         padding: 1,
                       }}
-                     
+
                     />
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="subtitle2" fontWeight="bold" gutterBottom>

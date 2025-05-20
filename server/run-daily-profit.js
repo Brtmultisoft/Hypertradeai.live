@@ -34,7 +34,7 @@ const investmentPlanSchema = new Schema({
   },
   percentage: {
     type: Number,
-    default: 0.26 // Daily trading profit
+    default: 0.266 // Daily trading profit
   }
 });
 
@@ -88,24 +88,24 @@ const incomeSchema = new Schema({
 async function processDailyTradingProfit() {
   try {
     await mongoose.connect('mongodb+srv://dev3brt:dev3brt@hypertradeai.qopdrdq.mongodb.net/hypertradeai?retryWrites=true&w=majority&appName=HypertradeAI');
-    
+
     // Register models
     const Investment = mongoose.model('Investment', investmentSchema);
     const InvestmentPlan = mongoose.model('InvestmentPlan', investmentPlanSchema);
     const User = mongoose.model('User', userSchema);
     const Income = mongoose.model('Income', incomeSchema);
-    
+
     // Get all active investments
     const activeInvestments = await Investment.find({ status: 'active' });
-    
+
     console.log(`Processing daily profit for ${activeInvestments.length} active investments`);
     let processedCount = 0;
     let totalProfit = 0;
-    
+
     // Set today's date for profit calculation
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // User IDs from May 17 activations
     const userIds = [
       "678f9a82a2dac325900fc47e", // user@test.com
@@ -117,42 +117,42 @@ async function processDailyTradingProfit() {
       "68219ba6d0c748e9551b8ac4", // hypetradeai0002@gmail.com
       "68258eaa04eb4361394dbda2"  // block@test.com
     ];
-    
+
     for (const investment of activeInvestments) {
       // Get the last profit date for reference
       const lastProfitDate = new Date(investment.last_profit_date || investment.created_at);
-      
+
       // Log the last profit date for debugging
       console.log(`Investment ID: ${investment._id}, Last profit date: ${lastProfitDate}`);
-      
+
       // Get user information
       const user = await User.findById(investment.user_id);
       if (!user) {
         console.error(`User not found for investment ${investment._id}. Skipping...`);
         continue;
       }
-      
+
       // Check if user is in our list of May 17 activations
       if (!userIds.includes(investment.user_id.toString())) {
         console.log(`User ${user._id} (${user.email}) did not activate on May 17. Skipping...`);
         continue;
       }
-      
+
       console.log(`Processing ROI for user ${user._id} (${user.email})`);
-      
+
       // Get the investment plan to use its percentage value
       const investmentPlan = await InvestmentPlan.findById(investment.investment_plan_id);
-      
-      // Use the plan's percentage value or fall back to 0.26% if not available
-      const roiRate = investmentPlan ? investmentPlan.percentage : 0.26;
+
+      // Use the plan's percentage value or fall back to 0.266% if not available
+      const roiRate = investmentPlan ? investmentPlan.percentage : 0.266;
       console.log(`Using ROI rate: ${roiRate}% for investment ${investment._id}`);
-      
+
       // Calculate daily profit based on the investment amount and ROI rate
       const dailyProfit = (investment.amount * roiRate) / 100;
       totalProfit += dailyProfit;
-      
+
       console.log(`Processing profit for investment ${investment._id}: $${dailyProfit} (${roiRate}% of $${investment.amount})`);
-      
+
       try {
         // Add profit to user's wallet
         const walletUpdate = await User.findByIdAndUpdate(
@@ -165,12 +165,12 @@ async function processDailyTradingProfit() {
           },
           { new: true }
         );
-        
+
         console.log(`Wallet update result for user ${investment.user_id}: ${walletUpdate ? 'Success' : 'Failed'}`);
         if (walletUpdate) {
           console.log(`New wallet balance: $${walletUpdate.wallet}`);
         }
-        
+
         // Create income record
         const incomeRecord = await Income.create({
           user_id: ObjectId(investment.user_id),
@@ -184,9 +184,9 @@ async function processDailyTradingProfit() {
             profitPercentage: roiRate
           }
         });
-        
+
         console.log(`Income record created: ${incomeRecord ? 'Success' : 'Failed'}`);
-        
+
         // Update last profit date
         const dateUpdate = await Investment.findByIdAndUpdate(
           investment._id,
@@ -195,20 +195,20 @@ async function processDailyTradingProfit() {
           },
           { new: true }
         );
-        
+
         console.log(`Last profit date updated: ${dateUpdate ? 'Success' : 'Failed'}`);
-        
+
         processedCount++;
       } catch (investmentError) {
         console.error(`Error processing profit for investment ${investment._id}:`, investmentError);
       }
     }
-    
+
     console.log(`Daily profit processing completed. Processed ${processedCount} investments with total profit of $${totalProfit.toFixed(2)}`);
-    
+
     // Disconnect from MongoDB
     await mongoose.disconnect();
-    
+
     return { success: true, processedCount, totalProfit };
   } catch (error) {
     console.error('Error processing daily trading profit:', error);

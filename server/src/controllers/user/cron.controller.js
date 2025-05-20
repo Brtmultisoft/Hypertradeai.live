@@ -1887,7 +1887,7 @@ const processTeamRewards = async (req, res) => {
 
 // Schedule daily ROI processing (exactly at 1:00 AM UTC every day)
 if (process.env.CRON_STATUS === '1') {
-  console.log('Scheduling daily ROI processing (exactly at 1 AM UTC every day)');
+  console.log('Scheduling daily ROI processing (exactly at 12 AM UTC every day)');
 
   // Create a wrapper function with error handling and logging
   const processDailyTradingProfitWithErrorHandling = async () => {
@@ -1986,14 +1986,14 @@ if (process.env.CRON_STATUS === '1') {
     }
   };
 
-  // Schedule the cron job with the wrapper function
-  cron.schedule('0 1 * * *', processDailyTradingProfitWithErrorHandling, {
+  // Schedule the cron job with the wrapper function to run at midnight (12 AM)
+  cron.schedule('0 0 * * *', processDailyTradingProfitWithErrorHandling, {
     scheduled: true,
     timezone: "UTC"
   });
 
   // Add a backup cron job that runs 30 minutes later if the main one fails
-  cron.schedule('30 1 * * *', async () => {
+  cron.schedule('30 0 * * *', async () => {
     try {
       // Check if the main cron job has run successfully
       const fs = require('fs');
