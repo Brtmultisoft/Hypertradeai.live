@@ -300,7 +300,7 @@ const AnnouncementsDisplay = () => {
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2, mt: 2 }}>
                   <Box
                     component="img"
-                    src={announcement.image || `https://via.placeholder.com/80x80/3375BB/FFFFFF?text=${announcement.category || 'News'}`}
+                    src={announcement.image || `https://placehold.co/80x80/3375BB/FFFFFF?text=${announcement.category || 'News'}`}
                     alt={announcement.title}
                     sx={{
                       width: 80,
@@ -313,7 +313,7 @@ const AnnouncementsDisplay = () => {
                       flexShrink: 0,
                     }}
                     onError={(e) => {
-                      e.target.src = `https://via.placeholder.com/80x80/3375BB/FFFFFF?text=${announcement.category || 'News'}`;
+                      e.target.src = `https://placehold.co/80x80/3375BB/FFFFFF?text=${announcement.category || 'News'}`;
                     }}
                   />
                   <Box sx={{ flex: 1 }}>

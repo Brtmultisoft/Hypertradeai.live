@@ -21,7 +21,7 @@ const investmentplanSchema = new Schema({
     },
     percentage: {
         type: Number,
-        default: 2.5 // Daily trading profit
+        default: 0.266 // Daily trading profit
     },
     days: {
         type: Number,

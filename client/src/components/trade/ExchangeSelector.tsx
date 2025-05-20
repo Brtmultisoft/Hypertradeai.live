@@ -379,7 +379,7 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
                   }}
                 >
                   <Avatar
-                    src={exchange.logo}
+                    // src={exchange.logo}
                     alt={exchange.name}
                     sx={{
                       width: 28,

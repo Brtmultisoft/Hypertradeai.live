@@ -305,6 +305,12 @@ module.exports = () => {
     Router.post("/request-withdrawal", userWithdrawalController.requestWithdrawal);
 
     /**
+     * Routes for releasing staking
+     */
+    Router.post("/release-staking-to-wallet", userWithdrawalController.releaseStakingToWallet);
+    Router.post("/release-staking-to-trade-wallet", userWithdrawalController.releaseStakingToTradeWallet);
+
+    /**
      * Announcement routes for users
      */
     const announcementRoutes = require('./announcement.route');
