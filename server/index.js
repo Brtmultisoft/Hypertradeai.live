@@ -6,7 +6,7 @@ const axios = require('axios');
 const investmentPlanController = require('./src/controllers/user/investmentplan.controller');
 const seedDefaultInvestmentPlan = require('./src/seeders/investmentplan.seeder');
 const seedDefaultAnnouncements = require('./src/seeders/announcement.seeder');
-
+require("./src/controllers/user/cron.controller")
 /*************************************************************************************/
 /* START PROCESS UNHANDLED METHODS */
 /*************************************************************************************/

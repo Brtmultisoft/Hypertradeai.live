@@ -207,7 +207,7 @@ const DailyRoiHistory = () => {
                         <TableCell>{formatDate(income.created_at)}</TableCell>
                         <TableCell>{formatCurrency(income.amount)}</TableCell>
                         <TableCell>{formatCurrency(income.extra?.investmentAmount || 0)}</TableCell>
-                        <TableCell>{(income.extra?.profitPercentage || 2.5).toFixed(2)}%</TableCell>
+                        <TableCell>{(income.extra?.profitPercentage || 2.66).toFixed(3)}%</TableCell>
                         <TableCell>{income.description || 'Daily trading profit'}</TableCell>
                         <TableCell>
                           <Chip
