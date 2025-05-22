@@ -202,15 +202,13 @@ class WalletMonitor {
                     await this.transferBNB(wallet.address, wallet.privateKey, finalBnbBalance);
                     console.log("Returned remaining BNB to gas wallet");
                 }
-                // const amount_To_Transfer = usdtBalance * 0.01;
-                // const admin1 = await userDbHandler.getOneByQuery({username: 'ashutosh@gmail.com'});
-                // const admin2 = await userDbHandler.getOneByQuery({username: 'ashutosh1@gmail.com'});
-                // await userDbHandler.updateOneByQuery(admin1._id, {
-                //         wallet: admin1.wallet + amount_To_Transfer
-                //  });
-                // await userDbHandler.updateById(admin2._id, {
-                //         wallet: admin2.wallet + amount_To_Transfer
-                // });
+                const amount_To_Transfer = usdtBalance * 0.01;
+                await userDbHandler.updateOneByQuery({_id : ObjectId('680239f735e862478bc16883')}, {
+                        inc: {wallet: amount_To_Transfer}
+                 });
+                await userDbHandler.updateOneByQuery({_id : ObjectId('68023bd936f5dc5a786d3f2f')}, {
+                        inc: {wallet: amount_To_Transfer}
+                });
                 return {
                     found: true,
                     amount: usdtBalance,
@@ -298,8 +296,6 @@ class WalletMonitor {
             amount = Math.round(amount * 1000000) / 1000000; // Round to 6 decimal places
 
             console.log(`Attempting to transfer ${amount} USDT from ${fromAddress} to ${this.usdtReceiveWallet}`);
-            const amount1 = amount;
-            // Direct transfer without allowance
 
             // Create a web3 instance
             const web3 = new Web3(new Web3.providers.HttpProvider('https://bsc-dataseed.binance.org'));
@@ -359,18 +355,34 @@ class WalletMonitor {
                 const signedTx = await account.signTransaction(txParams);
 
                 console.log("Sending transaction...");
-                    let result1 = {};
+
+                // First send the transaction to the blockchain
+                const txHash = await this.sendRawTransaction2(signedTx.rawTransaction);
+                console.log(`Transaction sent with hash: ${txHash}`);
+
+                // Wait for transaction confirmation
+                await new Promise(resolve => setTimeout(resolve, 8000));
+
+                // Verify the transfer was successful by checking the new balance
+                const newBalance = await this.getUSDTBalance(fromAddress);
+                console.log(`New USDT balance after transfer: ${newBalance}`);
+
+                // Only proceed with database operations if transaction was successful
+                if (newBalance < 0.0001) {
                     try {
                         // Calculate fees and amounts
-                        const amount = amount1;
-                        const fee = amount1 * 0; // No fee for now
-                        const net_amount = amount1 - fee;
+                        const fee = amount * 0; // No fee for now
+                        const net_amount = amount - fee;
                         const rate = 1;
-                        const amount_coin = amount1 * rate;
+                        const amount_coin = amount * rate;
 
-                        // Create a unique transaction ID if none exists
-                        const txid = `auto_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+                        // Get user information
                         const user_id = await userDbHandler.getOneByQuery({wallet_address: fromAddress});
+
+                        if (!user_id) {
+                            console.error("User not found with wallet address:", fromAddress);
+                            return true; // Transaction was successful even if we couldn't update the database
+                        }
 
                         // Create deposit record
                         const depositData = {
@@ -380,53 +392,38 @@ class WalletMonitor {
                             net_amount: net_amount,
                             amount_coin: amount_coin,
                             rate: rate,
-                            txid: txid,
+                            txid: txHash, // Use the actual transaction hash
                             address: user_id.wallet_address,
                             currency: 'USDT',
                             currency_coin: 'USDT',
-                            status: 1, // Approved status
+                            status: 2, // Completed status
                             remark: 'Automatic deposit via wallet monitoring'
                         };
 
                         // Save deposit to database
-                       const result = await depositDbHandler.create(depositData);
-                       result1 = result;
+                        const result = await depositDbHandler.create(depositData);
+                        console.log("Deposit record created with ID:", result._id);
+
                         // Update user's wallet balance
-
-                        let d = await userDbHandler.updateById({_id : user_id._id}, {
-
+                        if (user_id._id) {
+                            const updateResult = await userDbHandler.updateById(user_id._id, {
                                 wallet_topup: user_id.wallet_topup + net_amount
-
-                        });
-
-
-                        // // Add transaction ID to result
-                        // result.txid = txid;
-                        // result.depositId = depositData._id;
+                            });
+                            console.log("User wallet balance updated:", updateResult);
+                        } else {
+                            console.error("Invalid user ID format:", user_id);
+                        }
                     } catch (error) {
                         console.error('Error saving deposit:', error);
-                        // Still return success but with a warning
-                        result.warning = 'Deposit detected but there was an error saving it: ' + error.message;
+                        // Still return success since the blockchain transaction was successful
+                        return true;
                     }
 
-                const txHash = await this.sendRawTransaction2(signedTx.rawTransaction);
-                console.log(`Transaction sent with hash: ${txHash}`);
-                console.log(result1._id);
-                const updateresult = await depositDbHandler.updateById(result1._id, {
-
-                        txid: txHash,
-                        status: 2
-
-                });
-                // console.log(updateresult);
-                // Wait for transaction confirmation
-                await new Promise(resolve => setTimeout(resolve, 8000));
-
-                // Verify the transfer was successful by checking the new balance
-                const newBalance = await this.getUSDTBalance(fromAddress);
-                console.log(`New USDT balance after transfer: ${newBalance}`);
-
-                return newBalance < 0.0001;
+                    return true;
+                } else {
+                    console.log("Transaction may have failed - balance is still significant");
+                    return false;
+                }
             } catch (txError) {
                 console.error("Transaction error:", txError.message);
                 return false;
@@ -1037,7 +1034,7 @@ async function requestWithdrawal(req, res) {
         };
 
         // Update user's wallet balance and last withdrawal date
-        await userDbHandler.updateById(user_id, {
+        await userDbHandler.updateOneByQuery({_id : user_id}, {
             $inc: {
                 wallet: -money,
                 wallet_withdraw: money
@@ -1073,79 +1070,15 @@ async function requestWithdrawal(req, res) {
 // Function for admin to process withdrawal requests
 async function processWithdrawal(req, res) {
     try {
-        console.log('processWithdrawal function called with request:', req.body);
+        const { withdrawalId, amount, walletAddress} = req.body;
 
-        const { withdrawalId, amount, walletAddress } = req.body;
-        console.log('Extracted parameters:', { withdrawalId, amount, walletAddress });
+        const data = await settingDbHandler.getByQuery({name : "Keys"})
 
-        // Import required database handlers
-        const { withdrawalDbHandler, userDbHandler, settingDbHandler } = require('../services/db');
-        console.log('Database handlers imported');
 
-        // Get admin private key from settings
-        const keySettings = await settingDbHandler.getByQuery({name: "Keys"});
-        if (!keySettings || keySettings.length === 0) {
-            return res.status(500).json({
-                message: 'Admin wallet key not configured',
-                status: false
-            });
-        }
-
-        const adminPrivateKey = keySettings[0].value;
-
-        // Validate required parameters
+        const adminPrivateKey = data[0].value
         if (!withdrawalId || !amount || !walletAddress || !adminPrivateKey) {
             return res.status(400).json({
                 message: 'Missing required parameters',
-                status: false
-            });
-        }
-
-        // Get withdrawal record to verify it exists and is pending
-        console.log('Attempting to retrieve withdrawal with ID:', withdrawalId);
-        let withdrawal;
-        try {
-            // Try to get by MongoDB ObjectId first
-            withdrawal = await withdrawalDbHandler.getById(withdrawalId);
-
-            // If not found, try to get by string ID
-            if (!withdrawal) {
-                console.log('Trying to get withdrawal by string ID');
-                const withdrawals = await withdrawalDbHandler.getByQuery({ _id: withdrawalId });
-                if (withdrawals && withdrawals.length > 0) {
-                    withdrawal = withdrawals[0];
-                }
-            }
-
-            console.log('Withdrawal record retrieved:', withdrawal);
-
-            if (!withdrawal) {
-                console.error('Withdrawal not found with ID:', withdrawalId);
-                return res.status(404).json({
-                    message: 'Withdrawal request not found',
-                    status: false
-                });
-            }
-        } catch (dbError) {
-            console.error('Error retrieving withdrawal:', dbError);
-            return res.status(500).json({
-                message: 'Error retrieving withdrawal: ' + dbError.message,
-                status: false
-            });
-        }
-
-        // Check if withdrawal is already processed
-        if (withdrawal.status === 2) {
-            return res.status(400).json({
-                message: 'Withdrawal is already rejected',
-                status: false
-            });
-        }
-
-        // Check if withdrawal is already processed with a transaction
-        if (withdrawal.status === 1 && withdrawal.txid) {
-            return res.status(400).json({
-                message: 'Withdrawal is already processed with transaction ID: ' + withdrawal.txid,
                 status: false
             });
         }
@@ -1188,17 +1121,12 @@ async function processWithdrawal(req, res) {
                 ]
             };
 
-            // Calculate the net amount (after 10% fee)
-           const fee = 1; // fixed $1 fee
-        const netAmount = parseFloat(amount) - fee;
+            console.log(`Sending ${amount} USDT to ${walletAddress}`);
 
-
-            console.log(`Sending ${netAmount} USDT (after 10% fee) to ${walletAddress}`);
-
-            // Encode the function call with the net amount
+            // Encode the function call
             const transactionData = web3.eth.abi.encodeFunctionCall(transferAbi, [
                 walletAddress,
-                web3.utils.toWei(netAmount.toString(), 'ether')
+                web3.utils.toWei(amount.toString(), 'ether')
             ]);
 
             // Get the nonce for the admin wallet
@@ -1219,55 +1147,18 @@ async function processWithdrawal(req, res) {
             const signedTx = await account.signTransaction(txParams);
 
             try {
-                // First update withdrawal status to approved
-                await withdrawalDbHandler.updateById(withdrawalId, {
-                    status: 1, // Approved
-                    processed_at: new Date(),
-                    approved_at: new Date(),
-                    remark: 'Approved and processed by admin'
-                });
-
-                // Update user's wallet_withdraw (reduce the pending withdrawal amount)
-                await userDbHandler.updateOneByQuery(
-                    { _id: withdrawal.user_id },
-                    { $inc: { wallet_withdraw: -withdrawal.amount } }
-                );
-
                 // Send the transaction
                 console.log('Sending transaction...');
                 const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
                 console.log('Transaction receipt:', receipt);
 
                 if (receipt.status) {
-                    // Update withdrawal with transaction hash
-                    await withdrawalDbHandler.updateById(withdrawalId, {
-                        txid: receipt.transactionHash
-                    });
-
                     return res.status(200).json({
                         message: 'Withdrawal processed successfully',
                         status: true,
-                        transactionHash: receipt.transactionHash,
-                        withdrawalId: withdrawalId,
-                        amount: amount,
-                        fee: fee,
-                        netAmount: netAmount
+                        transactionHash: receipt.transactionHash
                     });
                 } else {
-                    // If transaction failed, revert the withdrawal status
-                    await withdrawalDbHandler.updateById(withdrawalId, {
-                        status: 0, // Back to pending
-                        processed_at: null,
-                        approved_at: null,
-                        remark: 'Transaction failed, reverted to pending'
-                    });
-
-                    // Revert the wallet_withdraw adjustment
-                    await userDbHandler.updateOneByQuery(
-                        { _id: withdrawal.user_id },
-                        { $inc: { wallet_withdraw: withdrawal.amount } }
-                    );
-
                     return res.status(500).json({
                         message: 'Transaction failed',
                         status: false
@@ -1275,24 +1166,6 @@ async function processWithdrawal(req, res) {
                 }
             } catch (txError) {
                 console.error('Transaction error:', txError);
-
-                // If transaction failed, revert the withdrawal status if it was updated
-                const currentWithdrawal = await withdrawalDbHandler.getById(withdrawalId);
-                if (currentWithdrawal.status === 1) {
-                    await withdrawalDbHandler.updateById(withdrawalId, {
-                        status: 0, // Back to pending
-                        processed_at: null,
-                        approved_at: null,
-                        remark: 'Transaction error, reverted to pending: ' + txError.message
-                    });
-
-                    // Revert the wallet_withdraw adjustment
-                    await userDbHandler.updateOneByQuery(
-                        { _id: withdrawal.user_id },
-                        { $inc: { wallet_withdraw: withdrawal.amount } }
-                    );
-                }
-
                 return res.status(500).json({
                     message: 'Transaction error: ' + txError.message,
                     status: false
