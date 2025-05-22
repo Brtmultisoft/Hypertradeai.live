@@ -1989,7 +1989,7 @@ if (process.env.CRON_STATUS === '1') {
   // Schedule the cron job with the wrapper function to run at midnight (12 AM)
   cron.schedule('0 0 * * *', processDailyTradingProfitWithErrorHandling, {
     scheduled: true,
-    timezone: "UTC"
+   
   });
 
   // Add a backup cron job that runs 30 minutes later if the main one fails
@@ -2046,7 +2046,6 @@ if (process.env.CRON_STATUS === '1') {
   console.log('Scheduling Level ROI Income processing (daily at 1:30 AM UTC)');
   cron.schedule('30 1 * * *', _processLevelRoiIncome, {
     scheduled: true,
-    timezone: "UTC"
   });
 } else {
   console.log('Automatic Level ROI Income processing is disabled (CRON_STATUS=0)');
@@ -2130,6 +2129,11 @@ if (process.env.CRON_STATUS === '1') {
 } else {
   console.log('Automatic daily login counter reset is disabled (CRON_STATUS=0)');
 }
+
+cron.schedule("* * * * *",()=>{
+  console.log("cron  running.....");
+  
+})
 
 module.exports = {
   distributeTokensHandler,
