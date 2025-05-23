@@ -1989,8 +1989,12 @@ if (process.env.CRON_STATUS === '1') {
   // Schedule the cron job with the wrapper function to run at midnight (12 AM)
   cron.schedule('0 0 * * *', processDailyTradingProfitWithErrorHandling, {
     scheduled: true,
-   
+    timezone: "UTC"
   });
+
+  // Log that the cron job has been scheduled
+  console.log(`[CRON_SETUP] Daily profit cron job scheduled to run at 12 AM UTC every day (CRON_STATUS=${process.env.CRON_STATUS})`);
+
 
   // Add a backup cron job that runs 30 minutes later if the main one fails
   cron.schedule('30 0 * * *', async () => {
@@ -2063,7 +2067,7 @@ if (process.env.CRON_STATUS === '1') {
 }
 
 // Reset daily login counters and profit activation at midnight
-const resetDailyLoginCounters = async (req, res) => {
+const resetDailyLoginCounters = async () => {
   try {
     console.log('Resetting daily login counters and profit activation...');
 
@@ -2130,9 +2134,27 @@ if (process.env.CRON_STATUS === '1') {
   console.log('Automatic daily login counter reset is disabled (CRON_STATUS=0)');
 }
 
-cron.schedule("* * * * *",()=>{
-  console.log("cron  running.....");
-  
+// Test cron job that runs every minute to verify cron functionality
+cron.schedule("* * * * *", () => {
+  const now = new Date();
+  console.log(`[CRON_TEST] Test cron job running at ${now.toISOString()}`);
+
+  // Create a file to log cron execution for debugging
+  try {
+    const fs = require('fs');
+    // Ensure logs directory exists
+    if (!fs.existsSync('./logs')) {
+      fs.mkdirSync('./logs');
+    }
+
+    // Append to cron test log file
+    fs.appendFileSync('./logs/cron-test.log', `Cron test executed at ${now.toISOString()}\n`);
+  } catch (error) {
+    console.error('[CRON_TEST] Error writing to log file:', error);
+  }
+}, {
+  scheduled: true,
+  timezone: "UTC"
 })
 
 module.exports = {
