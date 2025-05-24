@@ -1306,66 +1306,59 @@ const processActiveMemberReward = async (req, res) => {
   }
 };
 
-// Process Level ROI Income (Team Commission) for all users
-const _processLevelRoiIncome = async () => {
+// Helper function to check and fix any trade activations with pending status
+const _checkAndFixPendingActivations = async () => {
   try {
-    console.log('\n======== PROCESSING LEVEL ROI INCOME FOR ALL USERS ========');
+    console.log('\n======== CHECKING FOR PENDING TRADE ACTIVATIONS ========');
 
-    // Get all users with active investments
-    const usersWithInvestments = await userDbHandler.getByQuery({ total_investment: { $gt: 0 } });
+    const { tradeActivationDbHandler } = require('../../services/db');
 
-    console.log(`Found ${usersWithInvestments.length} users with investments`);
-    let processedCount = 0;
-    let totalCommission = 0;
+    // Get all pending activations from the last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
 
-    for (const user of usersWithInvestments) {
-      console.log(`\nProcessing level ROI income for user: ${user.username || user.email} (ID: ${user._id})`);
-      console.log(`User's total investment: $${user.total_investment}`);
+    const pendingActivations = await tradeActivationDbHandler.getByQuery({
+      activation_date: {
+        $gte: sevenDaysAgo
+      },
+      status: 'active',
+      profit_status: 'pending'
+    });
 
-      // Check if user has activated daily profit for today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    console.log(`Found ${pendingActivations.length} pending trade activations from the last 7 days`);
 
-      // Get last activation date
-      const lastActivationDate = user.lastDailyProfitActivation ||
-                                (user.extra && user.extra.lastDailyProfitActivation);
-
-      if (!lastActivationDate) {
-        console.log(`User ${user._id} has not activated daily profit yet. Skipping level ROI income...`);
-        continue;
-      }
-
-      const lastActivation = new Date(lastActivationDate);
-      lastActivation.setHours(0, 0, 0, 0);
-
-      if (lastActivation.getTime() !== today.getTime()) {
-        console.log(`User ${user._id} has not activated daily profit today. Last activation: ${lastActivation.toISOString()}. Skipping level ROI income...`);
-        continue;
-      }
-
-      console.log(`User ${user._id} has activated daily profit today. Processing level ROI income...`);
-
-      try {
-        // Process team commissions for this user's total investment
-        const teamCommissionResult = await processTeamCommission(user._id, user.total_investment);
-        console.log(`Level ROI income processing result: ${teamCommissionResult ? 'Success' : 'Failed'}`);
-
-        if (teamCommissionResult) {
-          processedCount++;
-        }
-      } catch (commissionError) {
-        console.error(`Error processing level ROI income for user ${user._id}: ${commissionError.message}`);
-      }
+    if (pendingActivations.length === 0) {
+      return {
+        success: true,
+        message: 'No pending activations found',
+        pendingCount: 0
+      };
     }
 
-    console.log('======== LEVEL ROI INCOME PROCESSING COMPLETE ========\n');
+    // Group by date for better reporting
+    const activationsByDate = {};
+    for (const activation of pendingActivations) {
+      const dateKey = activation.activation_date.toISOString().split('T')[0];
+      if (!activationsByDate[dateKey]) {
+        activationsByDate[dateKey] = [];
+      }
+      activationsByDate[dateKey].push(activation);
+    }
+
+    console.log('Pending activations by date:');
+    for (const [date, activations] of Object.entries(activationsByDate)) {
+      console.log(`- ${date}: ${activations.length} pending activations`);
+    }
+
     return {
       success: true,
-      processedCount,
-      totalCommission
+      pendingCount: pendingActivations.length,
+      activationsByDate,
+      pendingActivations
     };
   } catch (error) {
-    console.error('Error processing level ROI income:', error);
+    console.error('Error checking pending activations:', error);
     return {
       success: false,
       error: error.message
@@ -1373,8 +1366,272 @@ const _processLevelRoiIncome = async () => {
   }
 };
 
-// Process daily trading profit - runs at a specific time (1 AM UTC) via cron job
-// instead of checking 24-hour differences
+// Process Level ROI Income (Team Commission) for all users - runs at 1:00 AM UTC
+// Processes level ROI for all users who received daily profit today
+// Prevents duplicate processing using last_level_roi_date field
+const _processLevelRoiIncome = async (triggeredBy = 'automatic') => {
+  // Create a cron execution record
+  let cronExecutionId = null;
+  const startTime = Date.now();
+
+  try {
+    console.log(`[LEVEL_ROI] Starting level ROI processing at ${new Date().toISOString()}`);
+
+    // Create a cron execution record
+    const { cronExecutionDbHandler } = require('../../services/db');
+    const cronExecution = await cronExecutionDbHandler.create({
+      cron_name: 'level_roi',
+      start_time: new Date(),
+      status: 'running',
+      triggered_by: triggeredBy,
+      server_info: {
+        hostname: require('os').hostname(),
+        platform: process.platform,
+        nodeVersion: process.version
+      }
+    });
+
+    cronExecutionId = cronExecution._id;
+    console.log(`[LEVEL_ROI] Created cron execution record with ID: ${cronExecutionId}`);
+
+    // Set today's date for processing
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get all income records from today's daily profit processing
+    // This ensures we only process level ROI for users who actually received daily profit today
+    const { incomeDbHandler } = require('../../services/db');
+    const todaysDailyProfits = await incomeDbHandler.getByQuery({
+      type: 'daily_profit',
+      created_at: {
+        $gte: today,
+        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+      },
+      status: 'credited'
+    });
+
+    console.log(`[LEVEL_ROI] Found ${todaysDailyProfits.length} daily profit records from today` ,{todaysDailyProfits});
+
+    if (todaysDailyProfits.length === 0) {
+      console.log('[LEVEL_ROI] No daily profit records found for today. Skipping level ROI processing.');
+
+      // Update cron execution record
+      await cronExecutionDbHandler.updateById(cronExecutionId, {
+        end_time: new Date(),
+        duration_ms: Date.now() - startTime,
+        status: 'completed',
+        processed_count: 0,
+        total_amount: 0,
+        execution_details: {
+          message: 'No daily profit records found for today',
+          processing_mode: 'all_invested_users'
+        }
+      });
+
+      return {
+        success: true,
+        processedCount: 0,
+        totalCommission: 0,
+        message: 'No daily profit records found for today',
+        cronExecutionId
+      };
+    }
+
+    let processedCount = 0;
+    let totalCommission = 0;
+    let errors = [];
+    let skippedCount = 0;
+
+    // Group daily profits by user to avoid processing the same user multiple times
+    const userProfitMap = new Map();
+    for (const profit of todaysDailyProfits) {
+      const userId = profit.user_id.toString();
+      if (!userProfitMap.has(userId)) {
+        userProfitMap.set(userId, {
+          user_id: profit.user_id,
+          total_profit: 0,
+          profit_records: []
+        });
+      }
+      const userProfit = userProfitMap.get(userId);
+      userProfit.total_profit += profit.amount;
+      userProfit.profit_records.push(profit);
+    }
+
+    console.log(`[LEVEL_ROI] Found ${userProfitMap.size} unique users who received daily profit today`);
+
+    // Process level ROI income for each user who received daily profit today
+    for (const [userId, userProfitData] of userProfitMap) {
+      try {
+        console.log(`[LEVEL_ROI] Processing level ROI for user: ${userId}`);
+
+        // Get user information
+        const user = await userDbHandler.getById(userProfitData.user_id);
+        if (!user) {
+          console.error(`[LEVEL_ROI] User not found for ID ${userId}. Skipping...`);
+          errors.push({
+            user_id: userId,
+            error: 'User not found'
+          });
+          continue;
+        }
+
+        console.log(`[LEVEL_ROI] Processing level ROI for user: ${user.username || user.email} (ID: ${user._id})`);
+        console.log(`[LEVEL_ROI] User's total daily profit today: $${userProfitData.total_profit.toFixed(4)}`);
+
+        // Check if user has already received level ROI today to prevent duplicates
+        const lastLevelRoiDate = user.last_level_roi_date || user.extra?.last_level_roi_date;
+        if (lastLevelRoiDate) {
+          const lastRoiDate = new Date(lastLevelRoiDate);
+          lastRoiDate.setHours(0, 0, 0, 0);
+
+          if (lastRoiDate.getTime() === today.getTime()) {
+            console.log(`[LEVEL_ROI] User ${userId} already received level ROI today. Skipping...`);
+            skippedCount++;
+            continue;
+          }
+        }
+
+        // Check if user has made an investment
+        const hasInvested = await hasUserInvested(user._id);
+        if (!hasInvested) {
+          console.log(`[LEVEL_ROI] User ${user._id} has not made any investment. Skipping level ROI income...`);
+          skippedCount++;
+          continue;
+        }
+
+        // Use the total profit amount for level ROI calculation
+        const profitAmount = userProfitData.total_profit;
+        if (profitAmount <= 0) {
+          console.log(`[LEVEL_ROI] No profit amount found for user ${userId}. Skipping level ROI income...`);
+          skippedCount++;
+          continue;
+        }
+
+        console.log(`[LEVEL_ROI] Processing level ROI based on daily profit of $${profitAmount.toFixed(4)}...`);
+
+        try {
+          // Process team commissions based on the daily profit amount
+          const teamCommissionResult = await processTeamCommission(user._id, profitAmount);
+          console.log(`[LEVEL_ROI] Level ROI processing result: ${teamCommissionResult ? 'Success' : 'Failed'}`);
+
+          if (teamCommissionResult) {
+            // Update user's last level ROI date to prevent duplicates
+            await userDbHandler.updateByQuery(
+              { _id: user._id },
+              {
+                last_level_roi_date: today,
+                $set: { "extra.last_level_roi_date": today }
+              }
+            );
+
+            processedCount++;
+            totalCommission += profitAmount; // Add to total for tracking
+            console.log(`[LEVEL_ROI] Successfully processed level ROI for user ${userId}`);
+          }
+        } catch (commissionError) {
+          console.error(`[LEVEL_ROI] Error processing level ROI for user ${user._id}: ${commissionError.message}`);
+          errors.push({
+            user_id: user._id,
+            error: commissionError.message
+          });
+        }
+      } catch (userError) {
+        console.error(`[LEVEL_ROI] Error processing user ${userId}: ${userError.message}`);
+        errors.push({
+          user_id: userId,
+          error: userError.message
+        });
+      }
+    }
+
+    console.log(`[LEVEL_ROI] Level ROI processing completed at ${new Date().toISOString()}`);
+    console.log(`[LEVEL_ROI] Processed ${processedCount} users with total commission of $${totalCommission.toFixed(2)}`);
+    console.log(`[LEVEL_ROI] Skipped ${skippedCount} users (already processed or no investment)`);
+
+    if (errors.length > 0) {
+      console.error(`[LEVEL_ROI] Encountered ${errors.length} errors during processing`);
+      // Log errors to a file for later analysis
+      try {
+        const fs = require('fs');
+        const errorLogPath = './logs/level-roi-errors.log';
+
+        // Ensure logs directory exists
+        if (!fs.existsSync('./logs')) {
+          fs.mkdirSync('./logs');
+        }
+
+        const errorLog = {
+          timestamp: new Date().toISOString(),
+          cronExecutionId: cronExecutionId,
+          errors: errors
+        };
+
+        fs.appendFileSync(errorLogPath, JSON.stringify(errorLog) + '\n');
+      } catch (logError) {
+        console.error(`[LEVEL_ROI] Error logging errors:`, logError);
+      }
+    }
+
+    // Update the cron execution record
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
+    await cronExecutionDbHandler.updateById(cronExecutionId, {
+      end_time: new Date(),
+      duration_ms: duration,
+      status: errors.length > 0 ? 'partial_success' : 'completed',
+      processed_count: processedCount,
+      total_amount: totalCommission,
+      error_count: errors.length,
+      error_details: errors.length > 0 ? errors : [],
+      execution_details: {
+        total_users_with_profit: userProfitMap.size,
+        processed_count: processedCount,
+        skipped_count: skippedCount,
+        processing_mode: 'all_profit_recipients'
+      }
+    });
+
+    return {
+      success: true,
+      processedCount,
+      totalCommission,
+      errors: errors.length > 0 ? errors : undefined,
+      cronExecutionId
+    };
+  } catch (error) {
+    console.error('[LEVEL_ROI] Error processing level ROI income:', error);
+
+    // Update the cron execution record if it was created
+    if (cronExecutionId) {
+      const { cronExecutionDbHandler } = require('../../services/db');
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      await cronExecutionDbHandler.updateById(cronExecutionId, {
+        end_time: new Date(),
+        duration_ms: duration,
+        status: 'failed',
+        error_count: 1,
+        error_details: [{
+          error: error.message,
+          stack: error.stack
+        }]
+      });
+    }
+
+    return {
+      success: false,
+      error: error.message,
+      cronExecutionId
+    };
+  }
+};
+
+// Process daily trading profit - runs at 12:30 AM UTC via cron job
+// Gives daily ROI to ALL users with active investments, regardless of activation status
+// Only processes each investment once per day based on last_profit_date to prevent duplicates
 const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
   // Create a cron execution record
   let cronExecutionId = null;
@@ -1384,7 +1641,7 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
     console.log(`[DAILY_PROFIT] Starting daily profit processing at ${new Date().toISOString()}`);
 
     // Create a cron execution record
-    const { cronExecutionDbHandler, tradeActivationDbHandler } = require('../../services/db');
+    const { cronExecutionDbHandler } = require('../../services/db');
     const cronExecution = await cronExecutionDbHandler.create({
       cron_name: 'daily_profit',
       start_time: new Date(),
@@ -1400,35 +1657,25 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
     cronExecutionId = cronExecution._id;
     console.log(`[DAILY_PROFIT] Created cron execution record with ID: ${cronExecutionId}`);
 
-    // Get all active investments
-    const activeInvestments = await investmentDbHandler.getByQuery({ status: 'active' });
-
-    console.log(`[DAILY_PROFIT] Processing daily profit for ${activeInvestments.length} active investments`);
-    let processedCount = 0;
-    let totalProfit = 0;
-    let errors = [];
-
     // Set today's date for profit calculation
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Get today's trade activations
-    const todayActivations = await tradeActivationDbHandler.getByQuery({
-      activation_date: {
-        $gte: today,
-        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-      },
+    // Get all active investments that haven't received profit today
+    // Check last_profit_date to ensure we don't give duplicate ROI
+    const activeInvestments = await investmentDbHandler.getByQuery({
       status: 'active',
-      profit_status: 'pending'
+      $or: [
+        { last_profit_date: { $lt: today } }, // Last profit was before today
+        { last_profit_date: null }, // Never received profit
+        { last_profit_date: { $exists: false } } // Field doesn't exist
+      ]
     });
 
-    console.log(`[DAILY_PROFIT] Found ${todayActivations.length} pending trade activations for today`);
-
-    // Create a map of user IDs to trade activations for quick lookup
-    const userActivationMap = {};
-    for (const activation of todayActivations) {
-      userActivationMap[activation.user_id.toString()] = activation;
-    }
+    console.log(`[DAILY_PROFIT] Found ${activeInvestments.length} active investments eligible for daily profit`);
+    let processedCount = 0;
+    let totalProfit = 0;
+    let errors = [];
 
     // Process investments in batches to avoid memory issues
     const BATCH_SIZE = 50;
@@ -1462,38 +1709,13 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
             continue;
           }
 
-          // Check if user has activated daily profit for today
-          // Get last activation date
-          const lastActivationDate = user.lastDailyProfitActivation ||
-                                    (user.extra && user.extra.lastDailyProfitActivation);
-
-          if (!lastActivationDate) {
-            console.log(`[DAILY_PROFIT] User ${user._id} has not activated daily profit yet. Skipping...`);
-            continue;
-          }
-
-          const lastActivation = new Date(lastActivationDate);
-          lastActivation.setHours(0, 0, 0, 0);
-
-          if (lastActivation.getTime() !== today.getTime()) {
-            console.log(`[DAILY_PROFIT] User ${user._id} has not activated daily profit today. Last activation: ${lastActivation.toISOString()}. Skipping...`);
-            continue;
-          }
-
-          // Get the trade activation record for this user
-          const userActivation = userActivationMap[user._id.toString()];
-          if (!userActivation) {
-            console.log(`[DAILY_PROFIT] No trade activation record found for user ${user._id}. Skipping...`);
-            continue;
-          }
-
-          console.log(`[DAILY_PROFIT] User ${user._id} (${user.email || user.username}) has activated daily profit today. Processing ROI...`);
+          console.log(`[DAILY_PROFIT] Processing ROI for user ${user._id} (${user.email || user.username}) - Investment: ${investment._id}`);
 
           // Get the investment plan to use its percentage value
           const investmentPlan = await investmentPlanDbHandler.getById(investment.investment_plan_id);
 
           // Use the plan's percentage value or fall back to 0.26% if not available
-          const roiRate = investmentPlan ? investmentPlan.percentage : 0.26;
+          const roiRate = investmentPlan ? investmentPlan.percentage : 0.266;
           console.log(`[DAILY_PROFIT] Using ROI rate: ${roiRate}% for investment ${investment._id}`);
 
           // Calculate daily profit based on the investment amount and ROI rate
@@ -1560,29 +1782,7 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
 
             console.log(`[DAILY_PROFIT] Last profit date updated successfully`);
 
-            // Update trade activation record
-            const activationUpdate = await tradeActivationDbHandler.updateById(
-              userActivation._id,
-              {
-                profit_status: 'processed',
-                profit_processed_at: new Date(),
-                profit_amount: dailyProfit,
-                profit_details: {
-                  investment_id: investment._id,
-                  investment_amount: investment.amount,
-                  profit_rate: roiRate,
-                  income_id: incomeRecord._id
-                },
-                cron_execution_id: cronExecutionId
-              },
-              { session }
-            );
 
-            if (!activationUpdate) {
-              throw new Error(`Failed to update trade activation record for user ${investment.user_id}`);
-            }
-
-            console.log(`[DAILY_PROFIT] Trade activation record updated successfully`);
 
             // Commit the transaction
             await session.commitTransaction();
@@ -1590,7 +1790,9 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
 
             processedCount++;
             console.log(`[DAILY_PROFIT] Successfully processed profit for investment ${investment._id}`);
-          } catch (transactionError) {
+          }
+
+          catch (transactionError) {
             // If an error occurred, abort the transaction
             await session.abortTransaction();
             session.endSession();
@@ -1602,16 +1804,7 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
               error: transactionError.message
             });
 
-            // Update trade activation record to mark as failed
-            try {
-              await tradeActivationDbHandler.updateById(userActivation._id, {
-                profit_status: 'failed',
-                profit_error: transactionError.message,
-                cron_execution_id: cronExecutionId
-              });
-            } catch (activationError) {
-              console.error(`[DAILY_PROFIT] Error updating trade activation record:`, activationError);
-            }
+
           }
         } catch (investmentError) {
           console.error(`[DAILY_PROFIT] Error processing profit for investment ${investment._id}:`, investmentError);
@@ -1625,27 +1818,7 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
       console.log(`[DAILY_PROFIT] Completed batch ${batchIndex + 1}/${totalBatches}`);
     }
 
-    // Mark any remaining pending activations as skipped
-    const pendingActivations = await tradeActivationDbHandler.getByQuery({
-      activation_date: {
-        $gte: today,
-        $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-      },
-      status: 'active',
-      profit_status: 'pending'
-    });
 
-    if (pendingActivations.length > 0) {
-      console.log(`[DAILY_PROFIT] Marking ${pendingActivations.length} remaining pending activations as skipped`);
-
-      for (const activation of pendingActivations) {
-        await tradeActivationDbHandler.updateById(activation._id, {
-          profit_status: 'skipped',
-          profit_error: 'No active investment found or user not eligible for profit',
-          cron_execution_id: cronExecutionId
-        });
-      }
-    }
 
     console.log(`[DAILY_PROFIT] Daily profit processing completed at ${new Date().toISOString()}`);
     console.log(`[DAILY_PROFIT] Processed ${processedCount} investments with total profit of $${totalProfit.toFixed(2)}`);
@@ -1688,9 +1861,9 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
       error_details: errors.length > 0 ? errors : [],
       execution_details: {
         total_investments: activeInvestments.length,
-        total_activations: todayActivations.length,
         processed_count: processedCount,
-        skipped_count: todayActivations.length - processedCount
+        skipped_count: activeInvestments.length - processedCount,
+        processing_mode: 'all_invested_users'
       }
     });
 
@@ -1726,6 +1899,39 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
   }
 };
 
+// API endpoint for checking pending trade activations
+const checkPendingActivations = async (req, res) => {
+  try {
+    console.log("checkPendingActivations API endpoint called");
+    const result = await _checkAndFixPendingActivations();
+
+    if (result.success) {
+      return res.status(200).json({
+        status: true,
+        message: 'Pending activations check completed successfully',
+        data: {
+          pendingCount: result.pendingCount,
+          activationsByDate: result.activationsByDate,
+          message: result.message
+        }
+      });
+    } else {
+      return res.status(500).json({
+        status: false,
+        message: 'Failed to check pending activations',
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('Error in pending activations check API endpoint:', error);
+    return res.status(500).json({
+      status: false,
+      message: 'Error checking pending activations',
+      error: error.message
+    });
+  }
+};
+
 // API endpoint for processing level ROI income
 const processLevelRoiIncome = async (req, res) => {
   try {
@@ -1738,7 +1944,8 @@ const processLevelRoiIncome = async (req, res) => {
         message: 'Level ROI income processed successfully',
         data: {
           processedUsers: result.processedCount,
-          totalCommission: result.totalCommission
+          totalCommission: result.totalCommission,
+          processedActivations: result.processedActivations
         }
       });
     } else {
@@ -1826,10 +2033,10 @@ if (process.env.CRON_STATUS === '1') {
   console.log('Automatic active member rewards check is disabled (CRON_STATUS=0)');
 }
 
-// Schedule user rank updates (daily)
+// Schedule user rank updates (daily at 1:30 AM UTC - after Level ROI processing)
 if (process.env.CRON_STATUS === '1') {
-  console.log('Scheduling user rank updates (daily at 1 AM UTC)');
-  cron.schedule('0 1 * * *', () => _processUserRanks(), {
+  console.log('Scheduling user rank updates (daily at 1:30 AM UTC)');
+  cron.schedule('30 1 * * *', () => _processUserRanks(), {
     scheduled: true,
     timezone: "UTC"
   });
@@ -1986,18 +2193,18 @@ if (process.env.CRON_STATUS === '1') {
     }
   };
 
-  // Schedule the cron job with the wrapper function to run at midnight (12 AM)
-  cron.schedule('0 0 * * *', processDailyTradingProfitWithErrorHandling, {
+  // Schedule the cron job with the wrapper function to run at 12:30 AM UTC
+  cron.schedule('30 0 * * *', processDailyTradingProfitWithErrorHandling, {
     scheduled: true,
     timezone: "UTC"
   });
 
   // Log that the cron job has been scheduled
-  console.log(`[CRON_SETUP] Daily profit cron job scheduled to run at 12 AM UTC every day (CRON_STATUS=${process.env.CRON_STATUS})`);
+  console.log(`[CRON_SETUP] Daily profit cron job scheduled to run at 12:30 AM UTC every day (CRON_STATUS=${process.env.CRON_STATUS})`);
 
 
-  // Add a backup cron job that runs 30 minutes later if the main one fails
-  cron.schedule('30 0 * * *', async () => {
+  // Add a backup cron job that runs 15 minutes later if the main one fails
+  cron.schedule('45 0 * * *', async () => {
     try {
       // Check if the main cron job has run successfully
       const fs = require('fs');
@@ -2045,11 +2252,95 @@ if (process.env.CRON_STATUS === '1') {
   console.log('Automatic daily ROI processing is disabled (CRON_STATUS=0)');
 }
 
-// Schedule Level ROI Income processing (every day at 1:30 AM UTC)
+// Schedule Level ROI Income processing (every day at 1:00 AM UTC)
 if (process.env.CRON_STATUS === '1') {
-  console.log('Scheduling Level ROI Income processing (daily at 1:30 AM UTC)');
-  cron.schedule('30 1 * * *', _processLevelRoiIncome, {
+  console.log('Scheduling Level ROI Income processing (daily at 1:00 AM UTC)');
+
+  // Create a wrapper function with error handling and logging for Level ROI
+  const processLevelRoiWithErrorHandling = async () => {
+    try {
+      console.log(`[CRON] Level ROI processing started at ${new Date().toISOString()}`);
+      const startTime = Date.now();
+
+      const result = await _processLevelRoiIncome();
+      const executionTime = Date.now() - startTime;
+
+      if (result.success) {
+        console.log(`[CRON] Level ROI processing completed successfully at ${new Date().toISOString()}`);
+        console.log(`[CRON] Processed ${result.processedCount} users for level ROI`);
+        console.log(`[CRON] Level ROI execution time: ${executionTime}ms`);
+
+        // Log success to file
+        try {
+          const fs = require('fs');
+          const logEntry = {
+            job: 'level_roi',
+            status: 'success',
+            timestamp: new Date().toISOString(),
+            executionTime,
+            processedCount: result.processedCount,
+            totalCommission: result.totalCommission
+          };
+
+          if (!fs.existsSync('./logs')) {
+            fs.mkdirSync('./logs');
+          }
+
+          fs.appendFileSync('./logs/cron-execution.log', JSON.stringify(logEntry) + '\n');
+        } catch (logError) {
+          console.error('[CRON] Error logging level ROI execution:', logError);
+        }
+      } else {
+        console.error(`[CRON] Level ROI processing failed: ${result.error}`);
+
+        // Log error to file
+        try {
+          const fs = require('fs');
+          const logEntry = {
+            job: 'level_roi',
+            status: 'failed',
+            timestamp: new Date().toISOString(),
+            executionTime,
+            error: result.error
+          };
+
+          if (!fs.existsSync('./logs')) {
+            fs.mkdirSync('./logs');
+          }
+
+          fs.appendFileSync('./logs/cron-execution.log', JSON.stringify(logEntry) + '\n');
+        } catch (logError) {
+          console.error('[CRON] Error logging level ROI execution:', logError);
+        }
+      }
+    } catch (error) {
+      console.error(`[CRON] Unhandled error in level ROI processing: ${error.message}`);
+
+      // Log error to file
+      try {
+        const fs = require('fs');
+        const logEntry = {
+          job: 'level_roi',
+          status: 'error',
+          timestamp: new Date().toISOString(),
+          error: error.message,
+          stack: error.stack
+        };
+
+        if (!fs.existsSync('./logs')) {
+          fs.mkdirSync('./logs');
+        }
+
+        fs.appendFileSync('./logs/cron-execution.log', JSON.stringify(logEntry) + '\n');
+      } catch (logError) {
+        console.error('[CRON] Error logging level ROI execution:', logError);
+      }
+    }
+  };
+
+  cron.schedule('0 1 * * *', processLevelRoiWithErrorHandling, {
     scheduled: true,
+    timezone: "UTC"
   });
 } else {
   console.log('Automatic Level ROI Income processing is disabled (CRON_STATUS=0)');
@@ -2169,5 +2460,9 @@ module.exports = {
   processUserRanks,
   processTeamRewards,
   resetDailyLoginCounters,
-  hasUserInvested // Export the utility function to check if a user has invested
+  checkPendingActivations,
+  hasUserInvested, // Export the utility function to check if a user has invested
+  // Export internal functions for testing
+  _processDailyTradingProfit,
+  _processLevelRoiIncome
 };

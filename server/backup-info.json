@@ -1,0 +1,9 @@
+{
+  "timestamp": "2025-05-24T06:17:52.977Z",
+  "scripts_to_run": [
+    "update-trade-activations-with-correct-data.js",
+    "fix-activation-dates-and-sequence.js"
+  ],
+  "purpose": "Update trade activations with correct data and fix dates",
+  "backup_recommendation": "Consider creating a database backup before running these scripts"
+}

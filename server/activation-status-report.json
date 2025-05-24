@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-05-24T06:21:27.358Z",
+  "trade_activations": {
+    "total": 57,
+    "pending": 0,
+    "processed": 57,
+    "failed": 0,
+    "skipped": 0,
+    "zeroAmount": 0,
+    "noProcessedDate": 0
+  },
+  "inconsistent_dates": 13,
+  "income_records": {
+    "total": 73,
+    "credited": 57,
+    "pending": 0,
+    "withoutActivationId": 8
+  },
+  "recommendations": {
+    "needs_update": true,
+    "priority_issues": [
+      "inconsistent_dates"
+    ]
+  }
+}
