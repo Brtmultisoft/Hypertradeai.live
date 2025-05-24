@@ -12,8 +12,13 @@ import {
   Tooltip,
   Divider,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Switch,
+  FormControlLabel,
+  Collapse,
+  IconButton
 } from '@mui/material';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { keyframes } from '@mui/system';
 
 import { formatTiming } from '../../utils/formatters';
@@ -122,6 +127,12 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
   const [profitUpdated, setProfitUpdated] = useState(false);
   const [showActivationSuccess, setShowActivationSuccess] = useState(false);
 
+  // Settings state
+  const [showSettings, setShowSettings] = useState(false);
+  const [autoActivateEnabled, setAutoActivateEnabled] = useState(
+    localStorage.getItem('autoActivateTrading') !== 'false' // Default to true
+  );
+
   // Local state for snackbar - memoized for better performance
   const [snackbarState, setSnackbarState] = useState({
     open: false,
@@ -151,6 +162,18 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
       open: false
     }));
   }, []);
+
+  // Handle auto-activation toggle
+  const handleAutoActivationToggle = useCallback((enabled: boolean) => {
+    setAutoActivateEnabled(enabled);
+    localStorage.setItem('autoActivateTrading', enabled.toString());
+    showSnackbar(
+      enabled
+        ? 'Auto-activation enabled. Trading will be automatically activated when you have investments.'
+        : 'Auto-activation disabled. You will need to manually activate trading.',
+      'info'
+    );
+  }, [showSnackbar]);
 
   // Check localStorage for activation status - optimized to run only once
   const checkLocalStorageActivation = useCallback((userId: string) => {
@@ -273,6 +296,7 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
       onActivate();
       setAlreadyActivated(true);
     }
+
   }, [tradingActive, onActivate]);
 
   // Fetch user profile data on component mount - optimized with useCallback
@@ -300,13 +324,78 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
     }
   }, [tradingActive, getUserProfile, showSnackbar]);
 
+  // Use the trade activation hook
+  const { activateDailyTrading } = useTradeActivation();
+
+  // Auto-activate trading function for users with investments
+  const autoActivateTrading = useCallback(async (user: any) => {
+    try {
+      console.log('Starting auto-activation for user:', user.username || user.email);
+      setActivatingProfit(true);
+
+      // Call the API to activate daily trading
+      const success = await activateDailyTrading();
+
+      if (success) {
+        // Store activation state in localStorage
+        if (user && user._id) {
+          localStorage.setItem(`dailyProfitActivated_${user._id}`, 'true');
+          localStorage.setItem(`activationDate_${user._id}`, new Date().toDateString());
+        }
+
+        // Set trading active
+        onActivate();
+        setAlreadyActivated(true);
+
+        // Show activation success animation
+        setShowActivationSuccess(true);
+        setTimeout(() => setShowActivationSuccess(false), 5000);
+
+        // Show success message with auto-activation notice
+        showSnackbar('Trading automatically activated! You have an active investment and will receive ROI and level ROI income for today.', 'success');
+
+        // Refresh user profile to get updated activation status
+        await getUserProfile(true);
+      } else {
+        throw new Error('Auto-activation failed');
+      }
+    } catch (error: any) {
+      console.error('Auto-activation error:', error);
+
+      // Don't show error for blocked users or already activated - just log it
+      if (error.isBlocked) {
+        console.log('Auto-activation skipped: User account is blocked');
+      } else if (error.message && error.message.includes('already activated')) {
+        console.log('Auto-activation skipped: Already activated today');
+        setAlreadyActivated(true);
+        onActivate();
+      } else {
+        // For other errors, show a less intrusive notification
+        console.log('Auto-activation failed:', error.message);
+        showSnackbar('Auto-activation failed. You can manually activate trading below.', 'info');
+      }
+    } finally {
+      setActivatingProfit(false);
+    }
+  }, [activateDailyTrading, onActivate, showSnackbar, getUserProfile]);
+
+  // Check for auto-activation after user data is loaded
+  useEffect(() => {
+    if (userData && !tradingActive && !alreadyActivated) {
+      const hasInvestment = userData.total_investment > 0;
+      const hasNotActivatedToday = !userData.dailyProfitActivated;
+
+      if (hasInvestment && hasNotActivatedToday && autoActivateEnabled) {
+        console.log('Auto-activating trading for invested user');
+        autoActivateTrading(userData);
+      }
+    }
+  }, [userData, tradingActive, alreadyActivated, autoActivateEnabled, autoActivateTrading]);
+
   // Fetch user data on mount
   useEffect(() => {
     fetchUserProfile();
   }, [fetchUserProfile]);
-
-  // Use the trade activation hook
-  const { activateDailyTrading } = useTradeActivation();
 
   // Handle trading activation - optimized with useCallback
   const startTrading = useCallback(async () => {
@@ -378,7 +467,7 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
 
 
   // Timer reference to clear on unmount
-  const timerRef = useRef<number | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Function to format time elapsed since activation
   const formatTimeElapsed = useCallback(() => {
@@ -618,6 +707,22 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
           {/* Trade History Button */}
           <TradeHistoryButton color="secondary" size="medium" tooltip="View Trade Activation History" />
 
+          {/* Settings Button */}
+          <Tooltip title="Auto-activation Settings">
+            <IconButton
+              onClick={() => setShowSettings(!showSettings)}
+              sx={{
+                color: 'rgba(255, 255, 255, 0.7)',
+                '&:hover': {
+                  color: 'secondary.main',
+                  backgroundColor: 'rgba(14, 203, 129, 0.1)'
+                }
+              }}
+            >
+              <SettingsIcon />
+            </IconButton>
+          </Tooltip>
+
           {/* Time Elapsed Badge - Only show when trading is active */}
           {tradingActive && lastActivationTime && (
             <Box
@@ -656,22 +761,48 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
         </Box>
       </Box>
 
-        {/* <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            Session time:
+      {/* Settings Section */}
+      <Collapse in={showSettings}>
+        <Box sx={{
+          mt: 2,
+          p: 2,
+          borderRadius: '12px',
+          background: 'rgba(30, 30, 40, 0.3)',
+          border: '1px solid rgba(255, 255, 255, 0.05)'
+        }}>
+          <Typography variant="h6" sx={{ color: 'white', mb: 2, fontSize: '1rem' }}>
+            Auto-Activation Settings
           </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              fontFamily: "'Roboto Mono', monospace",
-              background: 'rgba(255, 255, 255, 0.03)',
-              padding: '2px 6px',
-              borderRadius: '3px'
-            }}
-          >
-            {formatTiming(sessionTime)}
-          </Typography>
-        </Box> */}
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={autoActivateEnabled}
+                onChange={(e) => handleAutoActivationToggle(e.target.checked)}
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: 'secondary.main',
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: 'secondary.main',
+                  },
+                }}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body2" sx={{ color: 'white', fontWeight: 500 }}>
+                  Auto-activate trading for invested users
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                  When enabled, trading will be automatically activated if you have an active investment
+                </Typography>
+              </Box>
+            }
+            sx={{ alignItems: 'flex-start' }}
+          />
+        </Box>
+      </Collapse>
 
         {/* Main Content - Dashboard Cards */}
         <Box sx={{
