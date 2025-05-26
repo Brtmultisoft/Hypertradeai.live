@@ -9,7 +9,7 @@ export const formatNumber = (num: number, decimals = 2): string => {
   return num.toFixed(decimals);
 };
 
-export const formatCurrency = (amount: number, currency = 'USDT', decimals = 2): string => {
+export const formatCurrency = (amount: number, currency = 'USDT', decimals = 4): string => {
   return `${amount > 0 ? '+' : ''}${amount.toFixed(decimals)} ${currency}`;
 };
 
