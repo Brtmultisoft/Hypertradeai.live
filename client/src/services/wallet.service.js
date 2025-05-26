@@ -163,6 +163,36 @@ const WalletService = {
       throw error.response?.data || { msg: 'Failed to start monitoring' };
     }
   },
+
+  // Unlock staking (release investment amount)
+  unlockStaking: async (data) => {
+    try {
+      const response = await api.post('/unlock-staking', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to unlock staking' };
+    }
+  },
+
+  // Release staking to wallet (move investment to wallet balance)
+  releaseStakingToWallet: async () => {
+    try {
+      const response = await api.post('/user/release-staking-to-wallet');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to release staking to wallet' };
+    }
+  },
+
+  // Release staking to trade wallet (move investment to trade wallet balance)
+  releaseStakingToTradeWallet: async () => {
+    try {
+      const response = await api.post('/user/release-staking-to-trade-wallet');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to release staking to trade wallet' };
+    }
+  },
 };
 
 export default WalletService;

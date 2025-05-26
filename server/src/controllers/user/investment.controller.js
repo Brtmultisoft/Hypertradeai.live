@@ -27,7 +27,7 @@ const createTradingPackageInvestment = async (user_id, amount, plan) => {
             user_id,
             investment_plan_id: plan._id,
             amount: amount,
-            daily_profit: plan.percentage || 2.5,
+            daily_profit: plan.percentage || 0.266,
             status: "active", // Use numeric status 1 for active (for compatibility with both string and numeric status checks)
             package_type: 'trading',
             type: 0, // For compatibility with existing code
@@ -152,7 +152,7 @@ module.exports = {
                     title: 'Trading Package',
                     amount_from: 50, // Minimum investment $50
                     amount_to: 0,    // No maximum (unlimited)
-                    percentage: 8/30,    // 8/30% daily ROI (8% monthly distributed daily)
+                    percentage: 0.266,    // 0.266% daily ROI
                     days: 1,          // Daily distribution
                     frequency_in_days: 1,
                     referral_bonus: 3, // 3% direct referral commission
@@ -311,16 +311,19 @@ module.exports = {
                             console.log('- Type: referral_bonus');
                             console.log('- Amount:', referralBonus);
 
+                            // Create referral bonus income record with proper fields
                             const referralIncome = await incomeDbHandler.create({
                                 user_id: ObjectId(referrer._id),
                                 user_id_from: ObjectId(user_id),
-                                type: 'referral_bonus',
+                                type: 'referral_bonus', // This must be exactly 'referral_bonus' to match the enum in the model
                                 amount: referralBonus,
                                 status: 'credited',
                                 description: 'Direct Referral Commission',
                                 extra: {
                                     referralAmount: amount,
-                                    commissionRate: referralBonusRate
+                                    commissionRate: referralBonusRate,
+                                    fromUser: user_id, // Add redundant user ID in case user_id_from is not properly queried
+                                    timestamp: new Date().toISOString() // Add timestamp for better tracking
                                 }
                             });
 
@@ -331,14 +334,31 @@ module.exports = {
                                 console.log('Failed to create referral income record');
                             }
 
-                            // Add bonus to referrer's wallet
+                            // Add bonus to referrer's wallet and update directIncome tracking
                             console.log('Updating referrer wallet with bonus amount:', referralBonus);
-                            const referrerUpdate = await userDbHandler.updateOneByQuery({_id: referrer._id}, {
-                                $inc: {
-                                    wallet: referralBonus,
-                                    "extra.directIncome": referralBonus
+
+                            // First check if the referrer has an extra field
+                            const referrerCheck = await userDbHandler.getById(referrer._id);
+                            if (!referrerCheck.extra) {
+                                // Initialize the extra field if it doesn't exist
+                                await userDbHandler.updateOneByQuery(
+                                    {_id: referrer._id},
+                                    { $set: { extra: { directIncome: 0 } } }
+                                );
+                                console.log('Initialized extra field for referrer');
+                            }
+
+                            // Now update the wallet and directIncome
+                            const referrerUpdate = await userDbHandler.updateOneByQuery(
+                                {_id: referrer._id},
+                                {
+                                    $inc: {
+                                        wallet: referralBonus,
+                                        "extra.directIncome": referralBonus,
+                                        "extra.totalIncome": referralBonus // Also update total income
+                                    }
                                 }
-                            });
+                            );
 
                             console.log('Referrer wallet update result:', JSON.stringify(referrerUpdate));
                             console.log('Referrer wallet updated:', referrerUpdate && referrerUpdate.modifiedCount > 0 ? 'Success' : 'Failed');
@@ -618,26 +638,51 @@ module.exports = {
                         const referralBonus = plan.referral_bonus[applicableThreshold];
 
                         // Create referral bonus income record
-                        await incomeDbHandler.create({
+                        // Create referral bonus income record with proper fields
+                        const directIncomeRecord = await incomeDbHandler.create({
                             user_id: ObjectId(referrer._id),
                             user_id_from: ObjectId(user_id),
-                            type: 'referral_bonus',
+                            type: 'referral_bonus', // This must be exactly 'referral_bonus' to match the enum in the model
                             amount: referralBonus,
                             status: 'credited',
-                            description: 'Referral bonus',
+                            description: 'Direct Referral Commission',
                             extra: {
                                 referralAmount: amount,
-                                bonusThreshold: applicableThreshold
+                                bonusThreshold: applicableThreshold,
+                                fromUser: user_id, // Add redundant user ID in case user_id_from is not properly queried
+                                timestamp: new Date().toISOString() // Add timestamp for better tracking
                             }
                         });
 
-                        // Add bonus to referrer's wallet
-                        await userDbHandler.updateByQuery({_id: referrer._id}, {
-                            $inc: {
-                                wallet: referralBonus,
-                                "extra.directIncome": referralBonus
+                        console.log('Direct income record created:', directIncomeRecord ? directIncomeRecord._id : 'Failed');
+
+                        // Add bonus to referrer's wallet and update directIncome tracking
+
+                        // First check if the referrer has an extra field
+                        const referrerData = await userDbHandler.getById(referrer._id);
+                        if (!referrerData.extra) {
+                            // Initialize the extra field if it doesn't exist
+                            await userDbHandler.updateOneByQuery(
+                                {_id: referrer._id},
+                                { $set: { extra: { directIncome: 0 } } }
+                            );
+                            console.log('Initialized extra field for referrer in add method');
+                        }
+
+                        // Now update the wallet and directIncome
+                        const walletUpdateResult = await userDbHandler.updateByQuery(
+                            {_id: referrer._id},
+                            {
+                                $inc: {
+                                    wallet: referralBonus,
+                                    "extra.directIncome": referralBonus,
+                                    "extra.totalIncome": referralBonus // Also update total income
+                                }
                             }
-                        });
+                        );
+
+                        console.log('Referrer wallet update result in add method:',
+                            walletUpdateResult ? 'Success' : 'Failed');
                     }
                 }
             }

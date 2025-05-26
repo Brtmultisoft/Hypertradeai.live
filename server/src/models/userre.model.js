@@ -41,5 +41,17 @@ const userreSchema = new Schema({
 userreSchema.plugin(toJSON);
 userreSchema.plugin(paginate);
 
-userreSchema.index({ location: '2dsphere' });
+// Add indexes for frequently queried fields
+userreSchema.index({ placement_id: 1 });
+userreSchema.index({ user_id: 1 });
+userreSchema.index({ placement_user_id: 1 });
+userreSchema.index({ is_re: 1 });
+userreSchema.index({ created_at: -1 });
+userreSchema.index({ pool: -1 });
+
+// Add compound indexes for common query combinations
+userreSchema.index({ user_id: 1, placement_id: 1 });
+userreSchema.index({ user_id: 1, is_re: 1 });
+userreSchema.index({ placement_user_id: 1, is_re: 1 });
+
 module.exports = mongoose.model('Userres', userreSchema);

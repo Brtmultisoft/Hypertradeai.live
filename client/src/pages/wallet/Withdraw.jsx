@@ -25,6 +25,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Switch,
+  Divider,
+  Radio,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -35,6 +38,8 @@ import {
   Refresh as RefreshIcon,
   Close as CloseIcon,
   CameraAlt as CameraIcon,
+  LockOpen as LockOpenIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { QrReader } from 'react-qr-reader';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
@@ -66,6 +71,12 @@ const Withdraw = () => {
   const [scannerError, setScannerError] = useState('');
   const [hasPermission, setHasPermission] = useState(null);
 
+  // Withdrawal and staking release state
+  const [unlockStakingOpen, setUnlockStakingOpen] = useState(false);
+  const [isFullWithdrawal, setIsFullWithdrawal] = useState(false);
+  const [stakingReleaseOption, setStakingReleaseOption] = useState('none'); // 'none', 'wallet', 'trade_wallet', 'partial', 'full'
+  const [submittingReleaseToWallet, setSubmittingReleaseToWallet] = useState(false);
+
   const { dashboardData, fetchDashboardData } = useData();
 
   // Use real wallet data from dashboardData
@@ -93,11 +104,12 @@ const Withdraw = () => {
     error: withdrawalError,
     data: withdrawalResponse,
     execute: submitWithdrawal
-  } = useApi(() => WalletService.requestWithdrawal({
-    amount: parseFloat(amount),
-    address: address,
-    currency: balances[activeTab].currency
-  }));
+  } = useApi((data) => WalletService.requestWithdrawal(data));
+
+  // API hook for submitting withdrawal (includes staking release)
+  const {
+    loading: submittingUnlockStaking
+  } = useApi(() => WalletService.unlockStaking());
 
   // Fetch dashboard data on component mount
   useEffect(() => {
@@ -108,7 +120,16 @@ const Withdraw = () => {
   useEffect(() => {
     if (withdrawalResponse) {
       console.log('Withdrawal response:', withdrawalResponse);
-      setSnackbarMessage('Withdrawal request submitted successfully! It will be processed after admin approval.');
+
+      // Show different message based on the staking release option
+      if (withdrawalResponse.data?.stakingReleaseOption === 'partial') {
+        setSnackbarMessage('Withdrawal request submitted with 50% staking release! It will be processed after admin approval.');
+      } else if (withdrawalResponse.data?.stakingReleaseOption === 'full') {
+        setSnackbarMessage('Withdrawal request submitted with full staking release! It will be processed after admin approval.');
+      } else {
+        setSnackbarMessage('Withdrawal request submitted successfully! It will be processed after admin approval.');
+      }
+
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
 
@@ -116,6 +137,7 @@ const Withdraw = () => {
       setAmount('');
       setAddress('');
       setAgreedToTerms(false);
+      setStakingReleaseOption('none');
 
       // Set refreshing state to true
       setRefreshing(true);
@@ -157,6 +179,14 @@ const Withdraw = () => {
     const value = e.target.value;
     setAmount(value);
     validateAmount(value);
+
+    // Check if this is a full withdrawal (within a small margin of error for floating point)
+    const numValue = parseFloat(value);
+    const maxPossibleAmount = balances[activeTab].balance - networkFee;
+    const isFullAmount = !isNaN(numValue) &&
+                         Math.abs(numValue - maxPossibleAmount) < 0.01;
+
+    setIsFullWithdrawal(isFullAmount);
   };
 
   const handleAddressChange = (e) => {
@@ -219,14 +249,179 @@ const Withdraw = () => {
       return;
     }
 
+    // If this is a full withdrawal, show the unlock staking dialog
+    if (isFullWithdrawal && dashboardData?.total_investment > 0) {
+      // Initialize the dialog with default option - don't override if already set
+      if (stakingReleaseOption === 'none') {
+        setStakingReleaseOption('none');
+      }
+      setUnlockStakingOpen(true);
+      return;
+    }
+
+    // Otherwise, proceed with normal withdrawal
+    proceedWithWithdrawal();
+  };
+
+  // Handle unlock staking dialog close
+  const handleUnlockStakingClose = (confirmed = false) => {
+    setUnlockStakingOpen(false);
+
+    if (confirmed) {
+      // Determine the staking release amount based on the selected option
+      let releaseAmount = 0;
+      let releasePercentage = 0;
+
+      if (stakingReleaseOption === 'partial') {
+        releaseAmount = (dashboardData?.total_investment || 0) * 0.5;
+        releasePercentage = 50;
+      } else if (stakingReleaseOption === 'full' || stakingReleaseOption === 'wallet' || stakingReleaseOption === 'trade_wallet') {
+        releaseAmount = dashboardData?.total_investment || 0;
+        releasePercentage = 100;
+      }
+
+      if (stakingReleaseOption === 'wallet') {
+        // For full wallet release, we call the dedicated API
+        releaseStakingToWallet(false, false);
+      } else if (stakingReleaseOption === 'trade_wallet') {
+        // For full trade wallet release, we call the dedicated API
+        releaseStakingToWallet(false, true);
+      } else if (stakingReleaseOption === 'partial' && (!address || address.trim() === '')) {
+        // For partial release to wallet (without withdrawal), we use a special API call
+        releaseStakingToWallet(true, false);
+      } else {
+        // Proceed with withdrawal, passing the staking release information
+        proceedWithWithdrawal(stakingReleaseOption, releaseAmount, releasePercentage);
+      }
+    } else {
+      // Reset the staking release option when dialog is closed without confirmation
+      setStakingReleaseOption('none');
+    }
+  };
+
+  // Function to release staking to wallet
+  const releaseStakingToWallet = (isPartial = false, toTradeWallet = false) => {
+    setSubmittingReleaseToWallet(true);
+
+    // Call the API to release staking to wallet
+    let apiCall;
+
+    if (isPartial) {
+      // For partial release, we use the withdrawal API with special parameters
+      apiCall = WalletService.requestWithdrawal({
+        amount: 0.01, // Minimal amount to pass validation
+        address: "", // Empty address
+        currency: balances[activeTab].currency,
+        stakingReleaseOption: 'partial',
+        stakingReleaseAmount: dashboardData?.total_investment * 0.5 || 0,
+        stakingReleasePercentage: 50
+      });
+    } else if (toTradeWallet) {
+      // For full release to trade wallet, we use the dedicated API
+      apiCall = WalletService.releaseStakingToTradeWallet();
+    } else {
+      // For full release to main wallet, we use the dedicated API
+      apiCall = WalletService.releaseStakingToWallet();
+    }
+
+    apiCall.then(response => {
+        console.log('Staking released:', response);
+
+        // Show success message
+        let successMsg;
+        if (isPartial) {
+          successMsg = `50% of your staking (${(dashboardData?.total_investment * 0.5).toFixed(2)} USDT) has been successfully released and added to your wallet balance without any conversion!`;
+        } else if (toTradeWallet) {
+          successMsg = `Your staking (${(dashboardData?.total_investment).toFixed(2)} USDT) has been successfully released and added to your trade wallet balance without any conversion!`;
+        } else {
+          successMsg = `Your staking (${(dashboardData?.total_investment).toFixed(2)} USDT) has been successfully released and added to your wallet balance without any conversion!`;
+        }
+
+        setSnackbarMessage(successMsg);
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+
+        // Reset form
+        setAmount('');
+        setAddress('');
+        setAgreedToTerms(false);
+        setStakingReleaseOption('none');
+
+        // Refresh dashboard data to show updated balance
+        setTimeout(() => {
+          fetchDashboardData()
+            .then(() => {
+              console.log('Dashboard data refreshed successfully');
+              setSubmittingReleaseToWallet(false);
+            })
+            .catch(error => {
+              console.error('Error refreshing dashboard data:', error);
+              setSubmittingReleaseToWallet(false);
+            });
+        }, 1000);
+      })
+      .catch(error => {
+        console.error('Error releasing staking:', error);
+
+        // Show error message
+        setSnackbarMessage(error.msg || 'Failed to release staking. Please try again.');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        setSubmittingReleaseToWallet(false);
+      });
+  };
+
+  // Proceed with withdrawal after all checks
+  const proceedWithWithdrawal = (releaseOption = 'none', releaseAmount = 0, releasePercentage = 0) => {
+    // If we're only releasing staking to wallet or trade wallet, we don't need to submit a withdrawal
+    if (releaseOption === 'wallet' || releaseOption === 'trade_wallet') {
+      console.log('Releasing staking to wallet:', {
+        stakingReleaseAmount: releaseAmount,
+        stakingReleasePercentage: releasePercentage,
+        toTradeWallet: releaseOption === 'trade_wallet'
+      });
+
+      // Call the API to release staking to wallet or trade wallet
+      releaseStakingToWallet(false, releaseOption === 'trade_wallet');
+      return;
+    }
+
+    // For partial or full withdrawal with staking release, or regular withdrawal
     console.log('Submitting withdrawal request:', {
-      amount: parseFloat(amount),
+      amount: parseFloat(amount) || 0,
       address: address,
-      currency: balances[activeTab].currency
+      currency: balances[activeTab].currency,
+      stakingReleaseOption: releaseOption,
+      stakingReleaseAmount: releaseAmount,
+      stakingReleasePercentage: releasePercentage
     });
 
-    // Submit withdrawal request
-    submitWithdrawal();
+    // Validate amount and address for actual withdrawals
+    if ((releaseOption === 'partial' || releaseOption === 'full') && (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)) {
+      // If we're only releasing staking (partial or full), we can set a minimal amount
+      // This is a workaround for the backend validation
+      const minimalAmount = 0.01;
+
+      // Submit withdrawal request with staking release information
+      submitWithdrawal({
+        amount: minimalAmount,
+        address: address,
+        currency: balances[activeTab].currency,
+        stakingReleaseOption: releaseOption,
+        stakingReleaseAmount: releaseAmount,
+        stakingReleasePercentage: releasePercentage
+      });
+    } else {
+      // Normal withdrawal with or without staking release
+      submitWithdrawal({
+        amount: parseFloat(amount) || 0,
+        address: address,
+        currency: balances[activeTab].currency,
+        stakingReleaseOption: releaseOption,
+        stakingReleaseAmount: releaseAmount,
+        stakingReleasePercentage: releasePercentage
+      });
+    }
   };
 
   const handleBack = () => {
@@ -483,9 +678,82 @@ const Withdraw = () => {
               : '0 8px 16px rgba(0, 0, 0, 0.05)',
           }}
         >
-          <Typography variant="h6" fontWeight="bold" color="text.primary" sx={{ mb: 3 }}>
+          <Typography variant="h6" fontWeight="bold" color="text.primary" sx={{ mb: 1 }}>
             Withdraw {balances[activeTab].currency}
           </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Network: <span style={{ fontWeight: 'bold', color: theme.palette.primary.main }}>BSC.BEP20</span> (Binance Smart Chain)
+          </Typography>
+          {dashboardData?.total_investment > 0 && (
+            <Box sx={{ mb: 3, mt: 1 }}>
+              <Alert
+                severity="info"
+                icon={<LockOpenIcon />}
+                sx={{
+                  borderRadius: 2,
+                  '& .MuiAlert-message': { width: '100%' },
+                  '& .MuiAlert-icon': {
+                    color: theme.palette.success.main,
+                    opacity: 0.9,
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2" fontWeight="medium">
+                    You have <strong>${dashboardData.total_investment.toFixed(2)}</strong> in staked investment. Release it to add this amount to your wallet balance.
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      size="small"
+                      startIcon={<LockOpenIcon />}
+                      onClick={() => {
+                        // Set the option and open the dialog
+                        setStakingReleaseOption('wallet');
+                        setUnlockStakingOpen(true);
+
+                        // Reset the amount and address fields since they're not needed for wallet release
+                        setAmount('');
+                        setAddress('');
+                      }}
+                      sx={{
+                        borderRadius: 1.5,
+                        textTransform: 'none',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Release to Wallet
+                    </Button>
+
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      startIcon={<LockOpenIcon />}
+                      onClick={() => {
+                        // Set the option and open the dialog
+                        setStakingReleaseOption('trade_wallet');
+                        setUnlockStakingOpen(true);
+
+                        // Reset the amount and address fields since they're not needed for wallet release
+                        setAmount('');
+                        setAddress('');
+                      }}
+                      sx={{
+                        borderRadius: 1.5,
+                        textTransform: 'none',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Release to Trade Wallet
+                    </Button>
+                  </Box>
+                </Box>
+              </Alert>
+            </Box>
+          )}
 
           {/* Address Field - Now on top */}
           <FormControl fullWidth error={!!errors.address} sx={{ mb: 3 }}>
@@ -495,7 +763,7 @@ const Withdraw = () => {
             <TextField
               fullWidth
               variant="outlined"
-              placeholder={`Enter ${balances[activeTab].currency} address`}
+              placeholder={`Enter ${balances[activeTab].currency} address (BSC.BEP20)`}
               value={address}
               onChange={handleAddressChange}
               sx={{
@@ -572,9 +840,19 @@ const Withdraw = () => {
                           py: 0.5,
                           mr: 1,
                           fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5
                         }}
                       >
-                        MAX
+                        {dashboardData?.total_investment > 0 ? (
+                          <>
+                            <span>MAX</span>
+                            <LockOpenIcon fontSize="small" sx={{ fontSize: 16, opacity: 0.8 }} />
+                          </>
+                        ) : (
+                          'MAX'
+                        )}
                       </Button>
                       <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                         {balances[activeTab].currency}
@@ -607,7 +885,7 @@ const Withdraw = () => {
             }}
           >
             <Typography variant="body2" color="text.secondary" fontWeight="medium" sx={{ mb: 1 }}>
-              Network Fee
+              Network Fee (BSC.BEP20)
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="body1" fontWeight="medium">
@@ -884,7 +1162,7 @@ const Withdraw = () => {
           }}
         >
           <Typography variant="body2" fontWeight="medium">
-            Make sure the recipient address is correct and supports {balances[activeTab].currency} on the {balances[activeTab].currency} network. Sending to an incorrect address may result in permanent loss of funds.
+            Make sure the recipient address is correct and supports {balances[activeTab].currency} on the <strong>BSC.BEP20</strong> network. Sending to an incorrect address or network may result in permanent loss of funds.
           </Typography>
         </Alert>
 
@@ -939,6 +1217,620 @@ const Withdraw = () => {
             </Typography>
           </Box>
         </Paper>
+
+        {/* Complete Withdrawal & Unlock Staking Dialog */}
+        <Dialog
+          open={unlockStakingOpen}
+          onClose={() => handleUnlockStakingClose(false)}
+          maxWidth="sm"
+          fullWidth
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 3,
+                p: 1,
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+              }
+            }
+          }}
+        >
+          <DialogTitle sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            pb: 1
+          }}>
+            <LockOpenIcon color="warning" />
+            <Typography variant="h6" fontWeight="bold">Staking Options</Typography>
+          </DialogTitle>
+
+          <DialogContent>
+            <Alert
+              severity="info"
+              icon={<LockOpenIcon />}
+              sx={{
+                mb: 2,
+                borderRadius: 2,
+                '& .MuiAlert-message': { width: '100%' }
+              }}
+            >
+              <Typography variant="body2" fontWeight="medium">
+                You can release your staked investment to your wallet or proceed with a withdrawal.
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Current staked investment: <strong>${dashboardData?.total_investment?.toFixed(2) || '0.00'} USDT</strong>
+              </Typography>
+            </Alert>
+
+            <Box sx={{
+              p: 3,
+              mb: 3,
+              borderRadius: 2,
+              border: `1px solid ${theme.palette.warning.main}`,
+              bgcolor: mode === 'dark' ? 'rgba(237, 108, 2, 0.1)' : 'rgba(237, 108, 2, 0.05)',
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <LockOpenIcon color="warning" sx={{ mr: 1.5, fontSize: 28 }} />
+                <Typography variant="subtitle1" fontWeight="bold" color="warning.main">
+                  Staking Release Options
+                </Typography>
+              </Box>
+
+              {/* Staking Release Options */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" fontWeight="medium" sx={{ mb: 1.5 }}>
+                  What would you like to do with your staked investment?
+                </Typography>
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {/* Option 1: Release to Wallet - HIGHLIGHTED */}
+                  <Box
+                    onClick={() => {
+                      setStakingReleaseOption('wallet');
+                    }}
+                    sx={{
+                      p: 3,
+                      borderRadius: 2,
+                      border: `2px solid ${theme.palette.success.main}`,
+                      bgcolor: stakingReleaseOption === 'wallet' ?
+                        (mode === 'dark' ? 'rgba(76, 175, 80, 0.15)' : 'rgba(76, 175, 80, 0.08)') :
+                        (mode === 'dark' ? 'rgba(76, 175, 80, 0.05)' : 'rgba(76, 175, 80, 0.03)'),
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: mode === 'dark' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.1)',
+                      },
+                      boxShadow: stakingReleaseOption === 'wallet' ? '0 4px 12px rgba(76, 175, 80, 0.2)' : 'none'
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Radio
+                          checked={stakingReleaseOption === 'wallet'}
+                          onChange={() => {
+                            setStakingReleaseOption('wallet');
+                          }}
+                          color="success"
+                          sx={{ mr: 1 }}
+                        />
+                        <Box>
+                          <Typography variant="subtitle1" fontWeight="bold" color="success.main">
+                            Release Staking to Wallet
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Move your staked funds to your available wallet balance
+                          </Typography>
+
+                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{
+                              bgcolor: 'success.main',
+                              color: 'white',
+                              borderRadius: '50%',
+                              width: 20,
+                              height: 20,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 12,
+                              fontWeight: 'bold'
+                            }}>1</Box>
+                            <Typography variant="body2">
+                              Exact amount will be immediately available in your wallet (no conversion, no withdrawal needed)
+                            </Typography>
+                          </Box>
+
+                          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{
+                              bgcolor: 'success.main',
+                              color: 'white',
+                              borderRadius: '50%',
+                              width: 20,
+                              height: 20,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 12,
+                              fontWeight: 'bold'
+                            }}>2</Box>
+                            <Typography variant="body2">
+                              You can use these funds for other purposes or reinvest later
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                      <Typography variant="h6" fontWeight="bold" color="success.main">
+                        ${(dashboardData?.total_investment || 0).toFixed(2)}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Option 2: Release to Trade Wallet */}
+                  <Box
+                    onClick={() => {
+                      setStakingReleaseOption('trade_wallet');
+                    }}
+                    sx={{
+                      p: 3,
+                      borderRadius: 2,
+                      border: `2px solid ${theme.palette.primary.main}`,
+                      bgcolor: stakingReleaseOption === 'trade_wallet' ?
+                        (mode === 'dark' ? 'rgba(51, 117, 187, 0.15)' : 'rgba(51, 117, 187, 0.08)') :
+                        (mode === 'dark' ? 'rgba(51, 117, 187, 0.05)' : 'rgba(51, 117, 187, 0.03)'),
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: mode === 'dark' ? 'rgba(51, 117, 187, 0.2)' : 'rgba(51, 117, 187, 0.1)',
+                      },
+                      boxShadow: stakingReleaseOption === 'trade_wallet' ? '0 4px 12px rgba(51, 117, 187, 0.2)' : 'none',
+                      mt: 2
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Radio
+                          checked={stakingReleaseOption === 'trade_wallet'}
+                          onChange={() => {
+                            setStakingReleaseOption('trade_wallet');
+                          }}
+                          color="primary"
+                          sx={{ mr: 1 }}
+                        />
+                        <Box>
+                          <Typography variant="subtitle1" fontWeight="bold" color="primary.main">
+                            Release Staking to Trade Wallet
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Move your staked funds to your trade wallet balance
+                          </Typography>
+
+                          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{
+                              bgcolor: 'primary.main',
+                              color: 'white',
+                              borderRadius: '50%',
+                              width: 20,
+                              height: 20,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 12,
+                              fontWeight: 'bold'
+                            }}>1</Box>
+                            <Typography variant="body2">
+                              Exact amount will be immediately available in your trade wallet (no conversion, no withdrawal needed)
+                            </Typography>
+                          </Box>
+
+                          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{
+                              bgcolor: 'primary.main',
+                              color: 'white',
+                              borderRadius: '50%',
+                              width: 20,
+                              height: 20,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 12,
+                              fontWeight: 'bold'
+                            }}>2</Box>
+                            <Typography variant="body2">
+                              You can use these funds for trading or reinvesting
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                      <Typography variant="h6" fontWeight="bold" color="primary.main">
+                        ${(dashboardData?.total_investment || 0).toFixed(2)}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Divider sx={{ my: 2 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>OTHER OPTIONS</Typography>
+                  </Divider>
+
+                  {/* Option 2: Keep Staking Active */}
+                  <Box
+                    onClick={() => {
+                      setStakingReleaseOption('none');
+                    }}
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      border: `1px solid ${stakingReleaseOption === 'none' ? theme.palette.primary.main : 'rgba(0, 0, 0, 0.12)'}`,
+                      bgcolor: stakingReleaseOption === 'none' ?
+                        (mode === 'dark' ? 'rgba(51, 117, 187, 0.1)' : 'rgba(51, 117, 187, 0.05)') :
+                        (mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)'),
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Radio
+                          checked={stakingReleaseOption === 'none'}
+                          onChange={() => {
+                            setStakingReleaseOption('none');
+                          }}
+                          color="primary"
+                        />
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            Keep Staking Active
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Continue earning ROI on your investment
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Divider sx={{ my: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>WITHDRAWAL OPTIONS</Typography>
+                  </Divider>
+
+                  {/* Option 3: Partial Withdrawal */}
+                  <Box
+                    onClick={() => {
+                      setStakingReleaseOption('partial');
+                    }}
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      border: `1px solid ${stakingReleaseOption === 'partial' ? theme.palette.warning.main : 'rgba(0, 0, 0, 0.12)'}`,
+                      bgcolor: stakingReleaseOption === 'partial' ?
+                        (mode === 'dark' ? 'rgba(237, 108, 2, 0.1)' : 'rgba(237, 108, 2, 0.05)') :
+                        (mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)'),
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Radio
+                          checked={stakingReleaseOption === 'partial'}
+                          onChange={() => {
+                            setStakingReleaseOption('partial');
+                          }}
+                          color="warning"
+                        />
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            Release Partial (50%)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Release exact half of your staked investment to wallet (no conversion)
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Typography variant="body2" fontWeight="bold" color="warning.main">
+                        ${((dashboardData?.total_investment || 0) * 0.5).toFixed(2)}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Option 4: Full Withdrawal */}
+                  <Box
+                    onClick={() => {
+                      setStakingReleaseOption('full');
+                    }}
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      border: `1px solid ${stakingReleaseOption === 'full' ? theme.palette.error.main : 'rgba(0, 0, 0, 0.12)'}`,
+                      bgcolor: stakingReleaseOption === 'full' ?
+                        (mode === 'dark' ? 'rgba(211, 47, 47, 0.1)' : 'rgba(211, 47, 47, 0.05)') :
+                        (mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)'),
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+                      }
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Radio
+                          checked={stakingReleaseOption === 'full'}
+                          onChange={() => {
+                            setStakingReleaseOption('full');
+                          }}
+                          color="error"
+                        />
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            Withdraw Full (100%)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Withdraw all of your staked investment
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Typography variant="body2" fontWeight="bold" color="error.main">
+                        ${(dashboardData?.total_investment || 0).toFixed(2)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Warning for staking release */}
+              {stakingReleaseOption !== 'none' && (
+                <Alert
+                  severity={
+                    stakingReleaseOption === 'full' ? "warning" :
+                    stakingReleaseOption === 'wallet' ? "success" : "info"
+                  }
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiAlert-message': { width: '100%' }
+                  }}
+                >
+                  <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
+                    {stakingReleaseOption === 'full' ?
+                      "Withdrawing your entire staked investment will:" :
+                      stakingReleaseOption === 'wallet' ?
+                      "Releasing your staked investment to wallet will:" :
+                      "Withdrawing part of your staked investment will:"}
+                  </Typography>
+
+                  <Box component="ul" sx={{ pl: 2, mb: 0, mt: 0 }}>
+                    {stakingReleaseOption === 'full' ? (
+                      <>
+                        <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+                          Stop all future ROI and level ROI income
+                        </Typography>
+                        <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+                          Reset your investment status
+                        </Typography>
+                        <Typography component="li" variant="body2">
+                          Require a new investment to restart earning
+                        </Typography>
+                      </>
+                    ) : stakingReleaseOption === 'wallet' ? (
+                      <>
+                        <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+                          Move your staked funds to your available wallet balance
+                        </Typography>
+                        <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+                          Stop all future ROI and level ROI income
+                        </Typography>
+                        <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+                          Allow you to use these funds for other purposes
+                        </Typography>
+                        <Typography component="li" variant="body2">
+                          Let you reinvest later if you choose to
+                        </Typography>
+                      </>
+                    ) : (
+                      <>
+                        <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+                          Reduce your daily ROI by 50%
+                        </Typography>
+                        <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+                          Keep your investment status active
+                        </Typography>
+                        <Typography component="li" variant="body2">
+                          Allow you to continue earning on the remaining investment
+                        </Typography>
+                      </>
+                    )}
+                  </Box>
+                </Alert>
+              )}
+            </Box>
+
+            <Typography variant="body2" fontWeight="medium" color="text.secondary">
+              {stakingReleaseOption === 'none'
+                ? 'Your withdrawal will only include your available balance. Your staked investment will remain active.'
+                : stakingReleaseOption === 'wallet'
+                  ? 'Your staked investment will be moved to your available wallet balance. No withdrawal will be processed.'
+                  : stakingReleaseOption === 'partial'
+                    ? 'Your withdrawal will include your available balance plus 50% of your staked investment.'
+                    : 'Your withdrawal will include your available balance plus your entire staked investment.'}
+            </Typography>
+
+            {stakingReleaseOption !== 'none' && (
+              <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.03)' }}>
+                <Typography variant="body2" fontWeight="bold" color="text.primary">
+                  Summary:
+                </Typography>
+
+                {stakingReleaseOption === 'wallet' ? (
+                  <>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                      <Typography variant="body2" color="text.secondary">Current wallet balance:</Typography>
+                      <Typography variant="body2" fontWeight="medium">${(dashboardData?.wallet || 0).toFixed(2)} USDT</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">Staking to be released:</Typography>
+                      <Typography variant="body2" fontWeight="medium" color="success.main">
+                        +${(dashboardData?.total_investment || 0).toFixed(2)} USDT (exact amount, no conversion)
+                      </Typography>
+                    </Box>
+                    <Divider sx={{ my: 1 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" fontWeight="bold">New wallet balance:</Typography>
+                      <Typography variant="body2" fontWeight="bold" color="success.main">
+                        ${((dashboardData?.wallet || 0) + (dashboardData?.total_investment || 0)).toFixed(2)} USDT
+                      </Typography>
+                    </Box>
+                    <Box sx={{ mt: 1, p: 1, bgcolor: 'rgba(76, 175, 80, 0.08)', borderRadius: 1 }}>
+                      <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ fontWeight: 'bold' }}>Note:</span> The exact staking amount is released to your wallet without any conversion or fees. Your wallet balance will be increased by this amount.
+                      </Typography>
+                    </Box>
+                  </>
+                ) : stakingReleaseOption === 'trade_wallet' ? (
+                  <>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                      <Typography variant="body2" color="text.secondary">Current trade wallet balance:</Typography>
+                      <Typography variant="body2" fontWeight="medium">${(dashboardData?.wallet_topup || 0).toFixed(2)} USDT</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">Staking to be released:</Typography>
+                      <Typography variant="body2" fontWeight="medium" color="primary.main">
+                        +${(dashboardData?.total_investment || 0).toFixed(2)} USDT (exact amount, no conversion)
+                      </Typography>
+                    </Box>
+                    <Divider sx={{ my: 1 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" fontWeight="bold">New trade wallet balance:</Typography>
+                      <Typography variant="body2" fontWeight="bold" color="primary.main">
+                        ${((dashboardData?.wallet_topup || 0) + (dashboardData?.total_investment || 0)).toFixed(2)} USDT
+                      </Typography>
+                    </Box>
+                    <Box sx={{ mt: 1, p: 1, bgcolor: 'rgba(51, 117, 187, 0.08)', borderRadius: 1 }}>
+                      <Typography variant="caption" color="primary.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ fontWeight: 'bold' }}>Note:</span> The exact staking amount is released to your trade wallet without any conversion or fees. Your trade wallet balance will be increased by this amount.
+                      </Typography>
+                    </Box>
+                  </>
+                ) : (
+                  <>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                      <Typography variant="body2" color="text.secondary">Available balance:</Typography>
+                      <Typography variant="body2" fontWeight="medium">${parseFloat(amount).toFixed(2)} USDT</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {stakingReleaseOption === 'partial' ? 'Staking release (50%):' : 'Staking release (100%):'}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        ${stakingReleaseOption === 'partial'
+                          ? ((dashboardData?.total_investment || 0) * 0.5).toFixed(2)
+                          : (dashboardData?.total_investment || 0).toFixed(2)} USDT (exact amount)
+                      </Typography>
+                    </Box>
+                    <Divider sx={{ my: 1 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" fontWeight="bold">Total withdrawal:</Typography>
+                      <Typography variant="body2" fontWeight="bold" color={stakingReleaseOption === 'full' ? 'error.main' : 'warning.main'}>
+                        ${(parseFloat(amount) + (stakingReleaseOption === 'partial'
+                          ? (dashboardData?.total_investment || 0) * 0.5
+                          : (dashboardData?.total_investment || 0))).toFixed(2)} USDT
+                      </Typography>
+                    </Box>
+                  </>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+
+          <DialogActions sx={{ px: 3, pb: 3, pt: 1 }}>
+            <Button
+              onClick={() => handleUnlockStakingClose(false)}
+              variant="outlined"
+              sx={{
+                borderRadius: 2,
+                px: 3,
+                py: 1
+              }}
+            >
+              Cancel
+            </Button>
+            {stakingReleaseOption === 'wallet' ? (
+              <Button
+                onClick={() => handleUnlockStakingClose(true)}
+                variant="contained"
+                color="success"
+                disabled={submittingWithdrawal || submittingUnlockStaking || submittingReleaseToWallet}
+                startIcon={<LockOpenIcon />}
+                sx={{
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1.5,
+                  fontWeight: 'bold',
+                  fontSize: '1rem',
+                  boxShadow: '0 4px 10px rgba(76, 175, 80, 0.3)'
+                }}
+              >
+                {submittingWithdrawal || submittingUnlockStaking || submittingReleaseToWallet
+                  ? 'Processing...'
+                  : 'Release Staking to Wallet'
+                }
+              </Button>
+            ) : stakingReleaseOption === 'trade_wallet' ? (
+              <Button
+                onClick={() => handleUnlockStakingClose(true)}
+                variant="contained"
+                color="primary"
+                disabled={submittingWithdrawal || submittingUnlockStaking || submittingReleaseToWallet}
+                startIcon={<LockOpenIcon />}
+                sx={{
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1.5,
+                  fontWeight: 'bold',
+                  fontSize: '1rem',
+                  boxShadow: '0 4px 10px rgba(51, 117, 187, 0.3)'
+                }}
+              >
+                {submittingWithdrawal || submittingUnlockStaking || submittingReleaseToWallet
+                  ? 'Processing...'
+                  : 'Release Staking to Trade Wallet'
+                }
+              </Button>
+            ) : (
+              <Button
+                onClick={() => handleUnlockStakingClose(true)}
+                variant="contained"
+                color={
+                  stakingReleaseOption === 'none'
+                    ? "primary"
+                    : stakingReleaseOption === 'partial'
+                      ? "warning"
+                      : "error"
+                }
+                disabled={submittingWithdrawal || submittingUnlockStaking || submittingReleaseToWallet}
+                sx={{
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1,
+                  fontWeight: 'bold'
+                }}
+              >
+                {submittingWithdrawal || submittingUnlockStaking || submittingReleaseToWallet
+                  ? 'Processing...'
+                  : stakingReleaseOption === 'none'
+                    ? 'Keep Staking Active'
+                    : stakingReleaseOption === 'partial'
+                      ? (address && address.trim() !== '' ? 'Withdraw & Release 50% Staking' : 'Release 50% Staking to Wallet')
+                      : 'Withdraw & Release All Staking'
+                }
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
 
         {/* Snackbar for notifications */}
         <Snackbar

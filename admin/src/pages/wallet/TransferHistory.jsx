@@ -79,28 +79,31 @@ const TransferHistory = () => {
 
       console.log('Transfer history response:', response.data);
       if (response.data && response.data.status) {
-        // For the test endpoint
-        if (response.data.data && Array.isArray(response.data.data)) {
+        // Check if the response has the expected structure with pagination
+        if (response.data.result && response.data.result.list) {
+          console.log('Found transfers in result.list:', response.data.result.list);
+          setTransfers(response.data.result.list || []);
+          setTotalTransfers(response.data.result.total || 0);
+        }
+        // For the test endpoint (old format)
+        else if (response.data.data && Array.isArray(response.data.data)) {
           console.log('Found transfers in test endpoint data:', response.data.data);
           setTransfers(response.data.data || []);
           setTotalTransfers(response.data.count || 0);
         }
-        // Check if the response has the expected structure
-        else if (response.data.result && response.data.result.list) {
-          console.log('Found transfers in result.list:', response.data.result.list);
-          setTransfers(response.data.result.list || []);
-          setTotalTransfers(response.data.result.count || 0);
-        } else if (response.data.data && response.data.data.docs) {
-          // Alternative structure
+        // Alternative structure with docs
+        else if (response.data.data && response.data.data.docs) {
           console.log('Found transfers in data.docs:', response.data.data.docs);
           setTransfers(response.data.data.docs || []);
           setTotalTransfers(response.data.data.totalDocs || 0);
-        } else if (response.data.result && Array.isArray(response.data.result)) {
-          // Direct array in result
+        }
+        // Direct array in result
+        else if (response.data.result && Array.isArray(response.data.result)) {
           console.log('Found transfers directly in result array:', response.data.result);
           setTransfers(response.data.result || []);
           setTotalTransfers(response.data.result.length || 0);
-        } else {
+        }
+        else {
           console.error('Unexpected response structure:', response.data);
           setError('Unexpected response format from server');
         }
@@ -132,7 +135,7 @@ const TransferHistory = () => {
   };
 
   // Handle search on Enter key press
-  const handleSearchKeyPress = (event) => {
+  const handleSearchKeyDown = (event) => {
     if (event.key === 'Enter') {
       handleSearch();
     }
@@ -264,7 +267,7 @@ const TransferHistory = () => {
               placeholder="Search by user..."
               value={searchTerm}
               onChange={handleSearchChange}
-              onKeyPress={handleSearchKeyPress}
+              onKeyDown={handleSearchKeyDown}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">

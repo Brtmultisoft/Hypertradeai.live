@@ -36,6 +36,16 @@ module.exports = {
 		});
 	},
 	/**
+	* Helper Method to handle API forbidden Response (for blocked users)
+	*/
+	forbidden: (res, body = { msg: 'Your account has been blocked', block_reason: 'No reason provided' }) => {
+		return res.status(403).send({
+			status: false,
+			message: body.msg,
+			block_reason: body.block_reason
+		});
+	},
+	/**
 	* Helper Method to handle API unauthorize Response
 	*/
 	unAuthorize: (res, body = { msg: 'unauthorize request' }) => {

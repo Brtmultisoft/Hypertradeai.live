@@ -12,9 +12,11 @@ const TeamService = {
   },
 
   // Get full downline team structure
-  getDownline: async () => {
+  getDownline: async (userId = null) => {
     try {
-      const response = await api.get('/get-user-downline');
+      // If userId is provided, use the endpoint with userId parameter
+      const url = userId ? `/get-user-downline/${userId}` : '/get-user-downline';
+      const response = await api.get(url);
       return response.data;
     } catch (error) {
       throw error.response?.data || { msg: 'Failed to get downline team' };
@@ -28,6 +30,20 @@ const TeamService = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { msg: 'Failed to get downline team count' };
+    }
+  },
+
+  // Get downline for a specific user ID (admin only)
+  getDownlineByUserId: async (userId) => {
+    if (!userId) {
+      throw { msg: 'User ID is required' };
+    }
+
+    try {
+      const response = await api.get(`/get-user-downline/${userId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to get downline for specified user' };
     }
   },
 };

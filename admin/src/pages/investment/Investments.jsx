@@ -154,7 +154,7 @@ const Investments = () => {
     fetchInvestments();
   };
 
-  // Handle search input change
+ 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
   };
@@ -352,7 +352,7 @@ const Investments = () => {
                     Amount {renderSortIcon('amount')}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>
+                {/* <TableCell sx={{ fontWeight: 'bold' }}>
                   <Box
                     sx={{
                       display: 'flex',
@@ -363,7 +363,7 @@ const Investments = () => {
                   >
                     ROI % {renderSortIcon('roi_percentage')}
                   </Box>
-                </TableCell>
+                </TableCell> */}
                 <TableCell sx={{ fontWeight: 'bold' }}>
                   <Box
                     sx={{
@@ -447,7 +447,7 @@ const Investments = () => {
                       )}
                     </TableCell>
                     <TableCell>{formatCurrency(investment.amount || 0)}</TableCell>
-                    <TableCell>{investment.roi_percentage || investment.daily_profit || 8}%</TableCell>
+                    {/* <TableCell>{investment.roi_percentage || investment.daily_profit || 8}%</TableCell> */}
                     <TableCell>{formatCurrency(investment.daily_roi || (investment.amount * (investment.daily_profit || 8) / 100) || 0)}</TableCell>
                     <TableCell>{formatCurrency(investment.total_roi_received || investment.total_earnings || 0)}</TableCell>
                     <TableCell>

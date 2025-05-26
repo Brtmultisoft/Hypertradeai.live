@@ -5,6 +5,7 @@
  ***********************************************/
 module.exports = {
 	adminAuthenticateMiddleware: require('./adminAuthenticate.middleware'),
+	adminMiddleware: require('./admin.middleware'),
 	userAuthenticateMiddleware: require('./userAuthenticate.middleware'),
 	verificationMiddleware: require('./verification.middleware'),
 	validationMiddleware: require('./validation.middleware'),

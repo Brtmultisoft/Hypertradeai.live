@@ -1,0 +1,147 @@
+/* SlowAnimations.css - Override animations with extremely slow versions */
+
+/* Slow down all animations */
+* {
+    animation-duration: 8s !important;
+    transition-duration: 2s !important;
+    animation-play-state: running !important;
+    animation-timing-function: ease-in-out !important;
+}
+
+/* Force all animations to be slow */
+@keyframes slowAll {
+    0% { opacity: 1; }
+    100% { opacity: 1; }
+}
+
+/* Specific animation overrides */
+.trading-grid {
+    animation: gridMove 120s linear infinite !important;
+}
+
+.price-pulse {
+    animation: pricePulse 12s infinite !important;
+}
+
+.trading-active {
+    animation: activeGlow 16s infinite !important;
+}
+
+.pair-changing {
+    animation: pairChange 6s ease !important;
+}
+
+.float-animation {
+    animation: float 16s ease-in-out infinite !important;
+}
+
+.glow-animation {
+    animation: glow 12s ease-in-out infinite !important;
+}
+
+.shimmer-animation::after {
+    animation: shimmer 16s infinite !important;
+}
+
+.breathe-animation {
+    animation: breathe 20s ease-in-out infinite !important;
+}
+
+.rotate-animation {
+    animation: rotate 120s linear infinite !important;
+}
+
+.bounce-animation {
+    animation: bounce 8s ease infinite !important;
+}
+
+/* Profit bubbles */
+.profit-bubble {
+    animation: bubbleFloat 40s ease-out forwards !important;
+}
+
+.profit-bubble.profit {
+    animation: bubbleFloat 40s ease-out forwards, glowProfit 12s infinite alternate !important;
+}
+
+.profit-bubble.loss {
+    animation: bubbleFloat 40s ease-out forwards, glowLoss 12s infinite alternate !important;
+}
+
+.profit-bubble.big-profit {
+    animation: bubbleFloat 50s ease-out forwards, glowBigProfit 10s infinite alternate !important;
+}
+
+/* Slow down trade history animations */
+.trade-history-item {
+    animation: slideIn 3s ease !important;
+}
+
+/* Slow down price flash animations */
+.price-flash {
+    animation: priceFlash 4s ease !important;
+}
+
+/* Slow down price jump animations */
+.jumper-price {
+    animation: priceJump 4s ease !important;
+}
+
+/* Slow down all transitions */
+.trading-pair-display,
+.crypto-card,
+.exchange-card,
+.glass-card {
+    transition: all 3s ease !important;
+}
+
+/* Force all MUI components to have slow animations */
+.MuiPaper-root,
+.MuiCard-root,
+.MuiButton-root,
+.MuiIconButton-root,
+.MuiChip-root,
+.MuiAvatar-root,
+.MuiLinearProgress-root,
+.MuiCircularProgress-root,
+.MuiGrow-root,
+.MuiFade-root,
+.MuiZoom-root {
+    transition: all 3s ease !important;
+    animation-duration: 8s !important;
+}
+
+
+
+
+
+@keyframes fadeDown {
+    0% {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.7;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.6;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+  }
+    

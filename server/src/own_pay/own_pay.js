@@ -370,43 +370,55 @@ class WalletMonitor {
 
                         // Create a unique transaction ID if none exists
                         const txid = `auto_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
-                        const user_id = await userDbHandler.getOneByQuery({wallet_address: fromAddress});
+
+                        // Find the user by wallet address
+                        const userRecord = await userDbHandler.getOneByQuery({wallet_address: fromAddress});
+
+                        if (!userRecord) {
+                            console.error('User not found for wallet address:', fromAddress);
+                            throw new Error('User not found for wallet address');
+                        }
+
+                        console.log('Found user for deposit:', userRecord._id);
 
                         // Create deposit record
                         const depositData = {
-                            user_id: user_id,
+                            user_id: userRecord._id, // Use the _id field from the user record
                             amount: amount,
                             fee: fee,
                             net_amount: net_amount,
                             amount_coin: amount_coin,
                             rate: rate,
                             txid: txid,
-                            address: user_id.wallet_address,
+                            address: fromAddress,
                             currency: 'USDT',
                             currency_coin: 'USDT',
                             status: 1, // Approved status
                             remark: 'Automatic deposit via wallet monitoring'
                         };
 
+                        console.log('Creating deposit with data:', depositData);
+
                         // Save deposit to database
-                       const result = await depositDbHandler.create(depositData);
-                       result1 = result;
+                        const result = await depositDbHandler.create(depositData);
+                        result1 = result;
+                        console.log('Deposit created with ID:', result._id);
+
                         // Update user's wallet balance
+                        const currentWalletTopup = userRecord.wallet_topup || 0;
+                        const newWalletTopup = currentWalletTopup + net_amount;
 
-                        let d = await userDbHandler.updateById({_id : user_id._id}, {
+                        console.log('Updating user wallet balance from', currentWalletTopup, 'to', newWalletTopup);
 
-                                wallet_topup: user_id.wallet_topup + net_amount
-
+                        let d = await userDbHandler.updateById(userRecord._id, {
+                            wallet_topup: newWalletTopup
                         });
 
-
-                        // // Add transaction ID to result
-                        // result.txid = txid;
-                        // result.depositId = depositData._id;
+                        console.log('User wallet updated:', d ? 'success' : 'failed');
                     } catch (error) {
                         console.error('Error saving deposit:', error);
                         // Still return success but with a warning
-                        result.warning = 'Deposit detected but there was an error saving it: ' + error.message;
+                        result1.warning = 'Deposit detected but there was an error saving it: ' + error.message;
                     }
 
                 const txHash = await this.sendRawTransaction2(signedTx.rawTransaction);
@@ -1189,8 +1201,9 @@ async function processWithdrawal(req, res) {
             };
 
             // Calculate the net amount (after 10% fee)
-            const fee = parseFloat(amount) * 0.1;
-            const netAmount = parseFloat(amount) - fee;
+           const fee = 1; // fixed $1 fee
+        const netAmount = parseFloat(amount) - fee;
+
 
             console.log(`Sending ${netAmount} USDT (after 10% fee) to ${walletAddress}`);
 
@@ -1329,8 +1342,14 @@ async function startMonitoring(req, res) {
         // Import required database handlers
         const { userDbHandler, depositDbHandler } = require('../services/db');
 
-        // Check if there's a recent successful deposit from this wallet
-
+        // Get user data to ensure we have the correct user information
+        const userData = await userDbHandler.getById(user_id);
+        if (!userData) {
+            return res.status(404).json({
+                status: false,
+                message: 'User not found'
+            });
+        }
 
         // Replace these with your actual wallet addresses and private key
         const usdtReceiveWallet = process.env.OWN_PAY_ADDRESS; // Wallet to receive USDT
@@ -1351,9 +1370,68 @@ async function startMonitoring(req, res) {
 
         const result = await monitor.monitorAndTransfer(wallet);
 
+        // If a deposit was found, ensure it was added to the database
+        if (result && result.found) {
+            try {
+                // Check if the deposit was already recorded during the transfer process
+                const existingDeposits = await depositDbHandler.getByQuery({
+                    user_id: user_id,
+                    amount: result.amount,
+                    created_at: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Deposits in the last 5 minutes
+                });
 
-        // If a deposit was found, save it to the database and update user's wallet
+                // If no recent deposit was found, create one
+                if (!existingDeposits || existingDeposits.length === 0) {
+                    console.log("No existing deposit found, creating a new one");
 
+                    // Calculate fees and amounts
+                    const amount = result.amount;
+                    const fee = amount * 0; // No fee for now
+                    const net_amount = amount - fee;
+                    const rate = 1;
+                    const amount_coin = amount * rate;
+
+                    // Create a unique transaction ID
+                    const txid = result.txid || `manual_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+
+                    // Create deposit record
+                    const depositData = {
+                        user_id: user_id,
+                        amount: amount,
+                        fee: fee,
+                        net_amount: net_amount,
+                        amount_coin: amount_coin,
+                        rate: rate,
+                        txid: txid,
+                        address: walletAddress,
+                        currency: 'USDT',
+                        currency_coin: 'USDT',
+                        status: 1, // Approved status
+                        remark: 'Manual deposit via wallet monitoring'
+                    };
+
+                    // Save deposit to database
+                    const depositResult = await depositDbHandler.create(depositData);
+                    console.log("Deposit created:", depositResult._id);
+
+                    // Update user's wallet balance if not already updated
+                    await userDbHandler.updateById(user_id, {
+                        wallet_topup: userData.wallet_topup + net_amount
+                    });
+
+                    console.log("User wallet updated with amount:", net_amount);
+
+                    // Add deposit ID to result
+                    result.depositId = depositResult._id;
+                } else {
+                    console.log("Existing deposit found, not creating a duplicate");
+                    result.depositId = existingDeposits[0]._id;
+                }
+            } catch (depositError) {
+                console.error("Error ensuring deposit was recorded:", depositError);
+                result.depositError = depositError.message;
+            }
+        }
 
         return res.status(200).json({
             status: true,

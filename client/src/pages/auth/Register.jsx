@@ -332,9 +332,7 @@ const Register = () => {
           <Typography variant="h5" component="h1" fontWeight="bold" gutterBottom align="center">
             Create Account
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }} align="center">
-            Join our MLM platform and start earning
-          </Typography>
+          
 
           {/* Success Message */}
           <Snackbar

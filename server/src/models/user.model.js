@@ -1,8 +1,6 @@
 'use strict';
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const bcrypt = require('bcryptjs');
-const config = require('../config/config');
 const { toJSON, paginate } = require('./plugins');
 
 /**
@@ -10,10 +8,22 @@ const { toJSON, paginate } = require('./plugins');
  */
 const userSchema = new Schema({
     refer_id: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.Mixed, // Changed to Mixed type to allow both ObjectId and string "admin"
         required: false,
         ref: 'Users',
-        default: null
+        default: null,
+        // Custom validator to ensure it's either a valid ObjectId or "admin"
+        validate: {
+            validator: function(v) {
+                // Allow null values
+                if (v === null) return true;
+                // Allow the string "admin"
+                if (v === "admin") return true;
+                // Otherwise, must be a valid ObjectId
+                return mongoose.isValidObjectId(v);
+            },
+            message: props => `${props.value} is not a valid ObjectId or "admin"`
+        }
     },
     placement_id: {
         type: mongoose.Schema.Types.ObjectId,
@@ -122,7 +132,7 @@ const userSchema = new Schema({
     },
     force_relogin_type: {
         type: String,
-        enum: ['session_expired', 'permission_change', 'account_deactive'],
+        enum: ['session_expired', 'permission_change', 'account_deactive',"admin_forced_logout"],
         default: 'session_expired',
     },
     two_fa_enabled: {
@@ -241,6 +251,14 @@ const userSchema = new Schema({
     last_investment_amount: {
         type: Number,
         default: 0 // Amount of user's last investment
+    },
+    is_blocked: {
+        type: Boolean,
+        default: false // Whether user is blocked by admin
+    },
+    block_reason: {
+        type: String,
+        default: '' // Reason for blocking the user
     }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
@@ -250,25 +268,51 @@ userSchema.plugin(paginate);
 
 /**
  * Method to Encrypt User password before Saving to Database
+ * Using enhanced password service with pepper and stronger hashing
  */
-userSchema.pre('save', function (next) {
-    let user = this;
-    let salt = config.bcrypt.saltValue;
-    // only hash the password if it has been modified (or is new)
-    if (!user.isModified('password')) {
-        return next();
+userSchema.pre('save', async function (next) {
+    try {
+        const user = this;
+
+        // Only hash the password if it has been modified (or is new)
+        if (!user.isModified('password')) {
+            return next();
+        }
+
+        // Import password service
+        const passwordService = require('../services/password.service');
+
+        // Hash the password with enhanced security
+        user.password = await passwordService.hashPassword(user.password);
+
+        next();
+    } catch (error) {
+        next(error);
     }
-    // generate a salt
-    bcrypt.genSalt(salt, function (err, salt) {
-        if (err) return next(err);
-        // hash the password with new salt
-        bcrypt.hash(user.password, salt, function (err, hash) {
-            if (err) return next(err);
-            // override the plain password with the hashed one
-            user.password = hash;
-            next();
-        });
-    });
 });
+// Add indexes for frequently queried fields
+userSchema.index({ username: 1 });
+userSchema.index({ email: 1 });
+userSchema.index({ status: 1 });
+userSchema.index({ refer_id: 1 });
+userSchema.index({ placement_id: 1 });
+userSchema.index({ created_at: -1 });
+userSchema.index({ rank: 1 });
+userSchema.index({ is_blocked: 1 });
+userSchema.index({ dailyProfitActivated: 1 });
+userSchema.index({ lastDailyProfitActivation: -1 });
+userSchema.index({ wallet: -1 }); // For sorting by wallet value
+
+// Add compound indexes for common query combinations
+userSchema.index({ status: 1, created_at: -1 });
+userSchema.index({ refer_id: 1, created_at: -1 });
+userSchema.index({ rank: 1, status: 1 });
+userSchema.index({ dailyProfitActivated: 1, created_at: -1 });
+
+// Add text index for search functionality
+userSchema.index({ username: 'text', email: 'text', name: 'text' });
+
+// Add geospatial index if location data is used
 userSchema.index({ location: '2dsphere' });
+
 module.exports = mongoose.model('Users', userSchema);

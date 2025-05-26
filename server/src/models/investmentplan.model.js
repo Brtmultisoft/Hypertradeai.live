@@ -21,7 +21,7 @@ const investmentplanSchema = new Schema({
     },
     percentage: {
         type: Number,
-        default: 2.5 // Daily trading profit
+        default: 0.266 // Daily trading profit
     },
     days: {
         type: Number,
@@ -94,5 +94,17 @@ const investmentplanSchema = new Schema({
 // add plugin that converts mongoose to json
 investmentplanSchema.plugin(toJSON);
 investmentplanSchema.plugin(paginate);
+
+// Add indexes for frequently queried fields
+investmentplanSchema.index({ title: 1 });
+investmentplanSchema.index({ status: 1 });
+investmentplanSchema.index({ created_at: -1 });
+investmentplanSchema.index({ amount_from: 1 });
+investmentplanSchema.index({ amount_to: 1 });
+investmentplanSchema.index({ percentage: 1 });
+
+// Add compound indexes for common query combinations
+investmentplanSchema.index({ status: 1, created_at: -1 });
+investmentplanSchema.index({ amount_from: 1, amount_to: 1 });
 
 module.exports = mongoose.model('InvestmentPlans', investmentplanSchema);

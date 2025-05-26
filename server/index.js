@@ -5,7 +5,8 @@ const cron = require('node-cron');
 const axios = require('axios');
 const investmentPlanController = require('./src/controllers/user/investmentplan.controller');
 const seedDefaultInvestmentPlan = require('./src/seeders/investmentplan.seeder');
-
+const seedDefaultAnnouncements = require('./src/seeders/announcement.seeder');
+require("./src/controllers/user/cron.controller")
 /*************************************************************************************/
 /* START PROCESS UNHANDLED METHODS */
 /*************************************************************************************/
@@ -53,14 +54,43 @@ process.on('uncaughtException', (err) => {
 /**
  * Run seed scripts
  */
-seedDefaultInvestmentPlan().then(() => {
+Promise.all([
+    seedDefaultInvestmentPlan(),
+    seedDefaultAnnouncements()
+]).then(() => {
     log.info('Seed scripts completed');
 }).catch(err => {
     log.error('Error running seed scripts:', err);
 });
 
 /**
+ * Import the recovery script
+ */
+const { recoverMissedCrons } = require('./src/scripts/recover-missed-crons');
+
+/**
  * START THE SERVER
  */
 const appServer = new server();
-appServer.start();
+appServer.start()
+  .catch(error => {
+    log.error('Failed to start server:', error);
+    process.exit(1);
+  });
+
+/**
+ * Run the recovery script after server startup
+ */
+setTimeout(async () => {
+  try {
+    log.info('Running missed cron recovery script...');
+    const result = await recoverMissedCrons();
+    if (result.success) {
+      log.info('Missed cron recovery completed successfully');
+    } else {
+      log.error('Missed cron recovery failed:', result.error);
+    }
+  } catch (error) {
+    log.error('Error running missed cron recovery script:', error);
+  }
+}, 10000); // Wait 10 seconds after server startup

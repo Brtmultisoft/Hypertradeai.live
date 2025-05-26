@@ -6,12 +6,16 @@ This document provides information about the cron jobs used in the HebrewServe b
 
 The following cron jobs are scheduled to run automatically:
 
-1. **Daily Trading Profit Calculation** - Runs at midnight UTC every day
-   - Calculates and distributes the 8% daily ROI to users with active investments
+1. **Daily Trading Profit Calculation** - Runs at 12:30 AM UTC every day
+   - Calculates and distributes daily ROI to ALL users with active investments (regardless of activation status)
+   - Only processes each investment once per day to prevent duplicates
+   - Uses `last_profit_date` field to ensure no duplicate payments
 
 2. **Level ROI Income Processing** - Runs at 1 AM UTC every day
-   - Processes Level ROI Income (Team Commission) for all users with investments
+   - Processes Level ROI Income (Team Commission) for all users who received daily profit today
    - Distributes commissions based on the 7-level structure (25%, 10%, 5%, 4%, 3%, 2%, 1%)
+   - Uses `last_level_roi_date` field to prevent duplicate processing
+   - Only processes users once per day regardless of multiple daily profit records
 
 3. **Active Member Rewards Check** - Runs at midnight UTC every Sunday
    - Processes rewards based on direct referrals and team size

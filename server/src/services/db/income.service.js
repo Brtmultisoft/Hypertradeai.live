@@ -26,22 +26,25 @@ class Income {
 		}
 		if (data.type !== undefined) {
 			// Handle both numeric and string types
-			if (!isNaN(parseInt(data.type))) {
+			if (!isNaN(parseInt(data.type)) && typeof data.type !== 'string') {
 				params.type = parseInt(data.type);
 			} else {
-				params.type = data.type;
+				// If exact_type_match is true, use exact string matching
+				// This is important for enum fields like 'referral_bonus'
+				if (data.exact_type_match) {
+					params.type = data.type;
+				} else {
+					// Otherwise use regex for partial matching (backward compatibility)
+					params.type = new RegExp(data.type, 'i');
+				}
 			}
+
+			// Log the type parameter for debugging
+			console.log('Income type filter:', params.type);
 		}
 
-		if (data.search) {
-			params = {
-				$and: [
-					{ ...statusSearch(data, ['status']), ...params },
-					search(data.search, [])
-				]
-			};
-		}
-		else {
+		// Apply standard filters if not searching
+		if (!data.search) {
 			params = {
 				...advancseSearch(data, ['amount', 'wamt', 'uamt', 'camt', 'iamount', 'level', 'pool', 'days']),
 				...dateSearch(data, 'created_at'),
@@ -54,60 +57,96 @@ class Income {
 		const options = pick(data, ['sort_by', 'limit', 'page']);
 		options.sort_fields = ['amount', 'wamt', 'uamt', 'camt', 'iamount', 'level', 'pool', 'days', 'created_at'];
 		options.populate = '';
-		if (!user_id) {
-			const pipeline = [];
-			pipeline.push(
-				{
-					$addFields: {
-						user_id: {
-							$convert: {
-								input: "$user_id",
-								to: "objectId",
-								onError: 0,
-								onNull: 0
-							}
+		options.pipeline = [];
+
+		// Always include user lookup for referral data
+		const userLookupPipeline = [
+			// Convert and lookup user_id
+			{
+				$addFields: {
+					user_id: {
+						$convert: {
+							input: "$user_id",
+							to: "objectId",
+							onError: 0,
+							onNull: 0
 						}
 					}
-				},
-				{
-					$lookup: {
-						from: "users",
-						localField: "user_id",
-						foreignField: "_id",
-						as: "user"
-					}
-				},
-				{ $unwind: { path: "$user", preserveNullAndEmptyArrays: true } }
-			);
+				}
+			},
+			{
+				$lookup: {
+					from: "users",
+					localField: "user_id",
+					foreignField: "_id",
+					as: "user"
+				}
+			},
+			{ $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
 
-			pipeline.push(
-				{
-					$addFields: {
-						user_id_from: {
-							$convert: {
-								input: "$user_id_from",
-								to: "objectId",
-								onError: 0,
-								onNull: 0
-							}
+			// Convert and lookup user_id_from (referral user)
+			{
+				$addFields: {
+					user_id_from: {
+						$convert: {
+							input: "$user_id_from",
+							to: "objectId",
+							onError: 0,
+							onNull: 0
 						}
 					}
-				},
-				{
-					$lookup: {
-						from: "users",
-						localField: "user_id_from",
-						foreignField: "_id",
-						as: "user_from"
-					}
-				},
-				{ $unwind: { path: "$user_from", preserveNullAndEmptyArrays: true } }
-			);
+				}
+			},
+			{
+				$lookup: {
+					from: "users",
+					localField: "user_id_from",
+					foreignField: "_id",
+					as: "user_from"
+				}
+			},
+			{ $unwind: { path: "$user_from", preserveNullAndEmptyArrays: true } }
+		];
 
-			pipeline.push({
-				$project: {
+		// Add user lookup to pipeline
+		options.pipeline = [...userLookupPipeline, ...options.pipeline];
+
+		if (data.search) {
+			// Create a pipeline for searching across user fields
+			const searchPipeline = [
+				{
+					$match: {
+						$or: [
+							{ "user_from.username": { $regex: data.search, $options: "i" } },
+							{ "user_from.email": { $regex: data.search, $options: "i" } },
+							{ "user_from.name": { $regex: data.search, $options: "i" } },
+							{ "_id": data.search.match(/^[0-9a-fA-F]{24}$/) ? ObjectId(data.search) : null }
+						]
+					}
+				}
+			];
+
+			// Add the search pipeline
+			options.pipeline = [...options.pipeline, ...searchPipeline];
+			console.log('Search pipeline:', JSON.stringify(searchPipeline));
+		}
+
+		// Add projection stage to format the data
+		const projectionPipeline = [{
+			$project: {
 					user_id: 1,
-					user_id_from: 1,
+					user_id_from: {
+						$cond: {
+							if: { $ifNull: ["$user_from", false] },
+							then: {
+								_id: "$user_id_from",
+								username: { $ifNull: ["$user_from.username", ""] },
+								email: { $ifNull: ["$user_from.email", ""] },
+								name: { $ifNull: ["$user_from.name", ""] }
+							},
+							else: "$user_id_from"
+						}
+					},
 					investment_id: 1,
 					investment_plan_id: 1,
 					username: {
@@ -122,7 +161,7 @@ class Income {
 					username_from: {
 						$ifNull: ["$user_from.username", ""]
 					},
-					user_from: {
+					user_from_name: {
 						$ifNull: ["$user_from.name", ""]
 					},
 					user_from_email: {
@@ -137,12 +176,14 @@ class Income {
 					pool: 1,
 					days: 1,
 					type: 1,
+					status: 1,
 					extra: 1,
 					created_at: 1
-				},
-			});
-			options.pipeline = pipeline;
-		}
+				}
+		}];
+
+		// Add projection pipeline to options
+		options.pipeline = [...options.pipeline, ...projectionPipeline];
 
 		console.log('Income filter:', JSON.stringify(filter));
 		console.log('Income options:', JSON.stringify(options));

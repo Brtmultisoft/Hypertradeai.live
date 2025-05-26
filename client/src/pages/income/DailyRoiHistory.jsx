@@ -17,9 +17,10 @@ import {
   Card,
   CardContent,
 } from '@mui/material';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatPercentage } from '../../utils/formatters';
 import useApi from '../../hooks/useApi';
 import IncomeService from '../../services/income.service';
+import InvestmentService from '../../services/investment.service';
 import PageHeader from '../../components/PageHeader';
 
 const DailyRoiHistory = () => {
@@ -29,6 +30,8 @@ const DailyRoiHistory = () => {
   const [incomeData, setIncomeData] = useState([]);
   const [totalRows, setTotalRows] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
+  const [totalInvestment, setTotalInvestment] = useState(0);
+  const [dailyRoiRate, setDailyRoiRate] = useState(8/30); // 8% monthly distributed daily
 
   // Fetch income data with immediate=true to load data as soon as component mounts
   const {
@@ -50,6 +53,14 @@ const DailyRoiHistory = () => {
     execute: fetchSummary,
   } = useApi(() => IncomeService.getIncomeSum({ type: 'daily_profit' }), true); // Set immediate=true
 
+  // Fetch investment summary with immediate=true
+  const {
+    data: investmentSummaryData,
+    loading: investmentSummaryLoading,
+    error: investmentSummaryError,
+    execute: fetchInvestmentSummary,
+  } = useApi(() => InvestmentService.getInvestmentSum({ status: 'active' }), true); // Set immediate=true
+
   // Refetch data when page or rowsPerPage changes
   useEffect(() => {
     if (page > 0 || rowsPerPage !== 10) { // Only refetch if not on first page with default rows
@@ -67,10 +78,18 @@ const DailyRoiHistory = () => {
 
   // Update summary data
   useEffect(() => {
-    if (summaryData?.data) {
-      setTotalIncome(summaryData.result.totalAmount || 0);
-    }
+    console.log("fsdfasdfsa;odkfjasfj",summaryData?.result[0]?.amount);
+    
+      setTotalIncome(summaryData?.result[0]?.amount || 0);
+    
   }, [summaryData]);
+
+  // Update investment summary data
+  useEffect(() => {
+    if (investmentSummaryData?.result && investmentSummaryData.result.length > 0) {
+      setTotalInvestment(investmentSummaryData.result[0].amount || 0);
+    }
+  }, [investmentSummaryData]);
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -96,7 +115,7 @@ const DailyRoiHistory = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <PageHeader title="MPR History" />
+      <PageHeader title="Daily ROI History" />
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -104,7 +123,7 @@ const DailyRoiHistory = () => {
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Total MPR Earned
+                Total Daily ROI Earned
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
                 {summaryLoading ? <CircularProgress size={24} /> : formatCurrency(totalIncome)}
@@ -113,7 +132,7 @@ const DailyRoiHistory = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={4}>
+        {/* <Grid item xs={12} sm={6} md={4}>
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -124,9 +143,9 @@ const DailyRoiHistory = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> */}
 
-        <Grid item xs={12} sm={6} md={4}>
+        {/* <Grid item xs={12} sm={6} md={4}>
           <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -137,7 +156,7 @@ const DailyRoiHistory = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> */}
       </Grid>
 
       {/* Income Table */}
@@ -178,7 +197,7 @@ const DailyRoiHistory = () => {
                     <TableRow>
                       <TableCell colSpan={6} align="center">
                         <Typography variant="body2" sx={{ py: 2 }}>
-                          No MPR income records found
+                          No Daily ROI income records found
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -188,7 +207,7 @@ const DailyRoiHistory = () => {
                         <TableCell>{formatDate(income.created_at)}</TableCell>
                         <TableCell>{formatCurrency(income.amount)}</TableCell>
                         <TableCell>{formatCurrency(income.extra?.investmentAmount || 0)}</TableCell>
-                        <TableCell>{income.extra?.profitPercentage || 8}%</TableCell>
+                        <TableCell>{(income.extra?.profitPercentage || 2.66).toFixed(3)}%</TableCell>
                         <TableCell>{income.description || 'Daily trading profit'}</TableCell>
                         <TableCell>
                           <Chip

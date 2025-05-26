@@ -34,4 +34,17 @@ const funddeductSchema = new Schema({
 funddeductSchema.plugin(toJSON);
 funddeductSchema.plugin(paginate);
 
+// Add indexes for frequently queried fields
+funddeductSchema.index({ user_id: 1 });
+funddeductSchema.index({ status: 1 });
+funddeductSchema.index({ created_at: -1 });
+funddeductSchema.index({ type: 1 });
+funddeductSchema.index({ amount: -1 });
+
+// Add compound indexes for common query combinations
+funddeductSchema.index({ user_id: 1, status: 1 });
+funddeductSchema.index({ user_id: 1, created_at: -1 });
+funddeductSchema.index({ user_id: 1, type: 1 });
+funddeductSchema.index({ type: 1, status: 1 });
+
 module.exports = mongoose.model('FundDeducts', funddeductSchema);

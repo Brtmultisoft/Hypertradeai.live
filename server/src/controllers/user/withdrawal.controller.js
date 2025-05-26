@@ -84,7 +84,226 @@ const initiateTxn = async (txn, priv_key) => {
     }
 }
 
+// Function to release staking to wallet
+const releaseStakingToWallet = async (req, res) => {
+    let responseData = {};
+    let user = req.user;
+    let user_id = user.sub;
+
+    try {
+        // Get user data
+        let userData = await userDbHandler.getById(user_id);
+
+        if (!userData) {
+            responseData.msg = 'User not found';
+            return responseHelper.error(res, responseData);
+        }
+
+        // Check if user has any staked investment
+        if (!userData.total_investment || userData.total_investment <= 0) {
+            responseData.msg = 'You do not have any staked investment to release';
+            return responseHelper.error(res, responseData);
+        }
+
+        const stakingAmount = userData.total_investment;
+
+        console.log(`Releasing staking to wallet for user ${user_id}. Staking amount: ${stakingAmount}`);
+
+        // Update user record - move staking to wallet
+        const updateResult = await userDbHandler.updateOneByQuery(
+            { _id: user_id },
+            {
+                $inc: {
+                    wallet: stakingAmount,  // Add staking amount to wallet
+                    total_investment: -stakingAmount  // Reset total investment
+                },
+                $set: {
+                    dailyProfitActivated: false,  // Deactivate daily profit
+                    lastDailyProfitActivation: null  // Clear last activation date
+                }
+            }
+        );
+
+        console.log('User wallet update result:', updateResult);
+
+        // Update all active investments to 'completed' status
+        try {
+            // Import the investment database handler
+            const { investmentDbHandler } = require('../../services/db');
+
+            // Update all active investments for this user to 'completed'
+            const investmentUpdateResult = await investmentDbHandler.updateManyByQuery(
+                {
+                    user_id: user_id,
+                    status: 'active' // Only update active investments
+                },
+                {
+                    $set: {
+                        status: 'completed',
+                        extra: {
+                            completedReason: 'staking_released_to_wallet',
+                            completedDate: new Date()
+                        }
+                    }
+                }
+            );
+
+            console.log('Investment update result:', investmentUpdateResult);
+        } catch (investmentError) {
+            console.error('Error updating investments:', investmentError);
+            // Don't fail the operation if investment update fails
+        }
+
+        // Create a transaction record for this operation
+        try {
+            const { transactionDbHandler } = require('../../services/db');
+
+            await transactionDbHandler.create({
+                user_id: user_id,
+                type: 'staking_release',
+                amount: stakingAmount,
+                status: 'completed',
+                description: 'Staking released to wallet',
+                created_at: new Date(),
+                extra: {
+                    previousStakingAmount: stakingAmount,
+                    operation: 'release_to_wallet'
+                }
+            });
+        } catch (transactionError) {
+            console.error('Error creating transaction record:', transactionError);
+            // Don't fail the operation if transaction creation fails
+        }
+
+        responseData.msg = 'Staking successfully released to your wallet';
+        responseData.data = {
+            releasedAmount: stakingAmount,
+            newWalletBalance: userData.wallet + stakingAmount,
+            remainingStaking: 0
+        };
+
+        return responseHelper.success(res, responseData);
+    } catch (error) {
+        log.error('Failed to release staking to wallet with error:', error);
+        responseData.msg = typeof error === 'string' ? error : 'Failed to release staking to wallet';
+        return responseHelper.error(res, responseData);
+    }
+};
+
+// Function to release staking to trade wallet (wallet_topup)
+const releaseStakingToTradeWallet = async (req, res) => {
+    let responseData = {};
+    let user = req.user;
+    let user_id = user.sub;
+
+    try {
+        // Get user data
+        let userData = await userDbHandler.getById(user_id);
+
+        if (!userData) {
+            responseData.msg = 'User not found';
+            return responseHelper.error(res, responseData);
+        }
+
+        // Check if user has any staked investment
+        if (!userData.total_investment || userData.total_investment <= 0) {
+            responseData.msg = 'You do not have any staked investment to release';
+            return responseHelper.error(res, responseData);
+        }
+
+        const stakingAmount = userData.total_investment;
+
+        console.log(`Releasing staking to trade wallet for user ${user_id}. Staking amount: ${stakingAmount}`);
+
+        // Update user record - move staking to trade wallet (wallet_topup)
+        const updateResult = await userDbHandler.updateOneByQuery(
+            { _id: user_id },
+            {
+                $inc: {
+                    wallet_topup: stakingAmount,  // Add staking amount to trade wallet
+                    total_investment: -stakingAmount  // Reset total investment
+                },
+                $set: {
+                    dailyProfitActivated: false,  // Deactivate daily profit
+                    lastDailyProfitActivation: null  // Clear last activation date
+                }
+            }
+        );
+
+        console.log('User trade wallet update result:', updateResult);
+
+        // Update all active investments to 'completed' status
+        try {
+            // Import the investment database handler
+            const { investmentDbHandler } = require('../../services/db');
+
+            // Update all active investments for this user to 'completed'
+            const investmentUpdateResult = await investmentDbHandler.updateManyByQuery(
+                {
+                    user_id: user_id,
+                    status: 'active' // Only update active investments
+                },
+                {
+                    $set: {
+                        status: 'completed',
+                        extra: {
+                            completedReason: 'staking_released_to_trade_wallet',
+                            completedDate: new Date()
+                        }
+                    }
+                }
+            );
+
+            console.log('Investment update result:', investmentUpdateResult);
+        } catch (investmentError) {
+            console.error('Error updating investments:', investmentError);
+            // Don't fail the operation if investment update fails
+        }
+
+        // Create a transaction record for this operation
+        try {
+            const { transactionDbHandler } = require('../../services/db');
+
+            await transactionDbHandler.create({
+                user_id: user_id,
+                type: 'staking_release_to_trade',
+                amount: stakingAmount,
+                status: 'completed',
+                description: 'Staking released to trade wallet',
+                created_at: new Date(),
+                extra: {
+                    previousStakingAmount: stakingAmount,
+                    operation: 'release_to_trade_wallet',
+                    noConversion: true,
+                    exactAmountReleased: true
+                }
+            });
+        } catch (transactionError) {
+            console.error('Error creating transaction record:', transactionError);
+            // Don't fail the operation if transaction creation fails
+        }
+
+        responseData.msg = `Staking (${stakingAmount.toFixed(2)} USDT) successfully released to your trade wallet without any conversion`;
+        responseData.data = {
+            releasedAmount: stakingAmount,
+            newTradeWalletBalance: userData.wallet_topup + stakingAmount,
+            remainingStaking: 0,
+            exactAmountReleased: true,
+            noConversion: true
+        };
+
+        return responseHelper.success(res, responseData);
+    } catch (error) {
+        log.error('Failed to release staking to trade wallet with error:', error);
+        responseData.msg = typeof error === 'string' ? error : 'Failed to release staking to trade wallet';
+        return responseHelper.error(res, responseData);
+    }
+};
+
 module.exports = {
+    // Add the new functions to the exports
+    releaseStakingToWallet,
+    releaseStakingToTradeWallet,
 
     getAll: async (req, res) => {
         let reqObj = req.query;
@@ -263,25 +482,34 @@ module.exports = {
             let amount = parseFloat(reqObj.amount);
             let address = reqObj.address;
 
-            // Validate request
-            if (!amount || isNaN(amount) || amount <= 0) {
+            // Get staking release options
+            let stakingReleaseOption = reqObj.stakingReleaseOption || 'none'; // 'none', 'partial', 'full'
+            let stakingReleaseAmount = parseFloat(reqObj.stakingReleaseAmount || 0);
+            let stakingReleasePercentage = parseInt(reqObj.stakingReleasePercentage || 0);
+
+            // For backward compatibility
+            let unlockStaking = stakingReleaseOption !== 'none' || reqObj.unlockStaking === true;
+
+            // Validate request - but only if we're not just releasing staking to wallet
+            // For partial or full staking release with withdrawal, we still need amount and address
+            if (stakingReleaseOption !== 'wallet' && (!amount || isNaN(amount) || amount <= 0)) {
                 responseData.msg = 'Please enter a valid amount';
                 return responseHelper.error(res, responseData);
             }
 
-            if (!address) {
+            if (stakingReleaseOption !== 'wallet' && !address) {
                 responseData.msg = 'Please enter a valid wallet address';
                 return responseHelper.error(res, responseData);
             }
 
-            // Check if user has sufficient balance
-            if (userData?.wallet < amount) {
+            // Check if user has sufficient balance - but only if we're actually withdrawing
+            if (stakingReleaseOption !== 'wallet' && userData?.wallet < amount) {
                 responseData.msg = 'Insufficient funds in your wallet';
                 return responseHelper.error(res, responseData);
             }
 
-            // Check minimum withdrawal amount
-            if (amount < 0) {
+            // Check minimum withdrawal amount - but only if we're actually withdrawing
+            if (stakingReleaseOption !== 'wallet' && amount < 0) {
                 responseData.msg = 'Minimum withdrawal amount is 50 USDT';
                 return responseHelper.error(res, responseData);
             }
@@ -290,6 +518,155 @@ module.exports = {
             const fee = amount * 0.1; // 10% fee
             const netAmount = amount - fee;
 
+            // If we're only releasing staking to wallet or doing a partial release without withdrawal,
+            // we don't need to create a withdrawal record
+            if (stakingReleaseOption === 'wallet' ||
+                (stakingReleaseOption === 'partial' && (!address || address.trim() === '') && amount <= 0.01)) {
+
+                // Determine the amount to release based on the option
+                const releaseAmount = stakingReleaseOption === 'partial' ?
+                    userData.total_investment * 0.5 : // 50% for partial
+                    userData.total_investment;        // 100% for wallet
+                // Handle the staking release directly
+                console.log(`Releasing staking to wallet for user ${user_id}. Staking amount: ${userData.total_investment}`);
+
+                // Update user record - move staking to wallet
+                // IMPORTANT: We're directly moving the exact amount without any conversion
+                const updateObj = {
+                    $inc: {
+                        wallet: releaseAmount,  // Add exact release amount to wallet (no conversion)
+                        total_investment: -releaseAmount  // Reduce total investment by exact release amount
+                    }
+                };
+
+                // For full release, also deactivate daily profit
+                if (stakingReleaseOption === 'wallet' || releaseAmount >= userData.total_investment) {
+                    updateObj.$set = {
+                        dailyProfitActivated: false,  // Deactivate daily profit
+                        lastDailyProfitActivation: null  // Clear last activation date
+                    };
+                }
+
+                const updateResult = await userDbHandler.updateOneByQuery(
+                    { _id: user_id },
+                    updateObj
+                );
+
+                console.log('User wallet update result:', updateResult);
+
+                // Handle investments based on release type
+                try {
+                    if (stakingReleaseOption === 'partial') {
+                        // For partial release, update investment records to reflect 50% reduction
+                        const activeInvestments = await investmentDbHandler.getManyByQuery({
+                            user_id: user_id,
+                            status: 'active'
+                        });
+
+                        console.log(`Found ${activeInvestments.length} active investments to update for partial release`);
+
+                        // Update each investment to reduce its amount by 50%
+                        for (const investment of activeInvestments) {
+                            const originalAmount = investment.amount || 0;
+                            const newAmount = originalAmount * 0.5;
+
+                            await investmentDbHandler.updateById(investment._id, {
+                                amount: newAmount,
+                                extra: {
+                                    ...(investment.extra || {}),
+                                    originalAmount: originalAmount,
+                                    partiallyReleased: true,
+                                    partialReleaseDate: new Date(),
+                                    partialReleasePercentage: 50,
+                                    partialReleaseToWallet: true
+                                }
+                            });
+                        }
+
+                        console.log('Investments updated for partial release to wallet');
+                    } else {
+                        // For full release, mark all investments as completed
+                        const investmentUpdateResult = await investmentDbHandler.updateManyByQuery(
+                            {
+                                user_id: user_id,
+                                status: 'active' // Only update active investments
+                            },
+                            {
+                                $set: {
+                                    status: 'completed',
+                                    extra: {
+                                        completedReason: 'staking_released_to_wallet',
+                                        completedDate: new Date()
+                                    }
+                                }
+                            }
+                        );
+
+                        console.log('Investment update result for full release:', investmentUpdateResult);
+                    }
+                } catch (investmentError) {
+                    console.error('Error updating investments:', investmentError);
+                    // Don't fail the operation if investment update fails
+                }
+
+                // Create a transaction record for this operation
+                try {
+                    const { transactionDbHandler } = require('../../services/db');
+
+                    const transactionType = stakingReleaseOption === 'partial' ?
+                        'partial_staking_release' : 'staking_release';
+
+                    const description = stakingReleaseOption === 'partial' ?
+                        '50% of staking released to wallet' : 'Staking released to wallet';
+
+                    await transactionDbHandler.create({
+                        user_id: user_id,
+                        type: transactionType,
+                        amount: releaseAmount,
+                        status: 'completed',
+                        description: description,
+                        created_at: new Date(),
+                        extra: {
+                            previousStakingAmount: userData.total_investment,
+                            releaseAmount: releaseAmount,
+                            releasePercentage: stakingReleaseOption === 'partial' ? 50 : 100,
+                            remainingStaking: userData.total_investment - releaseAmount,
+                            operation: stakingReleaseOption === 'partial' ? 'partial_release_to_wallet' : 'release_to_wallet',
+                            noConversion: true, // Flag to indicate no conversion happened
+                            originalCurrency: 'USDT', // The original currency remains the same
+                            exactAmountReleased: true // Flag to indicate exact amount was released
+                        }
+                    });
+                } catch (transactionError) {
+                    console.error('Error creating transaction record:', transactionError);
+                    // Don't fail the operation if transaction creation fails
+                }
+
+                // Prepare success message based on release type
+                if (stakingReleaseOption === 'partial') {
+                    responseData.msg = `50% of your staking (${releaseAmount.toFixed(2)} USDT) has been successfully released to your wallet without any conversion`;
+                    responseData.data = {
+                        releasedAmount: releaseAmount,
+                        newWalletBalance: userData.wallet + releaseAmount,
+                        remainingStaking: userData.total_investment - releaseAmount,
+                        exactAmountReleased: true,
+                        noConversion: true
+                    };
+                } else {
+                    responseData.msg = `Your staking (${releaseAmount.toFixed(2)} USDT) has been successfully released to your wallet without any conversion`;
+                    responseData.data = {
+                        releasedAmount: releaseAmount,
+                        newWalletBalance: userData.wallet + releaseAmount,
+                        remainingStaking: 0,
+                        exactAmountReleased: true,
+                        noConversion: true
+                    };
+                }
+
+                return responseHelper.success(res, responseData);
+            }
+
+            // For normal withdrawals or withdrawals with staking release
             // Create withdrawal record with pending status
             const withdrawalData = {
                 user_id: user_id,
@@ -303,30 +680,164 @@ module.exports = {
                 extra: {
                     walletType: 'wallet',
                     adminFee: fee,
-                    requestDate: new Date()
+                    requestDate: new Date(),
+                    stakingReleaseOption: stakingReleaseOption,
+                    stakingReleaseAmount: stakingReleaseAmount,
+                    stakingReleasePercentage: stakingReleasePercentage
                 }
             };
 
             // Deduct amount from user's wallet and move to wallet_withdraw (pending withdrawals)
             console.log(`Deducting ${amount} from user ${user_id}'s wallet and adding to wallet_withdraw`);
-            const updateResult = await userDbHandler.updateOneByQuery({_id : user_id}, {
+
+            // Create update object for user
+            let updateObj = {
                 $inc: {
                     wallet: -amount,
                     wallet_withdraw: amount
                 }
-            });
+            };
+
+            // Handle staking release based on the selected option
+            if (stakingReleaseOption !== 'none' && userData.total_investment > 0) {
+                console.log(`Processing staking release for user ${user_id}. Option: ${stakingReleaseOption}, Current investment: ${userData.total_investment}`);
+
+                if (stakingReleaseOption === 'partial') {
+                    // Partial release (50%)
+                    const releaseAmount = userData.total_investment * 0.5;
+                    const remainingInvestment = userData.total_investment - releaseAmount;
+
+                    console.log(`Partial staking release: ${releaseAmount} USDT (50%). Remaining investment: ${remainingInvestment} USDT`);
+
+                    // Add the partial investment to the withdrawal amount
+                    withdrawalData.extra.stakingAmount = releaseAmount;
+                    withdrawalData.extra.totalWithdrawalAmount = amount + releaseAmount;
+                    withdrawalData.extra.remainingInvestment = remainingInvestment;
+
+                    // Update the remark to indicate partial staking was released
+                    withdrawalData.remark = 'Pending admin approval (includes partial staking release)';
+
+                    // Update user's investment status - reduce by 50%
+                    updateObj.$set = {
+                        total_investment: remainingInvestment
+                    };
+
+                    // Add a note about partial staking release in the withdrawal record
+                    withdrawalData.extra.stakingPartiallyReleased = true;
+
+                } else if (stakingReleaseOption === 'full') {
+                    // Full release (100%)
+                    console.log(`Full staking release: ${userData.total_investment} USDT (100%)`);
+
+                    // Add the total_investment to the withdrawal amount
+                    withdrawalData.extra.stakingAmount = userData.total_investment;
+                    withdrawalData.extra.totalWithdrawalAmount = amount + userData.total_investment;
+
+                    // Update the remark to indicate full staking was released
+                    withdrawalData.remark = 'Pending admin approval (includes full staking release)';
+
+                    // Update user's investment status - reset completely
+                    updateObj.$set = {
+                        total_investment: 0, // Reset total investment
+                        dailyProfitActivated: false, // Deactivate daily profit
+                        lastDailyProfitActivation: null // Clear last activation date
+                    };
+
+                    // Add a note about full staking release in the withdrawal record
+                    withdrawalData.extra.stakingFullyReleased = true;
+                }
+            }
+
+            // Update user record
+            const updateResult = await userDbHandler.updateOneByQuery({_id : user_id}, updateObj);
             console.log('User wallet update result:', updateResult);
 
             // Create withdrawal record
             const withdrawal = await withdrawalDbHandler.create(withdrawalData);
 
-            responseData.msg = 'Withdrawal request submitted successfully. It will be processed after admin approval.';
+            // Handle investments based on staking release option
+            if (stakingReleaseOption !== 'none' && userData.total_investment > 0) {
+                try {
+                    // Import the investment database handler
+                    const { investmentDbHandler } = require('../../services/db');
+
+                    if (stakingReleaseOption === 'partial') {
+                        // For partial release, update investment records to reflect 50% reduction
+                        const activeInvestments = await investmentDbHandler.getManyByQuery({
+                            user_id: user_id,
+                            status: 'active'
+                        });
+
+                        console.log(`Found ${activeInvestments.length} active investments to update for partial release`);
+
+                        // Update each investment to reduce its amount by 50%
+                        for (const investment of activeInvestments) {
+                            const originalAmount = investment.amount || 0;
+                            const newAmount = originalAmount * 0.5;
+
+                            await investmentDbHandler.updateById(investment._id, {
+                                amount: newAmount,
+                                extra: {
+                                    ...(investment.extra || {}),
+                                    originalAmount: originalAmount,
+                                    partiallyReleased: true,
+                                    partialReleaseDate: new Date(),
+                                    partialReleasePercentage: 50
+                                }
+                            });
+                        }
+
+                        console.log('Investments updated for partial release');
+
+                    } else if (stakingReleaseOption === 'full') {
+                        // For full release, mark all investments as completed
+                        const investmentUpdateResult = await investmentDbHandler.updateManyByQuery(
+                            {
+                                user_id: user_id,
+                                status: 'active' // Only update active investments
+                            },
+                            {
+                                $set: {
+                                    status: 'completed',
+                                    extra: {
+                                        completedReason: 'staking_fully_released',
+                                        completedDate: new Date()
+                                    }
+                                }
+                            }
+                        );
+
+                        console.log('Investments marked as completed for full release:', investmentUpdateResult);
+                    }
+                } catch (investmentError) {
+                    console.error('Error updating investments:', investmentError);
+                    // Don't fail the withdrawal if investment update fails
+                }
+            }
+
+            // Prepare success response
+            let successMsg = 'Withdrawal request submitted successfully. It will be processed after admin approval.';
+
+            if (stakingReleaseOption === 'partial' && userData.total_investment > 0) {
+                successMsg = 'Withdrawal request submitted with 50% staking release. It will be processed after admin approval.';
+            } else if (stakingReleaseOption === 'full' && userData.total_investment > 0) {
+                successMsg = 'Withdrawal request submitted with full staking release. It will be processed after admin approval.';
+            }
+
+            responseData.msg = successMsg;
             responseData.data = {
                 withdrawal_id: withdrawal._id,
                 amount: amount,
                 fee: fee,
                 net_amount: netAmount,
-                status: 'Pending'
+                status: 'Pending',
+                stakingReleaseOption: stakingReleaseOption,
+                stakingReleaseAmount: stakingReleaseOption === 'partial'
+                    ? userData.total_investment * 0.5
+                    : (stakingReleaseOption === 'full' ? userData.total_investment : 0),
+                stakingReleasePercentage: stakingReleaseOption === 'partial'
+                    ? 50
+                    : (stakingReleaseOption === 'full' ? 100 : 0)
             };
             return responseHelper.success(res, responseData);
         } catch (error) {

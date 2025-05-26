@@ -115,21 +115,21 @@ const Dashboard = () => {
       {/* Page Header */}
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+          {/* <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
             Admin Dashboard
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Welcome, {user?.name || 'Admin'}! Here's an overview of the platform.
-          </Typography>
+          </Typography> */}
           <Typography variant="caption" color="text.secondary">
             Last updated: {formatLastUpdate()}
           </Typography>
         </div>
-        <Tooltip title="Refresh Dashboard Data">
+        {/* <Tooltip title="Refresh Dashboard Data">
           <IconButton onClick={handleRefresh} color="primary">
             {loading ? <CircularProgress size={24} /> : <RefreshIcon />}
           </IconButton>
-        </Tooltip>
+        </Tooltip> */}
       </Box>
 
       {error && (

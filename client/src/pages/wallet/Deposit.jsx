@@ -45,6 +45,7 @@ const Deposit = () => {
     privateKey: '',
   });
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const [isExistingWallet, setIsExistingWallet] = useState(false);
   const [monitoringResult, setMonitoringResult] = useState(null);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
@@ -80,6 +81,7 @@ const Deposit = () => {
           if (!response.existing) {
             await saveWalletToAccount(response.wallet.address, response.wallet.privateKey);
           } else {
+            setIsExistingWallet(true);
             setSuccessMessage('Using your existing wallet address');
             setShowSnackbar(true);
           }
@@ -139,8 +141,20 @@ const Deposit = () => {
         setMonitoringResult(response.result);
 
         if (response.result && response.result.found) {
-          setSuccessMessage(`Deposit of ${response.result.amount} ${response.result.currency} detected!`);
+          // The server-side monitoring already creates a deposit record and updates the user's wallet
+          // We don't need to create another deposit record, just show the success message
+          setSuccessMessage(`Deposit of ${response.result.amount} ${response.result.currency} detected and added to your account!`);
           fetchDashboardData(); // Refresh dashboard data to show updated balance
+
+          // If for some reason the server didn't create a deposit record (which shouldn't happen),
+          // we could add a fallback here, but it's better to fix the server-side code if that's the case
+
+          // Log the transaction details for debugging
+          console.log('Deposit details:', {
+            amount: response.result.amount,
+            currency: response.result.currency,
+            txid: response.result.txid || response.result.transactionHash || 'No transaction ID available',
+          });
         } else {
           setSuccessMessage('Monitoring completed. No deposits detected.');
         }

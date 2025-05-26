@@ -463,6 +463,13 @@ module.exports = {
                 return responseHelper.error(res, responseData);
             }
 
+            // Check if user is blocked
+            if (userData.is_blocked) {
+                responseData.msg = 'Your account has been blocked. You cannot activate daily profit.';
+                responseData.block_reason = userData.block_reason || 'No reason provided';
+                return responseHelper.forbidden(res, responseData);
+            }
+
             // Check if user has made an investment
             const hasInvested = await hasUserInvested(id);
             if (!hasInvested) {

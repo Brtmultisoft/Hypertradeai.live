@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -10,8 +10,11 @@ import {
   Link,
   Alert,
   CircularProgress,
-  useTheme,
   Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Email as EmailIcon,
@@ -23,23 +26,58 @@ import useAuth from '../../hooks/useAuth';
 import useForm from '../../hooks/useForm';
 import axios from 'axios';
 
+// ✅ Custom hook moved OUTSIDE component to comply with React rules
+const useQueryParams = () => {
+  const { search } = useLocation();
+  return useMemo(() => {
+    const params = new URLSearchParams(search);
+    return {
+      hash: params.get('hash'),
+      clear: params.get('clear'),
+      forced: params.get('forced'),
+      expired: params.get('expired'),
+      attemptId: params.get('attempt'),
+    };
+  }, [search]);
+};
+
+export const clearFrontendSession = () => {
+  console.log('Clearing all frontend session data');
+
+  // Clear localStorage and sessionStorage
+  localStorage.clear();
+  sessionStorage.clear();
+
+  // Clear axios default headers
+  delete axios.defaults.headers.common['Authorization'];
+  axios.defaults.headers.common = {};
+
+  // Clear cookies
+  document.cookie.split(';').forEach(cookie => {
+    const [name] = cookie.trim().split('=');
+    document.cookie = `${name}=; Max-Age=0; path=/;`;
+  });
+
+  console.log('Frontend session data cleared');
+};
+
 const Login = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
-  const location = useLocation();
+  const location = useLocation(); // Needed for logging
   const { login, loading, error, isAuthenticated } = useAuth();
 
-  // State for success notification
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [processingHash, setProcessingHash] = useState(false);
   const [hashError, setHashError] = useState(null);
-
-  // Track if this component has redirected
+  const [showBlockedDialog, setShowBlockedDialog] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
   const hasRedirected = useRef(false);
 
-  // Check for hash parameter (admin login request) or forced logout
+  const queryParams = useQueryParams();
+
+  // ✅ Admin Login via URL Hash
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const hash = params.get('hash');
@@ -205,13 +243,8 @@ const Login = () => {
     }
   }, [location, navigate]);
 
-  // Redirect to dashboard if already authenticated
+  // ✅ Normal Authenticated Redirect
   useEffect(() => {
-    // Only redirect if:
-    // 1. User is authenticated
-    // 2. We haven't already redirected
-    // 3. We're not in the middle of loading
-    // 4. We're not processing a hash login
     if (isAuthenticated && !hasRedirected.current && !loading && !processingHash) {
       console.log('User is authenticated, redirecting to dashboard');
       hasRedirected.current = true;
@@ -219,7 +252,7 @@ const Login = () => {
     }
   }, [isAuthenticated, navigate, loading, processingHash]);
 
-  // Form validation rules
+  // ✅ Login Form Setup
   const validationRules = {
     email: {
       required: true,
@@ -235,7 +268,6 @@ const Login = () => {
     },
   };
 
-  // Initialize form
   const {
     values,
     errors,
@@ -251,32 +283,18 @@ const Login = () => {
     },
     validationRules,
     async (formValues) => {
-      console.log('Form submitted with values:', formValues);
-
       const result = await login(formValues);
       if (result.success) {
-        // Show success notification
         setSuccessMessage(result.message || 'Login successful!');
         setShowSuccessAlert(true);
-
-        // Redirect will be handled by the useEffect that watches isAuthenticated
-        console.log('Login successful, authentication state will trigger redirect');
-
-        // Reset the redirect flag to allow the useEffect to redirect
-        hasRedirected.current = false;
+        hasRedirected.current = false; // Let redirect happen again if needed
+      } else if (result.isBlocked) {
+        // Show blocked user dialog
+        setBlockReason(result.blockReason || 'No reason provided');
+        setShowBlockedDialog(true);
       }
     }
   );
-
-  // Toggle password visibility
-  const handleTogglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  // Handle success alert close
-  const handleSuccessAlertClose = () => {
-    setShowSuccessAlert(false);
-  };
 
   return (
     <Box>
@@ -287,37 +305,20 @@ const Login = () => {
         Sign in to your account to continue
       </Typography>
 
-      {/* Success Message */}
       <Snackbar
         open={showSuccessAlert}
         autoHideDuration={6000}
-        onClose={handleSuccessAlertClose}
+        onClose={() => setShowSuccessAlert(false)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert
-          onClose={handleSuccessAlertClose}
-          severity="success"
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={() => setShowSuccessAlert(false)} severity="success" variant="filled">
           {successMessage}
         </Alert>
       </Snackbar>
 
-      {/* Error Messages */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {hashError && <Alert severity="error" sx={{ mb: 3 }}>{hashError}</Alert>}
 
-      {hashError && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {hashError}
-        </Alert>
-      )}
-
-      {/* Show loading indicator when processing hash */}
       {processingHash && (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
           <CircularProgress />
@@ -327,9 +328,7 @@ const Login = () => {
         </Box>
       )}
 
-      {/* Login Form */}
       <Box component="form" onSubmit={handleSubmit} noValidate>
-        {/* Email Field */}
         <TextField
           label="Email"
           name="email"
@@ -350,7 +349,6 @@ const Login = () => {
           }}
         />
 
-        {/* Password Field */}
         <TextField
           label="Password"
           name="password"
@@ -370,11 +368,7 @@ const Login = () => {
             ),
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton
-                  aria-label="toggle password visibility"
-                  onClick={handleTogglePasswordVisibility}
-                  edge="end"
-                >
+                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
                   {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                 </IconButton>
               </InputAdornment>
@@ -382,19 +376,12 @@ const Login = () => {
           }}
         />
 
-        {/* Forgot Password Link */}
         <Box sx={{ textAlign: 'right', mt: 1, mb: 3 }}>
-          <Link
-            component={RouterLink}
-            to="/forgot-password"
-            variant="body2"
-            color="primary"
-          >
+          <Link component={RouterLink} to="/forgot-password" variant="body2" color="primary">
             Forgot password?
           </Link>
         </Box>
 
-        {/* Submit Button */}
         <Button
           type="submit"
           variant="contained"
@@ -414,7 +401,6 @@ const Login = () => {
           )}
         </Button>
 
-        {/* Register Link */}
         <Typography variant="body2" align="center">
           Don't have an account?{' '}
           <Link component={RouterLink} to="/register" color="primary">
@@ -422,6 +408,80 @@ const Login = () => {
           </Link>
         </Typography>
       </Box>
+
+      {/* Blocked User Dialog */}
+      <Dialog
+        open={showBlockedDialog}
+        onClose={() => setShowBlockedDialog(false)}
+        aria-labelledby="blocked-dialog-title"
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderTop: '4px solid',
+            borderColor: 'error.main',
+            borderRadius: '8px',
+          }
+        }}
+      >
+        <DialogTitle id="blocked-dialog-title">
+          <Box display="flex" alignItems="center">
+            <Box
+              sx={{
+                bgcolor: 'error.main',
+                color: 'white',
+                borderRadius: '50%',
+                width: 40,
+                height: 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mr: 2
+              }}
+            >
+              <LockIcon />
+            </Box>
+            <Box>
+              <Typography variant="h6">Account Blocked</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Your account has been restricted
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 3, p: 2, bgcolor: 'error.light', borderRadius: 1, color: 'error.dark' }}>
+            <Typography variant="body2">
+              Your account has been blocked by an administrator. You cannot log in or use the platform at this time.
+            </Typography>
+          </Box>
+
+          <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+              Reason for blocking:
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {blockReason || 'No reason provided'}
+            </Typography>
+          </Box>
+
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="body2">
+              If you believe this is an error, please contact support for assistance.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={() => setShowBlockedDialog(false)}
+            variant="contained"
+            color="primary"
+            fullWidth
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

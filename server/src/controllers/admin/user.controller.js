@@ -76,7 +76,14 @@ module.exports = {
         try {
             let getList;
             if (reqObj?.limit == -1) {
-                getList = await userDbHandler.getByQuery({}, { 'username': 1, 'name': 1, 'email': 1, 'status': 1 });
+                getList = await userDbHandler.getByQuery({}, {
+                    'username': 1,
+                    'name': 1,
+                    'email': 1,
+                    'status': 1,
+                    'is_blocked': 1,
+                    'block_reason': 1
+                });
             }
             else {
                 getList = await userDbHandler.getAll(reqObj);
@@ -148,12 +155,30 @@ module.exports = {
 
     getDownline: async (req, res) => {
         let reqObj = req.query;
-        log.info('Recieved request for getDownline Users:', reqObj);
+        log.info('Received request for getDownline Users:', reqObj);
         let responseData = {};
         try {
+            // Get the downline data with complete user information
             let getList = await getChildLevelsByRefer(null, true, 20);
+            console.log('getDownline result:', getList);
+
+            // Process each level to ensure we have complete user data
+            const processedList = getList.levels.map(level => {
+                // If the level contains user objects, return them with all fields
+                if (level && level.length > 0 && typeof level[0] === 'object') {
+                    return level.map(user => {
+                        // Ensure we're returning a plain object, not a Mongoose document
+                        return user.toObject ? user.toObject() : user;
+                    });
+                }
+                // If it's just IDs, return them as is
+                return level;
+            });
+
+            log.info(`Processed downline data with ${processedList.length} levels`);
+
             responseData.msg = 'Data fetched successfully!';
-            responseData.data = getList;
+            responseData.data = processedList;
             return responseHelper.success(res, responseData);
         } catch (error) {
             log.error('failed to fetch users data with error::', error);
@@ -313,13 +338,44 @@ module.exports = {
                 updatedObj.status = reqObj.status;
             }
 
+            // Handle wallet updates if provided
+            if (reqObj.wallet !== undefined) {
+                updatedObj.wallet = parseFloat(reqObj.wallet) || 0;
+            }
+
+            if (reqObj.wallet_topup !== undefined) {
+                updatedObj.wallet_topup = parseFloat(reqObj.wallet_topup) || 0;
+            }
+
             if (reqObj.password) {
                 updatedObj.password = await _createHashPassword(reqObj.password);
             }
 
-            await userDbHandler.updateById(reqObj.id, updatedObj);
-            responseData.msg = `Data updated sucessfully !`;
-            return responseHelper.success(res, responseData);
+            try {
+                const updatedUser = await userDbHandler.updateById(reqObj.id, updatedObj);
+
+                if (!updatedUser) {
+                    responseData.msg = 'Failed to update user data';
+                    return responseHelper.error(res, responseData);
+                }
+
+                responseData.msg = `Data updated successfully!`;
+                responseData.data = {
+                    _id: updatedUser._id,
+                    name: updatedUser.name,
+                    email: updatedUser.email,
+                    username: updatedUser.username,
+                    phone_number: updatedUser.phone_number,
+                    status: updatedUser.status,
+                    wallet: updatedUser.wallet,
+                    wallet_topup: updatedUser.wallet_topup
+                };
+                return responseHelper.success(res, responseData);
+            } catch (updateError) {
+                log.error('Failed to update user in database with error::', updateError);
+                responseData.msg = 'Database error while updating user';
+                return responseHelper.error(res, responseData);
+            }
 
         } catch (error) {
             log.error('failed to update user with error::', error);
@@ -399,7 +455,18 @@ module.exports = {
                         { sponsorID: { $regex: query, $options: 'i' } }
                     ]
                 },
-                { _id: 1, username: 1, name: 1, email: 1, wallet: 1, wallet_topup: 1, sponsorID: 1, total_investment: 1 }
+                {
+                    _id: 1,
+                    username: 1,
+                    name: 1,
+                    email: 1,
+                    wallet: 1,
+                    wallet_topup: 1,
+                    sponsorID: 1,
+                    total_investment: 1,
+                    is_blocked: 1,
+                    block_reason: 1
+                }
             );
 
             responseData.msg = `Found ${users.length} users matching '${query}'`;
@@ -445,6 +512,86 @@ module.exports = {
         } catch (error) {
             log.error('Failed to fetch user by email with error:', error);
             responseData.msg = 'Failed to fetch user';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Block a user
+     */
+    blockUser: async (req, res) => {
+        let reqObj = req.body;
+        log.info('Received request to block user:', reqObj);
+        let responseData = {};
+
+        try {
+            // Check if user exists
+            let userData = await userDbHandler.getById(reqObj.id);
+            if (!userData) {
+                responseData.msg = 'User not found';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Check if user is already blocked
+            if (userData.is_blocked) {
+                responseData.msg = 'User is already blocked';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Update user to blocked status
+            const updatedObj = {
+                is_blocked: true,
+                block_reason: reqObj.block_reason || 'Blocked by administrator',
+                force_relogin_time: new Date().getTime(),
+                force_relogin_type: 'admin_forced_logout'
+            };
+
+            await userDbHandler.updateById(reqObj.id, updatedObj);
+
+            responseData.msg = 'User has been blocked successfully';
+            return responseHelper.success(res, responseData);
+        } catch (error) {
+            log.error('Failed to block user with error:', error);
+            responseData.msg = 'Failed to block user';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Unblock a user
+     */
+    unblockUser: async (req, res) => {
+        let reqObj = req.body;
+        log.info('Received request to unblock user:', reqObj);
+        let responseData = {};
+
+        try {
+            // Check if user exists
+            let userData = await userDbHandler.getById(reqObj.id);
+            if (!userData) {
+                responseData.msg = 'User not found';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Check if user is already unblocked
+            if (!userData.is_blocked) {
+                responseData.msg = 'User is not blocked';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Update user to unblocked status
+            const updatedObj = {
+                is_blocked: false,
+                block_reason: ''
+            };
+
+            await userDbHandler.updateById(reqObj.id, updatedObj);
+
+            responseData.msg = 'User has been unblocked successfully';
+            return responseHelper.success(res, responseData);
+        } catch (error) {
+            log.error('Failed to unblock user with error:', error);
+            responseData.msg = 'Failed to unblock user';
             return responseHelper.error(res, responseData);
         }
     }

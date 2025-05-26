@@ -11,6 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(false); // Start with loading false
   const [error, setError] = useState(null);
 
+
   // Use a ref to track if we've already tried to load the user
   const hasTriedToLoadUser = useRef(false);
 
@@ -27,50 +28,143 @@ export const AuthProvider = ({ children }) => {
   }, [token]);
 
   // Load user data if token exists
-  const loadUser = useCallback(async () => {
-    // Double-check token existence both in state and localStorage
-    const storedToken = localStorage.getItem('token');
+// Modify loadUser to accept an optional token parameter
+const loadUser = useCallback(async (overrideToken = null) => {
+  const effectiveToken = overrideToken || token || localStorage.getItem('token');
 
-    // Don't proceed if we don't have a token in either state or localStorage
-    if (!token || !storedToken) {
-      console.log('No valid token found, aborting profile load');
-      setLoading(false);
-      return;
-    }
+  if (!effectiveToken) {
+    console.log('No valid token found, aborting profile load');
+    setLoading(false);
+    return;
+  }
 
-    try {
-      console.log('Loading user profile with token:', token);
-      setLoading(true);
-      const res = await axios.get('/user/profile');
-      console.log('Profile response:', res.data);
+  try {
+    console.log('Loading user profile with token:', effectiveToken);
+    setLoading(true);
 
-      // Check if the response has the expected structure
-      if (res.data && res.data.status && res.data.result) {
-        setUser(res.data.result);
-        setError(null);
-      } else {
-        console.error('Unexpected profile response structure:', res.data);
-        setError('Failed to load user data');
-        // Don't call logout here to prevent loops
-        // Just clear the token
-        localStorage.removeItem('token');
-        setToken(null);
-        setUser(null);
-      }
-    } catch (err) {
-      console.error('Error loading user:', err);
+    // Use the provided token for Authorization header
+    axios.defaults.headers.common['Authorization'] = `Bearer ${effectiveToken}`;
+
+    const res = await axios.get('/user/profile');
+    console.log('Profile response:', res.data);
+
+    if (res.data && res.data.status && res.data.result) {
+      setUser(res.data.result);
+      setError(null);
+      console.log("user data loaded:", res.data.result);
+    } else {
+      console.error('Unexpected profile response structure:', res.data);
       setError('Failed to load user data');
-
-      // Only clear token on auth errors (401)
-      if (err.response && err.response.status === 401) {
-        localStorage.removeItem('token');
-        setToken(null);
-        setUser(null);
-      }
-    } finally {
-      setLoading(false);
+      localStorage.removeItem('token');
+      setToken(null);
+      setUser(null);
     }
-  }, [token]);
+  } catch (err) {
+    console.error('Error loading user:', err);
+    setError('Failed to load user data');
+    if (err.response && err.response.status === 401) {
+      localStorage.removeItem('token');
+      setToken(null);
+      setUser(null);
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [token]);
+const login = async (credentials) => {
+  try {
+    setLoading(true);
+
+    // Clear any existing tokens or session data before login
+    localStorage.removeItem('token');
+    localStorage.removeItem('token_time');
+    localStorage.removeItem('user_data');
+    delete axios.defaults.headers.common['Authorization'];
+
+    const res = await axios.post('/user/login', {
+      userAddress: credentials.email, // Backend accepts email as userAddress
+      password: credentials.password
+    });
+
+    console.log('Login response:', res.data);
+
+    // Check if the response has the expected structure
+    if (res.data && res.data.status && res.data.result && res.data.result.token) {
+      // Extract token and user data from response
+      const { token: newToken } = res.data.result;
+      const userData = res.data.result;
+
+      // Get current timestamp for token creation time
+      const currentTime = Date.now().toString();
+
+      // Make sure force_relogin_time is null to prevent immediate session expiration
+      if (userData.force_relogin_time) {
+        userData.force_relogin_time = null;
+        userData.force_relogin_type = null;
+      }
+
+      // Save token and token time to localStorage
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('token_time', currentTime);
+
+      // Store user data in localStorage for persistence
+      try {
+        localStorage.setItem('user_data', JSON.stringify(userData));
+      } catch (storageError) {
+        console.warn('Failed to store user data in localStorage:', storageError);
+      }
+
+      // Update state with user data immediately
+      setToken(newToken);
+      setUser(userData);
+
+      // Set authorization header for future requests
+      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+
+      console.log('Login successful, token stored and headers set');
+
+      // Load user profile data to ensure we have the most up-to-date information
+      // try {
+      //   await loadUser(newToken);
+      // } catch (loadError) {
+      //   console.warn('Initial profile load failed, using login response data:', loadError);
+      //   // We already set the user from the login response, so this is just a warning
+      // }
+
+      return {
+        success: true,
+        message: res.data.message || 'Login successful!',
+        userData: userData
+      };
+    } else {
+      // If response doesn't have the expected structure
+      console.error('Unexpected login response structure:', res.data);
+      setError('Unexpected response from server');
+      return { success: false, error: 'Unexpected response from server' };
+    }
+  } catch (err) {
+    console.error('Login error:', err);
+
+    // Check if the error is due to a blocked account
+    if (err.response?.status === 403 && err.response?.data?.msg?.includes('blocked')) {
+      const blockReason = err.response?.data?.block_reason || 'No reason provided';
+      const errorMessage = `Your account has been blocked. Reason: ${blockReason}`;
+      setError(errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+        isBlocked: true,
+        blockReason: blockReason
+      };
+    }
+
+    const errorMessage = err.response?.data?.msg || err.response?.data?.message || 'Login failed';
+    setError(errorMessage);
+    return { success: false, error: errorMessage };
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Load user only once on mount if token exists
   useEffect(() => {
@@ -103,82 +197,10 @@ export const AuthProvider = ({ children }) => {
     }
 
     // This effect should only run once on mount
-  }, []); // Empty dependency array = only run on mount
+  }, [login]); // Empty dependency array = only run on mount
 
   // Login function
-  const login = async (credentials) => {
-    try {
-      setLoading(true);
 
-      // Clear any existing tokens or session data before login
-      localStorage.removeItem('token');
-      localStorage.removeItem('token_time');
-      localStorage.removeItem('user_data');
-      delete axios.defaults.headers.common['Authorization'];
-
-      const res = await axios.post('/user/login', {
-        userAddress: credentials.email, // Backend accepts email as userAddress
-        password: credentials.password
-      });
-
-      console.log('Login response:', res.data);
-
-      // Check if the response has the expected structure
-      if (res.data && res.data.status && res.data.result && res.data.result.token) {
-        // Extract token and user data from response
-        const { token: newToken } = res.data.result;
-        const userData = res.data.result;
-
-        // Get current timestamp for token creation time
-        const currentTime = Date.now().toString();
-
-        // Make sure force_relogin_time is null to prevent immediate session expiration
-        if (userData.force_relogin_time) {
-          userData.force_relogin_time = null;
-          userData.force_relogin_type = null;
-        }
-
-        // Save token and token time to localStorage
-        localStorage.setItem('token', newToken);
-        localStorage.setItem('token_time', currentTime);
-
-        // Store user data in localStorage for persistence
-        try {
-          localStorage.setItem('user_data', JSON.stringify(userData));
-        } catch (storageError) {
-          console.warn('Failed to store user data in localStorage:', storageError);
-        }
-
-        // Update state
-        setToken(newToken);
-        setUser(userData);
-        setError(null);
-
-        // Set authorization header for future requests
-        axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-
-        console.log('Login successful, token stored and headers set');
-
-        return {
-          success: true,
-          message: res.data.message || 'Login successful!',
-          userData: userData
-        };
-      } else {
-        // If response doesn't have the expected structure
-        console.error('Unexpected login response structure:', res.data);
-        setError('Unexpected response from server');
-        return { success: false, error: 'Unexpected response from server' };
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      const errorMessage = err.response?.data?.msg || err.response?.data?.message || 'Login failed';
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Register function
   const register = async (userData) => {
@@ -258,6 +280,59 @@ export const AuthProvider = ({ children }) => {
       // Normal logout, redirect to login page
       window.location.href = '/login';
     }
+  };
+  const logoutByAdmin = () => {
+    console.log('Logout function called - clearing all auth state');
+
+    // Check if this was an admin-initiated login
+    const wasAdminLogin = sessionStorage.getItem('admin_login') === 'true';
+    console.log('Was admin login:', wasAdminLogin);
+
+    // 1. Clear all localStorage items related to authentication
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
+    // 2. Clear all sessionStorage items
+    sessionStorage.clear();
+
+    // 3. Set a flag to prevent redirect loops
+    sessionStorage.setItem('clean_logout', 'true');
+
+    // 4. Reset all state variables
+    setToken(null);
+    setUser(null);
+    setError(null);
+    setLoading(false);
+
+    // 5. Reset all refs
+    hasTriedToLoadUser.current = true;
+
+    // 6. Clear all axios headers
+    delete axios.defaults.headers.common['Authorization'];
+    axios.defaults.headers.common = {};
+
+    // 7. Clear any pending requests
+    // This helps prevent 401 errors from in-flight requests
+    if (window._axiosSource) {
+      window._axiosSource.cancel('Logout initiated');
+    }
+
+    console.log('User logged out successfully - all state cleared');
+
+    // 8. Force a complete page reload to clear any lingering state
+    // This is the most reliable way to clear everything
+    // if (wasAdminLogin) {
+    //   // If this was an admin login, close the tab or redirect to admin login
+    //   console.log('Closing admin login tab or redirecting to admin login');
+    //   window.close(); // Try to close the tab
+    //   // If window.close() doesn't work (most browsers block it), redirect to login
+    //   setTimeout(() => {
+    //     window.location.href = '/login';
+    //   }, 100);
+    // } else {
+    //   // Normal logout, redirect to login page
+    //   window.location.href = '/login';
+    // }
   };
 
   // Forgot password function
@@ -346,6 +421,7 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     loadUser,
     checkReferralId,
+    logoutByAdmin
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

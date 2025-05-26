@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Box, useMediaQuery, useTheme, Container } from '@mui/material';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import BottomNavigation from './components/BottomNavigation';
+import { clearFrontendSession } from '../pages/auth/Login';
 
 const MainLayout = () => {
   const theme = useTheme();
@@ -15,10 +16,26 @@ const MainLayout = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
+  useEffect(() => {
+    const handleForcedLogout = (e) => {
+      if (e.key === 'forced_logout_triggered') {
+        console.log('Forced logout detected in another tab. Logging out here too.');
+        clearFrontendSession();
+        window.location.href = '/login?forced=1';
+      }
+    };
+
+    window.addEventListener('storage', handleForcedLogout);
+
+    return () => {
+      window.removeEventListener('storage', handleForcedLogout);
+    };
+  }, []);
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar - only visible on desktop */}
-      {!isMobile && <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+      {/* Sidebar - visible on all screen sizes */}
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
       <Box

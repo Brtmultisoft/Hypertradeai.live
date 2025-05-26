@@ -54,4 +54,21 @@ const fundtransferSchema = new Schema({
 fundtransferSchema.plugin(toJSON);
 fundtransferSchema.plugin(paginate);
 
+// Add indexes for frequently queried fields
+fundtransferSchema.index({ user_id: 1 });
+fundtransferSchema.index({ user_id_from: 1 });
+fundtransferSchema.index({ status: 1 });
+fundtransferSchema.index({ created_at: -1 });
+fundtransferSchema.index({ type: 1 });
+fundtransferSchema.index({ from_wallet: 1 });
+fundtransferSchema.index({ to_wallet: 1 });
+fundtransferSchema.index({ amount: -1 });
+
+// Add compound indexes for common query combinations
+fundtransferSchema.index({ user_id: 1, status: 1 });
+fundtransferSchema.index({ user_id: 1, created_at: -1 });
+fundtransferSchema.index({ user_id_from: 1, user_id: 1 });
+fundtransferSchema.index({ from_wallet: 1, to_wallet: 1 });
+fundtransferSchema.index({ user_id: 1, type: 1 });
+
 module.exports = mongoose.model('FundTransfers', fundtransferSchema);

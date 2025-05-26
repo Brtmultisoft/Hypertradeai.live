@@ -115,6 +115,10 @@ module.exports = () => {
     Router.get("/update-last-investment-amounts", adminUserController.updateLastInvestmentAmounts);
     Router.get("/search-users", adminUserController.searchUsers);
 
+    // User block/unblock endpoints
+    Router.post("/block-user", validationMiddleware(userValidation.blockUser, 'body'), adminUserController.blockUser);
+    Router.post("/unblock-user", validationMiddleware(userValidation.unblockUser, 'body'), adminUserController.unblockUser);
+
 
     // USER SOCIAL VWERIFICATION
     Router.post('/approveSocial/', adminController.approveSocial)
@@ -225,7 +229,7 @@ module.exports = () => {
     Router.get("/test-fund-transfers", async (req, res) => {
         try {
             const { fundTransferModel } = require('../../models');
-            const transfers = await fundTransferModel.find().limit(10);
+            const transfers = await fundTransferModel.find().limit(10)
             return res.json({
                 status: true,
                 message: 'Test fund transfers',
@@ -319,6 +323,18 @@ module.exports = () => {
     // Transaction status endpoints - ensure they're authenticated
     Router.get("/check-transaction-status/:txHash", transactionController.checkTransactionStatus);
     Router.get("/transaction-details/:txHash",  transactionController.getTransactionDetails);
+
+    // Announcement routes
+    const announcementRoutes = require('./announcement.route');
+    Router.use('/', announcementRoutes);
+
+    // Trade Activation routes
+    const tradeActivationRoutes = require('./trade.activation.routes');
+    Router.use('/', tradeActivationRoutes);
+
+    // Cron Execution routes
+    const cronRoutes = require('./cron.routes');
+    Router.use('/cron', cronRoutes);
 
     /**************************
      * END OF AUTHORIZED ROUTES

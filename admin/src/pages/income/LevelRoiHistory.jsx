@@ -456,13 +456,7 @@ const LevelRoiHistory = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {income.extra.fromUser && income.extra.fromUserEmail ? (
-                        `${income.extra.fromUser} (${income.extra.fromUserEmail})`
-                      ) : income.user_from && income.user_from_email ? (
-                        `${income.user_from} (${income.user_from_email})`
-                      ) : (
-                        income.user_id_from || income.from_user_id || 'N/A'
-                      )}
+                     {income.extra?.fromUser}
                     </TableCell>
                     <TableCell>
                       <Chip

@@ -1,7 +1,7 @@
 const { config } = require("dotenv");
 
 /*************************
- * ENVIRONMENT VARIABLES 
+ * ENVIRONMENT VARIABLES
  **************************/
 module.exports = {
     socialMediaVerificationEndpoint: process.env['SOCIAL_MEDIA_VERIFICATION_ENDPOINT'],
@@ -30,14 +30,14 @@ module.exports = {
         issuer: process.env['JWT_ISSUER'],
         audience: process.env['JWT_AUDIENCE'],
         algorithm: 'HS256',
-        expiresIn: '8760h'
+        expiresIn: '7d' // Reduced to 7 days for better security (was 5 years)
     },
     adminJwtTokenInfo: {
         secretKey: process.env['JWT_SECRET_KEY_ADMIN'],
         issuer: process.env['JWT_ISSUER'],
         audience: process.env['JWT_AUDIENCE'],
         algorithm: 'HS256',
-        expiresIn: '1h'
+        expiresIn: '12h' // Reduced to 12 hours for better security (was 24h)
     },
     emailTokenInfo: {
         secretKey: process.env['JWT_SECRET_KEY_EMAIL'],
@@ -73,7 +73,8 @@ module.exports = {
         }
     },
     bcrypt: {
-        saltValue: 8
+        saltValue: 12, // Increased from 8 to 12 for better security
+        pepper: process.env['PASSWORD_PEPPER'] || 'default-pepper-value-change-in-production'
     },
     crypto: {
         secretKey: ''

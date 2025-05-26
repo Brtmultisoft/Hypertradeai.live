@@ -33,6 +33,8 @@ const Header = ({ onToggleSidebar }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user, logout } = useAuth();
   const { userData } = useData();
+
+
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleProfileMenuOpen = (event) => {
@@ -61,26 +63,24 @@ const Header = ({ onToggleSidebar }) => {
       }}
     >
       <Toolbar sx={{ minHeight: isMobile ? 64 : 'auto', px: isMobile ? 2 : 3 }}>
-        {/* Menu Toggle Button - Only show on desktop */}
-        {!isMobile && (
-          <IconButton
-            edge="start"
-            color="inherit"
-            aria-label="open drawer"
-            onClick={onToggleSidebar}
-            sx={{
-              mr: 2,
-              color: theme.palette.text.secondary,
-              '&:hover': {
-                color: theme.palette.primary.main,
-                backgroundColor: 'rgba(51, 117, 187, 0.08)',
-              },
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <MenuIcon />
-          </IconButton>
-        )}
+        {/* Menu Toggle Button - Show on all screen sizes */}
+        <IconButton
+          edge="start"
+          color="inherit"
+          aria-label="open drawer"
+          onClick={onToggleSidebar}
+          sx={{
+            mr: 2,
+            color: theme.palette.text.secondary,
+            '&:hover': {
+              color: theme.palette.primary.main,
+              backgroundColor: 'rgba(51, 117, 187, 0.08)',
+            },
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
 
         {/* Logo and Wallet Selector for Mobile */}
         {isMobile ? (
@@ -115,7 +115,7 @@ const Header = ({ onToggleSidebar }) => {
               >
                 <Typography
                   component={Link}
-                  to="/dashboard"
+                  to="/settings"
                   variant="h6"
                   color="inherit"
                   noWrap
@@ -159,7 +159,7 @@ const Header = ({ onToggleSidebar }) => {
                         color: mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
                       }}
                     >
-                      {userData?.sponsorID || 'Loading...'}
+                      {user?.sponsorID || 'Loading...'}
                     </Box>
                   </Typography>
                 </Box>
@@ -340,7 +340,7 @@ const Header = ({ onToggleSidebar }) => {
                         color: mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
                       }}
                     >
-                      {userData?.sponsorID || 'Loading...'}
+                      {user?.sponsorID || 'Loading...'}
                     </Box>
                   </Typography>
                 </Box>
@@ -475,7 +475,7 @@ const Header = ({ onToggleSidebar }) => {
             }
           }}
         >
-          <MenuItem component={Link} to="/profile" onClick={handleMenuClose}>
+          <MenuItem component={Link} to="/settings" onClick={handleMenuClose}>
             Profile
           </MenuItem>
 

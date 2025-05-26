@@ -243,13 +243,22 @@ module.exports = {
                 return responseHelper.error(res, responseData);
             }
 
+            // Check if this withdrawal includes unlocking staking
+            const unlockStaking = withdrawal.extra && withdrawal.extra.unlockStaking === true;
+
+            // Prepare the remark based on whether staking is being unlocked
+            let remark = 'Approved by admin';
+            if (unlockStaking) {
+                remark = 'Approved by admin (includes staking unlock)';
+            }
+
             // Update withdrawal status
             await withdrawalDbHandler.updateOneByQuery({_id: withdrawalId}, {
                 status: 1, // Approved
                 txid: txid || 'manual-process',
                 processed_at: new Date(),
                 approved_at: new Date(),
-                remark: 'Approved by admin'
+                remark: remark
             });
 
             // Update user's wallet_withdraw (reduce the pending withdrawal amount)
@@ -259,7 +268,53 @@ module.exports = {
                 { $inc: { wallet_withdraw: -withdrawal.amount } }
             );
 
-            responseData.msg = 'Withdrawal approved successfully';
+            // If this withdrawal includes unlocking staking, ensure the user's investment status is reset
+            if (unlockStaking) {
+                console.log(`Admin approved withdrawal with staking unlock for user ${withdrawal.user_id}`);
+
+                // Double-check that the user's investment status has been reset
+                // This should have been done when the withdrawal was requested, but we'll ensure it here
+                await userDbHandler.updateOneByQuery(
+                    { _id: withdrawal.user_id },
+                    {
+                        $set: {
+                            total_investment: 0,
+                            dailyProfitActivated: false,
+                            lastDailyProfitActivation: null
+                        }
+                    }
+                );
+
+                // Also ensure all investments are marked as completed
+                try {
+                    // Import the investment database handler
+                    const { investmentDbHandler } = require('../../services/db');
+
+                    // Update all active investments for this user to 'completed'
+                    await investmentDbHandler.updateManyByQuery(
+                        {
+                            user_id: withdrawal.user_id,
+                            status: 'active' // Only update active investments
+                        },
+                        {
+                            $set: {
+                                status: 'completed',
+                                extra: {
+                                    completedReason: 'staking_unlocked_admin_approved',
+                                    completedDate: new Date()
+                                }
+                            }
+                        }
+                    );
+                } catch (investmentError) {
+                    console.error('Error updating investments during admin approval:', investmentError);
+                    // Don't fail the withdrawal if investment update fails
+                }
+            }
+
+            responseData.msg = unlockStaking ?
+                'Withdrawal approved and staking unlocked successfully' :
+                'Withdrawal approved successfully';
             responseData.txid = txid || 'manual-process';
             return responseHelper.success(res, responseData);
         } catch (error) {
@@ -307,32 +362,84 @@ module.exports = {
                 return responseHelper.error(res, responseData);
             }
 
-            // Refund the amount to user's wallet and reduce the pending withdrawal amount
-            await userDbHandler.updateOneByQuery({_id : withdrawal.user_id}, {
+            // Check if this withdrawal includes unlocking staking
+            const unlockStaking = withdrawal.extra && withdrawal.extra.unlockStaking === true;
+            const stakingAmount = withdrawal.extra && withdrawal.extra.stakingAmount ? withdrawal.extra.stakingAmount : 0;
+
+            // Create update object for user
+            let updateObj = {
                 $inc: {
                     wallet: parseFloat(withdrawal.amount),
                     wallet_withdraw: -parseFloat(withdrawal.amount)
                 }
-            });
+            };
+
+            // If this withdrawal included unlocking staking, restore the user's investment status
+            if (unlockStaking && stakingAmount > 0) {
+                console.log(`Restoring staking for user ${withdrawal.user_id} after withdrawal rejection. Staking amount: ${stakingAmount}`);
+
+                // Restore the user's investment status
+                updateObj.$set = {
+                    total_investment: stakingAmount // Restore the original investment amount
+                };
+
+                // Note: We don't restore dailyProfitActivated as the user will need to reactivate it
+            }
+
+            // Update user record
+            await userDbHandler.updateOneByQuery({_id : withdrawal.user_id}, updateObj);
 
             // Update withdrawal status
             await withdrawalDbHandler.updateById(withdrawalId, {
                 status: 2, // Rejected
                 processed_at: new Date(),
-                remark: 'Rejected by admin',
+                remark: unlockStaking ? 'Rejected by admin (staking restored)' : 'Rejected by admin',
                 extra: {
                     ...withdrawal.extra,
                     rejectionReason: reason,
-                    rejectionDate: new Date()
+                    rejectionDate: new Date(),
+                    stakingRestored: unlockStaking && stakingAmount > 0
                 }
             });
 
-            responseData.msg = 'Withdrawal rejected successfully';
+            // If this withdrawal included unlocking staking, restore the investments to active status
+            if (unlockStaking && stakingAmount > 0) {
+                try {
+                    // Import the investment database handler
+                    const { investmentDbHandler } = require('../../services/db');
+
+                    // Update all investments that were marked as completed due to staking unlock
+                    await investmentDbHandler.updateManyByQuery(
+                        {
+                            user_id: withdrawal.user_id,
+                            status: 'completed',
+                            'extra.completedReason': 'staking_unlocked' // Only update those completed due to staking unlock
+                        },
+                        {
+                            $set: {
+                                status: 'active', // Restore to active status
+                                extra: {
+                                    restoredReason: 'withdrawal_rejected',
+                                    restoredDate: new Date()
+                                }
+                            }
+                        }
+                    );
+                } catch (investmentError) {
+                    console.error('Error restoring investments after withdrawal rejection:', investmentError);
+                    // Don't fail the withdrawal rejection if investment restoration fails
+                }
+            }
+
+            responseData.msg = unlockStaking && stakingAmount > 0 ?
+                'Withdrawal rejected and staking restored successfully' :
+                'Withdrawal rejected successfully';
             responseData.data = {
                 withdrawal_id: withdrawalId,
                 amount: withdrawal.amount,
                 status: 'Rejected',
-                reason: reason
+                reason: reason,
+                stakingRestored: unlockStaking && stakingAmount > 0
             };
             return responseHelper.success(res, responseData);
         } catch (error) {

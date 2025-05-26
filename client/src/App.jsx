@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import useAuth from './hooks/useAuth';
 import { DataProvider } from './context/DataContext';
 import ThemeProvider from './context/ThemeContext';
+import { TradingContextProvider } from './context/TradingContext';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -32,6 +33,7 @@ import Withdraw from './pages/wallet/Withdraw';
 import LiveTrading from './pages/live_trading/LiveTrading';
 import TransactionHistory from './pages/wallet/TransactionHistory';
 import Settings from './pages/settings/Settings';
+import TradeActivationHistory from './pages/TradeActivationHistory';
 
 // Common Components
 
@@ -49,9 +51,10 @@ function App() {
     <ThemeProvider>
       <ErrorBoundary fullPage>
         <DataProvider>
-          <Router>
-            <Routes>
-            {/* Auth Routes */}
+          <TradingContextProvider>
+            <Router>
+              <Routes>
+              {/* Auth Routes */}
             <Route element={<AuthLayout />}>
               <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />} />
               <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} />
@@ -81,8 +84,9 @@ function App() {
               <Route path="/withdraw" element={<Withdraw />} />
               <Route path="/transaction-history" element={<TransactionHistory />} />
 
-              {/* Live Trading Route */}
+              {/* Live Trading Routes */}
               <Route path="/live-trading" element={<LiveTrading />} />
+              <Route path="/trade-activation-history" element={<TradeActivationHistory />} />
 
               {/* Settings Route */}
               <Route path="/settings" element={<Settings />} />
@@ -90,8 +94,9 @@ function App() {
 
             {/* Default Route */}
             <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
-          </Routes>
-        </Router>
+            </Routes>
+          </Router>
+          </TradingContextProvider>
         </DataProvider>
       </ErrorBoundary>
     </ThemeProvider>

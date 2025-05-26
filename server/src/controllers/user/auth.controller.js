@@ -27,14 +27,17 @@ const ObjectId = mongoose.Types.ObjectId
     /**
      * Method to Compare password
      */
-let _comparePassword = (reqPassword, userPassword) => {
-    return new Promise((resolve, reject) => {
-        //compare password with bcrypt method, password and hashed password both are required
-        bcrypt.compare(reqPassword, userPassword, function(err, isMatch) {
-            if (err) reject(err);
-            resolve(isMatch);
-        });
-    });
+let _comparePassword = async (reqPassword, userPassword) => {
+    try {
+        // Import password service
+        const passwordService = require('../../services/password.service');
+
+        // Compare passwords with enhanced security
+        return await passwordService.comparePassword(reqPassword, userPassword);
+    } catch (error) {
+        log.error('Error comparing passwords:', error);
+        throw error;
+    }
 };
 /**
  * Method to generate jwt token
@@ -63,32 +66,36 @@ let _handleVerificationDataUpdate = async(id) => {
     return deletedInfo;
 };
 
-let _encryptPassword = (password) => {
-    let salt = config.bcrypt.saltValue;
-    // generate a salt
-    return new Promise((resolve, reject) => {
-        bcrypt.genSalt(salt, function(err, salt) {
-            if (err) reject(err);
-            // hash the password with new salt
-            bcrypt.hash(password, salt, function(err, hash) {
-                if (err) reject(err);
-                // override the plain password with the hashed one
-                resolve(hash);
-            });
-        });
-    });
+let _encryptPassword = async (password) => {
+    try {
+        // Import password service
+        const passwordService = require('../../services/password.service');
+
+        // Hash password with enhanced security
+        return await passwordService.hashPassword(password);
+    } catch (error) {
+        log.error('Error encrypting password:', error);
+        throw error;
+    }
 };
 
-let generateRandomPassword = (length) => {
-    const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:,.<>?';
-    let password = '';
+let generateRandomPassword = (length = 12) => {
+    try {
+        // Import password service
+        const passwordService = require('../../services/password.service');
 
-    for (let i = 0; i < length; i++) {
-        const randomIndex = Math.floor(Math.random() * characters.length);
-        password += characters.charAt(randomIndex);
+        // Generate secure random password
+        return passwordService.generateRandomPassword(length);
+    } catch (error) {
+        log.error('Error generating random password:', error);
+        // Fallback to simple random password if service fails
+        const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:,.<>?';
+        let password = '';
+        for (let i = 0; i < length; i++) {
+            password += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+        return password;
     }
-
-    return password;
 };
 const generateTraceId = () => {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -308,6 +315,14 @@ module.exports = {
                 return responseHelper.error(res, responseData);
             }
             console.log(getUser);
+
+            // Check if user is blocked
+            if (getUser[0].is_blocked) {
+                responseData.msg = "Your account has been blocked. Please contact support for assistance.";
+                responseData.block_reason = getUser[0].block_reason || 'No reason provided';
+                return responseHelper.forbidden(res, responseData);
+            }
+
             // Check if password matches
             try {
                 const checkPassword = await _comparePassword(reqObj ?.password, getUser[0].password);
@@ -395,7 +410,8 @@ module.exports = {
 
                 avatar: getUser[0] ?.avatar,
                 token: token,
-                two_fa_enabled: getUser[0] ?.two_fa_enabled
+                two_fa_enabled: getUser[0] ?.two_fa_enabled,
+                sponsorID:getUser[0].sponsorID
 
             }
             responseData.msg = `Welcome !`;
@@ -410,6 +426,7 @@ module.exports = {
             return responseHelper.success2(res, responseData);
         }
     },
+
 
     /**
      * Method to handle user login request from Admin Side

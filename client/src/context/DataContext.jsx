@@ -175,7 +175,7 @@ export const DataProvider = ({ children }) => {
       fetchInvestmentData();
       fetchIncomeData();
 
-      // Set up polling for automatic refresh (every 30 seconds)
+      // Set up polling for automatic refresh (every 5 minutes - increased from 30 seconds)
       const pollingInterval = setInterval(() => {
         // Check token again before each poll
         if (localStorage.getItem('token')) {
@@ -185,7 +185,7 @@ export const DataProvider = ({ children }) => {
           // Clear interval if token is gone
           clearInterval(pollingInterval);
         }
-      }, 30000);
+      }, 300000); // 5 minutes in milliseconds (increased from 30000)
 
       return () => clearInterval(pollingInterval);
     } else {
