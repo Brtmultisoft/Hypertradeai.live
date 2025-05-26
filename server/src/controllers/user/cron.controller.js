@@ -2425,28 +2425,7 @@ if (process.env.CRON_STATUS === '1') {
   console.log('Automatic daily login counter reset is disabled (CRON_STATUS=0)');
 }
 
-// Test cron job that runs every minute to verify cron functionality
-cron.schedule("* * * * *", () => {
-  const now = new Date();
-  console.log(`[CRON_TEST] Test cron job running at ${now.toISOString()}`);
-
-  // Create a file to log cron execution for debugging
-  try {
-    const fs = require('fs');
-    // Ensure logs directory exists
-    if (!fs.existsSync('./logs')) {
-      fs.mkdirSync('./logs');
-    }
-
-    // Append to cron test log file
-    fs.appendFileSync('./logs/cron-test.log', `Cron test executed at ${now.toISOString()}\n`);
-  } catch (error) {
-    console.error('[CRON_TEST] Error writing to log file:', error);
-  }
-}, {
-  scheduled: true,
-  timezone: "UTC"
-})
+// Test cron job removed to prevent log file creation
 
 module.exports = {
   distributeTokensHandler,
