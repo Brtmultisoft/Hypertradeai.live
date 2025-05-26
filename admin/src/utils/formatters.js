@@ -9,7 +9,7 @@ export const formatCurrency = (value, currency = 'USD') => {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 4,
   }).format(value);
 };
 
