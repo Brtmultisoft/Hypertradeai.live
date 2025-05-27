@@ -459,31 +459,53 @@ const processTeamCommission = async (user_id, amount) => {
     console.log('\n======== PROCESSING LEVEL ROI INCOME ========');
     console.log(`Processing level ROI income for user ID: ${user_id}, amount: $${amount}`);
 
-    // Fixed percentages as per the plan - now extended to 10 levels
-    const percentages = {
-      level1: 25, // 25% of ROI income for level 1
-      level2: 10, // 10% of ROI income for level 2
-      level3: 5,  // 5% of ROI income for level 3
-      level4: 4,  // 4% of ROI income for level 4
-      level5: 3,  // 3% of ROI income for level 5
-      level6: 2,  // 2% of ROI income for level 6
-      level7: 1,  // 1% of ROI income for level 7
-      level8: 0.5,  // 1% of ROI income for level 8
-      level9: 0.5,  // 1% of ROI income for level 9
-      level10: 0.5  // 1% of ROI income for level 10
-    };
+    // Get team commission percentages from database
+    const { investmentPlanDbHandler } = require('../../services/db');
+    let percentages = {};
+
+    try {
+      // Get the investment plan from database
+      const investmentPlan = await investmentPlanDbHandler.getOneByQuery({ status: true });
+
+      if (investmentPlan && investmentPlan.team_commission) {
+        console.log('Using team commission percentages from database:', investmentPlan.team_commission);
+        percentages = investmentPlan.team_commission;
+      } else {
+        console.log('No investment plan found in database, using default percentages');
+        // Fallback to correct percentages as per database values
+        percentages = {
+          level1: 25, // 25% of ROI income for level 1
+          level2: 10, // 10% of ROI income for level 2
+          level3: 5,  // 5% of ROI income for level 3
+          level4: 4,  // 4% of ROI income for level 4
+          level5: 3,  // 3% of ROI income for level 5
+          level6: 2,  // 2% of ROI income for level 6
+          level7: 1,  // 1% of ROI income for level 7
+          level8: 1,  // 1% of ROI income for level 8
+          level9: 1,  // 1% of ROI income for level 9
+          level10: 1  // 1% of ROI income for level 10
+        };
+      }
+    } catch (dbError) {
+      console.error('Error fetching investment plan from database:', dbError);
+      // Use correct default percentages as per database values
+      percentages = {
+        level1: 25, level2: 10, level3: 5, level4: 4, level5: 3,
+        level6: 2, level7: 1, level8: 1, level9: 1, level10: 1
+      };
+    }
 
     console.log(`Level ROI Income percentages:
-      Level 1: ${percentages.level1}%,
-      Level 2: ${percentages.level2}%,
-      Level 3: ${percentages.level3}%,
-      Level 4: ${percentages.level4}%,
-      Level 5: ${percentages.level5}%,
-      Level 6: ${percentages.level6}%,
-      Level 7: ${percentages.level7}%,
-      Level 8: ${percentages.level8}%,
-      Level 9: ${percentages.level9}%,
-      Level 10: ${percentages.level10}%`);
+      Level 1: ${percentages.level1 || 0}%,
+      Level 2: ${percentages.level2 || 0}%,
+      Level 3: ${percentages.level3 || 0}%,
+      Level 4: ${percentages.level4 || 0}%,
+      Level 5: ${percentages.level5 || 0}%,
+      Level 6: ${percentages.level6 || 0}%,
+      Level 7: ${percentages.level7 || 0}%,
+      Level 8: ${percentages.level8 || 0}%,
+      Level 9: ${percentages.level9 || 0}%,
+      Level 10: ${percentages.level10 || 0}%`);
 
     // Get the user who made the investment
     const investmentUser = await userDbHandler.getById(user_id);
@@ -545,36 +567,64 @@ const processTeamCommission = async (user_id, amount) => {
         continue; // Skip to the next iteration
       }
 
-      // Check if the user has direct referrals (required for level ROI income)
+      // Check if the user has direct referrals (for tracking purposes)
       const directReferrals = await userDbHandler.getByQuery({ refer_id: currentUser._id });
       console.log(`Current upline user has ${directReferrals.length} direct referrals`);
 
-      // NEW REQUIREMENT: User can only receive level ROI up to the level that matches their direct referral count
-      // For example, if user has 3 direct referrals, they can receive ROI from levels 1, 2, and 3 only
-      console.log(`Level ROI income level ${level} requires at least ${level} direct referrals`);
+      // UPDATED: Process level ROI for all invested users regardless of direct referral count
+      // This ensures proper commission distribution across all 10 levels
+      console.log(`Processing level ${level} ROI income for user with ${directReferrals.length} direct referrals`);
 
-      // Check if user has enough direct referrals for this level
-      if (directReferrals.length >= level && hasInvested) {
-        console.log(`User has enough direct referrals (${directReferrals.length} >= ${level}) and has invested. Processing commission...`);
+      // Check if user has invested
+      if (hasInvested) {
+        console.log(`User has invested. Processing commission...`);
 
-        // Calculate daily profit from the investment amount using fixed 8% ROI
-        const roiRate = 8/30; // Fixed 8% ROI as per requirements
-        console.log(`Using fixed ROI rate: ${roiRate}%`);
+        // Use the actual daily profit amount directly (amount parameter is the daily profit received)
+        console.log(`Using actual daily profit amount: $${amount.toFixed(4)}`);
 
-        // Calculate daily income generated from the investment
-        const dailyIncome = (amount * roiRate) / 100;
-        console.log(`Daily ROI: $${dailyIncome.toFixed(2)} (${roiRate}% of $${amount})`);
-
-        // Calculate commission amount based on level and daily income
+        // Calculate commission amount based on level and actual daily profit
         const commissionPercentage = percentages[`level${level}`];
-        const commissionAmount = (dailyIncome * commissionPercentage) / 100;
+
+        // Check if percentage is defined for this level
+        if (commissionPercentage === undefined || commissionPercentage === null) {
+          console.log(`❌ No commission percentage defined for level ${level}. Skipping...`);
+          // Move to next level instead of breaking
+          if (currentUser.refer_id) {
+            if (currentUser.refer_id === 'admin') {
+              console.log(`Found special 'admin' refer_id. Looking up admin user...`);
+              const adminUser = await userDbHandler.getOneByQuery({ _id: "678f9a82a2dac325900fc47e" });
+              if (adminUser) {
+                console.log(`Found admin user: ${adminUser.username || adminUser.email} (ID: ${adminUser._id})`);
+                currentUser = adminUser;
+              } else {
+                console.log(`Admin user not found. Breaking out of loop.`);
+                break;
+              }
+            } else {
+              const nextUser = await userDbHandler.getById(currentUser.refer_id);
+              console.log(`Moving to next level. Next upline user: ${nextUser ? (nextUser.username || nextUser.email) : 'None'} (ID: ${nextUser?._id})`);
+              if (nextUser) {
+                currentUser = nextUser;
+              } else {
+                console.log(`Next upline user not found. Breaking out of loop.`);
+                break;
+              }
+            }
+          } else {
+            console.log(`No more upline users. Breaking out of loop.`);
+            break;
+          }
+          level++;
+          continue;
+        }
+
+        const commissionAmount = (amount * commissionPercentage) / 100;
         console.log(`Commission percentage: ${commissionPercentage}%`);
-        console.log(`Commission amount: $${commissionAmount.toFixed(4)} (${commissionPercentage}% of $${dailyIncome.toFixed(2)})`);
+        console.log(`Commission amount: $${commissionAmount.toFixed(4)} (${commissionPercentage}% of $${amount.toFixed(4)})`);
 
         // Process commission
         try {
           // Add commission to user's wallet
-          const auser = await userDbHandler.getById(currentUser._id);
           const walletUpdate = await userDbHandler.updateOneByQuery({_id: currentUser._id}, {
             $inc: {
               wallet: commissionAmount,
@@ -594,9 +644,9 @@ const processTeamCommission = async (user_id, amount) => {
             description: `Level ${level} ROI Income`,
             extra: {
               fromUser: investmentUser.username || investmentUser.email,
-              investmentAmount: amount,
-              dailyIncome: dailyIncome,
-              commissionPercentage: commissionPercentage
+              dailyProfitAmount: amount,
+              commissionPercentage: commissionPercentage,
+              directReferralsCount: directReferrals.length
             }
           });
           console.log(`Income record created: ${incomeRecord ? 'Success' : 'Failed'} (ID: ${incomeRecord?._id})`);
@@ -604,11 +654,7 @@ const processTeamCommission = async (user_id, amount) => {
           console.error(`Error updating wallet or creating income record: ${updateError.message}`);
         }
       } else {
-        if (!hasInvested) {
-          console.log(`User ${currentUser.username || currentUser.email} has not invested. Skipping commission.`);
-        } else if (directReferrals.length < level) {
-          console.log(`User ${currentUser.username || currentUser.email} does not have enough direct referrals (${directReferrals.length} < ${level}) for level ${level} ROI. Skipping commission.`);
-        }
+        console.log(`User ${currentUser.username || currentUser.email} has not invested. Skipping commission.`);
       }
 
       // Move to the next level (upline)

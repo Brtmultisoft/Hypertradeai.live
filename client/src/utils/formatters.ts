@@ -10,7 +10,7 @@ export const formatNumber = (num: number, decimals = 2): string => {
 };
 
 export const formatCurrency = (amount: number, currency = 'USDT', decimals = 4): string => {
-  return `${amount > 0 ? '+' : ''}${amount.toFixed(decimals)} ${currency}`;
+  return `${amount > 0 ? '+' : ''}${amount.toFixed(5)} ${currency}`;
 };
 
 export const formatPercentage = (percent: number): string => {
