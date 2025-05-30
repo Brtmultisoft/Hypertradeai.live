@@ -24,7 +24,6 @@ import {
   Select,
   MenuItem,
   TableSortLabel,
-  Toolbar,
   IconButton,
   Tooltip,
   useMediaQuery,
@@ -47,8 +46,6 @@ const LevelRoiIncome = () => {
   const [incomeData, setIncomeData] = useState([]);
   const [totalRows, setTotalRows] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
-  const [totalTeamTrade, setTotalTeamTrade] = useState(0);
-
   // Search and Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -94,16 +91,6 @@ const LevelRoiIncome = () => {
       setTotalIncome(summaryData.result.totalAmount || 0);
     }
   }, [summaryData]);
-
-  // Calculate total team trade from current data
-  useEffect(() => {
-    if (incomeData.length > 0) {
-      const totalTrade = incomeData.reduce((sum, income) => {
-        return sum + (income.extra?.dailyProfitAmount || 0);
-      }, 0);
-      setTotalTeamTrade(totalTrade);
-    }
-  }, [incomeData]);
 
   // Filtered and sorted data
   const filteredAndSortedData = useMemo(() => {
@@ -239,75 +226,50 @@ const LevelRoiIncome = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <PageHeader title="Team Trade Income History" />
+      <PageHeader title="Level ROI Income" />
 
-      {/* Summary Cards */}
+      {/* Summary Card */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={4}>
           <Card
             elevation={0}
             sx={{
-              borderRadius: 3,
+              borderRadius: 4,
               border: `1px solid ${theme.palette.divider}`,
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white'
+              color: 'white',
+              boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 12px 40px rgba(102, 126, 234, 0.4)',
+              }
             }}
           >
-            <CardContent>
-              <Typography variant="subtitle2" sx={{ opacity: 0.9 }} gutterBottom>
-                Total Team Trade Income
-              </Typography>
-              <Typography variant="h4" fontWeight="bold">
-                {summaryLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : formatCurrency(totalIncome, 4)}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={4}>
-          <Card
-            elevation={0}
-            sx={{
-              borderRadius: 3,
-              border: `1px solid ${theme.palette.divider}`,
-              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-              color: 'white'
-            }}
-          >
-            <CardContent>
-              <Typography variant="subtitle2" sx={{ opacity: 0.9 }} gutterBottom>
-                Total Team Trade Volume
-              </Typography>
-              <Typography variant="h4" fontWeight="bold">
-                {formatCurrency(totalTeamTrade, 4)}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
-                From {filteredAndSortedData.length} transactions
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={4}>
-          <Card
-            elevation={0}
-            sx={{
-              borderRadius: 3,
-              border: `1px solid ${theme.palette.divider}`,
-              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-              color: 'white'
-            }}
-          >
-            <CardContent>
-              <Typography variant="subtitle2" sx={{ opacity: 0.9 }} gutterBottom>
-                Commission Structure
-              </Typography>
-              <Typography variant="h6" fontWeight="bold">
-                10 Levels Active
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
-                L1: 25% • L2: 10% • L3: 5%
-              </Typography>
+            <CardContent sx={{ p: 3 }}>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 3,
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                >
+                  <TrendingUpIcon sx={{ fontSize: 32, color: 'white' }} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ opacity: 0.9 }} gutterBottom>
+                    Total Team Trade Income
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {summaryLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : formatCurrency(totalIncome, 4)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.8, mt: 0.5 }}>
+                    From {filteredAndSortedData.length} transactions
+                  </Typography>
+                </Box>
+              </Stack>
             </CardContent>
           </Card>
         </Grid>
@@ -318,104 +280,133 @@ const LevelRoiIncome = () => {
         elevation={0}
         sx={{
           mt: 3,
-          p: 2,
-          borderRadius: 3,
+          p: 3,
+          borderRadius: 4,
           border: `1px solid ${theme.palette.divider}`,
-          background: theme.palette.background.paper,
+          background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${theme.palette.action.hover}20 100%)`,
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
         }}
       >
-        <Toolbar sx={{ px: { xs: 0, sm: 2 }, minHeight: 'auto !important' }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Search by user email, name, or amount..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon color="action" />
-                      </InputAdornment>
-                    ),
+        <Grid container spacing={3} alignItems="center">
+          <Grid item xs={12} md={5}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by user email, name, or amount..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="primary" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 3,
+                  backgroundColor: theme.palette.background.paper,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  '&:hover': {
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   },
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
+                  '&.Mui-focused': {
+                    boxShadow: '0 4px 20px rgba(102, 126, 234, 0.3)',
                   }
+                }
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={handleStatusFilterChange}
+                sx={{
+                  borderRadius: 3,
+                  backgroundColor: theme.palette.background.paper,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                }}
+              >
+                <MenuItem value="">All Status</MenuItem>
+                <MenuItem value="credited">Credited</MenuItem>
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="cancelled">Cancelled</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Level</InputLabel>
+              <Select
+                value={levelFilter}
+                label="Level"
+                onChange={handleLevelFilterChange}
+                sx={{
+                  borderRadius: 3,
+                  backgroundColor: theme.palette.background.paper,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                }}
+              >
+                <MenuItem value="">All Levels</MenuItem>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
+                  <MenuItem key={level} value={level.toString()}>
+                    Level {level}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <Stack direction="row" spacing={2} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
+              <Tooltip title="Clear all filters">
+                <IconButton
+                  onClick={clearFilters}
+                  size="medium"
+                  sx={{
+                    border: `2px solid ${theme.palette.divider}`,
+                    borderRadius: 3,
+                    px: 2,
+                    backgroundColor: theme.palette.background.paper,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    '&:hover': {
+                      backgroundColor: theme.palette.action.hover,
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    }
+                  }}
+                >
+                  <ClearIcon fontSize="small" />
+                  <Typography variant="caption" sx={{ ml: 1, display: { xs: 'none', sm: 'block' } }}>
+                    Clear
+                  </Typography>
+                </IconButton>
+              </Tooltip>
+
+              <Chip
+                icon={<TrendingUpIcon />}
+                label={`${filteredAndSortedData.length} Records`}
+                color="primary"
+                variant="filled"
+                sx={{
+                  borderRadius: 3,
+                  fontWeight: 'bold',
+                  fontSize: '0.875rem',
+                  height: 40,
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
                 }}
               />
-            </Grid>
-
-            <Grid item xs={6} sm={3} md={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="Status"
-                  onChange={handleStatusFilterChange}
-                  sx={{ borderRadius: 2 }}
-                >
-                  <MenuItem value="">All Status</MenuItem>
-                  <MenuItem value="credited">Credited</MenuItem>
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="cancelled">Cancelled</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={6} sm={3} md={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Level</InputLabel>
-                <Select
-                  value={levelFilter}
-                  label="Level"
-                  onChange={handleLevelFilterChange}
-                  sx={{ borderRadius: 2 }}
-                >
-                  <MenuItem value="">All Levels</MenuItem>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
-                    <MenuItem key={level} value={level.toString()}>
-                      Level {level}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={12} md={4}>
-              <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
-                <Tooltip title="Clear all filters">
-                  <IconButton
-                    onClick={clearFilters}
-                    size="small"
-                    sx={{
-                      border: `1px solid ${theme.palette.divider}`,
-                      borderRadius: 2,
-                      px: 2
-                    }}
-                  >
-                    <ClearIcon fontSize="small" />
-                    <Typography variant="caption" sx={{ ml: 1, display: { xs: 'none', sm: 'block' } }}>
-                      Clear
-                    </Typography>
-                  </IconButton>
-                </Tooltip>
-
-                <Chip
-                  icon={<TrendingUpIcon />}
-                  label={`${filteredAndSortedData.length} Records`}
-                  color="primary"
-                  variant="outlined"
-                  sx={{ borderRadius: 2 }}
-                />
-              </Stack>
-            </Grid>
+            </Stack>
           </Grid>
-        </Toolbar>
+        </Grid>
       </Paper>
 
       {/* Data Table */}
@@ -444,52 +435,84 @@ const LevelRoiIncome = () => {
           <>
             <TableContainer>
               <Table>
-                <TableHead sx={{ backgroundColor: theme.palette.action.hover }}>
+                <TableHead
+                  sx={{
+                    backgroundColor: theme.palette.action.hover,
+                    '& .MuiTableCell-head': {
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: theme.palette.text.primary,
+                      borderBottom: `2px solid ${theme.palette.divider}`,
+                    }
+                  }}
+                >
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
+                    <TableCell>
                       <TableSortLabel
                         active={sortBy === 'created_at'}
                         direction={sortBy === 'created_at' ? sortOrder : 'asc'}
                         onClick={() => handleSort('created_at')}
+                        sx={{
+                          '& .MuiTableSortLabel-icon': {
+                            color: `${theme.palette.primary.main} !important`
+                          }
+                        }}
                       >
                         Date
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                       <TableSortLabel
                         active={sortBy === 'fromUser'}
                         direction={sortBy === 'fromUser' ? sortOrder : 'asc'}
                         onClick={() => handleSort('fromUser')}
+                        sx={{
+                          '& .MuiTableSortLabel-icon': {
+                            color: `${theme.palette.primary.main} !important`
+                          }
+                        }}
                       >
                         From User
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
+                    <TableCell>
                       <TableSortLabel
                         active={sortBy === 'amount'}
                         direction={sortBy === 'amount' ? sortOrder : 'asc'}
                         onClick={() => handleSort('amount')}
+                        sx={{
+                          '& .MuiTableSortLabel-icon': {
+                            color: `${theme.palette.primary.main} !important`
+                          }
+                        }}
                       >
                         Amount
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                       <TableSortLabel
                         active={sortBy === 'level'}
                         direction={sortBy === 'level' ? sortOrder : 'asc'}
                         onClick={() => handleSort('level')}
+                        sx={{
+                          '& .MuiTableSortLabel-icon': {
+                            color: `${theme.palette.primary.main} !important`
+                          }
+                        }}
                       >
                         Level
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', display: { xs: 'none', md: 'table-cell' } }}>
-                      Team Trade Details
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
+                    <TableCell>
                       <TableSortLabel
                         active={sortBy === 'status'}
                         direction={sortBy === 'status' ? sortOrder : 'asc'}
                         onClick={() => handleSort('status')}
+                        sx={{
+                          '& .MuiTableSortLabel-icon': {
+                            color: `${theme.palette.primary.main} !important`
+                          }
+                        }}
                       >
                         Status
                       </TableSortLabel>
@@ -499,13 +522,21 @@ const LevelRoiIncome = () => {
                 <TableBody>
                   {paginatedData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} align="center">
-                        <Typography variant="body2" sx={{ py: 2 }}>
-                          {filteredAndSortedData.length === 0 && incomeData.length > 0
-                            ? 'No records match your search criteria'
-                            : 'No Team Trade income records found'
-                          }
-                        </Typography>
+                      <TableCell colSpan={5} align="center">
+                        <Box sx={{ py: 4 }}>
+                          <Typography variant="h6" color="text.secondary" gutterBottom>
+                            {filteredAndSortedData.length === 0 && incomeData.length > 0
+                              ? 'No records match your search criteria'
+                              : 'No Level ROI income records found'
+                            }
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {filteredAndSortedData.length === 0 && incomeData.length > 0
+                              ? 'Try adjusting your search or filter criteria'
+                              : 'Income records will appear here once available'
+                            }
+                          </Typography>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -517,46 +548,54 @@ const LevelRoiIncome = () => {
                           sx={{
                             '&:hover': {
                               backgroundColor: theme.palette.action.hover,
-                              transform: 'scale(1.001)',
-                              transition: 'all 0.2s ease-in-out'
-                            }
+                              transform: 'translateY(-1px)',
+                              transition: 'all 0.2s ease-in-out',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                            },
+                            '&:nth-of-type(even)': {
+                              backgroundColor: theme.palette.action.hover + '20',
+                            },
+                            borderLeft: `4px solid ${levelColor.color}`,
                           }}
                         >
-                          <TableCell>
-                            <Typography variant="body2" fontWeight="medium">
-                              {formatDate(income.created_at)}
-                            </Typography>
-                            {/* Mobile: Show additional info */}
-                            {isMobile && (
-                              <Stack spacing={0.5} sx={{ mt: 1 }}>
-                                <Typography variant="caption" color="text.secondary">
-                                  {income.extra?.fromUser || income.user_from_email || 'N/A'}
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                  <Chip
-                                    label={levelColor.label}
-                                    size="small"
-                                    sx={{
-                                      backgroundColor: levelColor.bg,
-                                      color: levelColor.color,
-                                      fontWeight: 'bold',
-                                      fontSize: '0.7rem',
-                                      height: 20
-                                    }}
-                                  />
-                                  <Chip
-                                    label={income.status.charAt(0).toUpperCase() + income.status.slice(1)}
-                                    size="small"
-                                    color={getStatusColor(income.status)}
-                                    sx={{ fontSize: '0.7rem', height: 20 }}
-                                  />
-                                </Box>
-                              </Stack>
-                            )}
-                          </TableCell>
-                          <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                          <TableCell sx={{ py: 2 }}>
                             <Box>
-                              <Typography variant="body2" fontWeight="medium" color="primary">
+                              <Typography variant="body2" fontWeight="600" color="text.primary">
+                                {formatDate(income.created_at)}
+                              </Typography>
+                              {/* Mobile: Show additional info */}
+                              {isMobile && (
+                                <Stack spacing={1} sx={{ mt: 1 }}>
+                                  <Typography variant="caption" color="primary.main" fontWeight="medium">
+                                    {income.extra?.fromUser || income.user_from_email || 'N/A'}
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <Chip
+                                      label={levelColor.label}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: levelColor.bg,
+                                        color: levelColor.color,
+                                        fontWeight: 'bold',
+                                        fontSize: '0.7rem',
+                                        height: 24,
+                                        borderRadius: 2,
+                                      }}
+                                    />
+                                    <Chip
+                                      label={income.status.charAt(0).toUpperCase() + income.status.slice(1)}
+                                      size="small"
+                                      color={getStatusColor(income.status)}
+                                      sx={{ fontSize: '0.7rem', height: 24, borderRadius: 2 }}
+                                    />
+                                  </Box>
+                                </Stack>
+                              )}
+                            </Box>
+                          </TableCell>
+                          <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, py: 2 }}>
+                            <Box>
+                              <Typography variant="body2" fontWeight="600" color="primary.main">
                                 {income.extra?.fromUser || income.user_from_email || 'N/A'}
                               </Typography>
                               {income.user_from_name && (
@@ -566,54 +605,47 @@ const LevelRoiIncome = () => {
                               )}
                             </Box>
                           </TableCell>
-                          <TableCell>
-                            <Typography variant="body1" fontWeight="bold" color="success.main">
+                          <TableCell sx={{ py: 2 }}>
+                            <Typography
+                              variant="h6"
+                              fontWeight="bold"
+                              color="success.main"
+                              sx={{
+                                fontSize: { xs: '1rem', sm: '1.25rem' },
+                                textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                              }}
+                            >
                               {formatCurrency(income.amount, 4)}
                             </Typography>
-                            {/* Mobile: Show team trade details */}
-                            {isMobile && income.extra?.dailyProfitAmount && (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                Trade: {formatCurrency(income.extra.dailyProfitAmount, 4)}
-                              </Typography>
-                            )}
                           </TableCell>
-                          <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                          <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, py: 2 }}>
                             <Chip
                               label={levelColor.label}
-                              size="small"
+                              size="medium"
                               sx={{
                                 backgroundColor: levelColor.bg,
                                 color: levelColor.color,
                                 fontWeight: 'bold',
-                                border: `1px solid ${levelColor.color}20`
+                                border: `2px solid ${levelColor.color}30`,
+                                borderRadius: 3,
+                                fontSize: '0.875rem',
+                                height: 32,
+                                boxShadow: `0 2px 8px ${levelColor.color}20`,
                               }}
                             />
                           </TableCell>
-                          <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                            <Stack spacing={0.5}>
-                              {income.extra?.dailyProfitAmount && (
-                                <Typography variant="caption" color="text.secondary">
-                                  Daily Profit: {formatCurrency(income.extra.dailyProfitAmount, 4)}
-                                </Typography>
-                              )}
-                              {income.extra?.commissionPercentage && (
-                                <Typography variant="caption" color="text.secondary">
-                                  Commission: {income.extra.commissionPercentage}%
-                                </Typography>
-                              )}
-                              {income.extra?.directReferralsCount && (
-                                <Typography variant="caption" color="text.secondary">
-                                  Team Size: {income.extra.directReferralsCount}
-                                </Typography>
-                              )}
-                            </Stack>
-                          </TableCell>
-                          <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                          <TableCell sx={{ py: 2 }}>
                             <Chip
                               label={income.status.charAt(0).toUpperCase() + income.status.slice(1)}
-                              size="small"
+                              size="medium"
                               color={getStatusColor(income.status)}
-                              sx={{ fontWeight: 'medium' }}
+                              sx={{
+                                fontWeight: 'bold',
+                                borderRadius: 3,
+                                fontSize: '0.875rem',
+                                height: 32,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                              }}
                             />
                           </TableCell>
                         </TableRow>
