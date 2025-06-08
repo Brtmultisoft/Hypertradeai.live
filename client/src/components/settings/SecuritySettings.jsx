@@ -16,151 +16,130 @@ import {
   InputAdornment,
   IconButton,
   useTheme,
+  Snackbar,
 } from '@mui/material';
 import {
   Security as SecurityIcon,
-  QrCode as QrCodeIcon,
+  Email as EmailIcon,
   Check as CheckIcon,
   Close as CloseIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
-import UserService from '../../services/user.service';
-import useApi from '../../hooks/useApi';
+import AuthService from '../../services/auth.service';
+import useAuth from '../../hooks/useAuth';
 import { useTheme as useAppTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
+import OTPInput from '../auth/OTPInput';
 
 const SecuritySettings = () => {
   const theme = useTheme();
   const { mode } = useAppTheme();
   const { userData, fetchUserData } = useData();
+  const { user } = useAuth();
 
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
-  const [showQRCode, setShowQRCode] = useState(false);
-  const [qrCodeData, setQRCodeData] = useState(null);
-  const [otpCode, setOtpCode] = useState('');
-  const [secret, setSecret] = useState('');
+  const [showOTPDialog, setShowOTPDialog] = useState(false);
+  const [otpRequestId, setOtpRequestId] = useState('');
+  const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
   // Initialize 2FA status from user data
   useEffect(() => {
     if (userData) {
+      console.log('SecuritySettings: userData updated', { two_fa_enabled: userData.two_fa_enabled });
       setIs2FAEnabled(userData.two_fa_enabled || false);
     }
   }, [userData]);
 
-  // API hook for generating 2FA secret
-  const {
-    loading: generatingSecret,
-    error: generateSecretError,
-    execute: generate2FASecret,
-  } = useApi(async () => {
-    const response = await UserService.generate2FASecret();
-
-    if (response.status && response.result) {
-      setQRCodeData(response.result.qrImageDataUrl);
-      setSecret(response.result.secret);
-      setShowQRCode(true);
-    }
-
-    return response;
-  }, false);
-
-  // API hook for verifying OTP
-  const {
-    loading: verifyingOTP,
-    error: verifyOTPError,
-    execute: verifyOTP,
-  } = useApi(async () => {
-    const response = await UserService.verifyOTP({ token: otpCode });
-
-    if (response.status) {
-      setSuccess('Two-factor authentication enabled successfully');
-      setShowQRCode(false);
-      setOtpCode('');
-      setIs2FAEnabled(true);
-      fetchUserData();
-    }
-
-    return response;
-  }, false);
-
-  // API hook for disabling 2FA
-  const {
-    loading: disabling2FA,
-    error: disable2FAError,
-    execute: disable2FA,
-  } = useApi(async () => {
-    const response = await UserService.disable2FA({ token: otpCode });
-
-    if (response.status) {
-      setSuccess('Two-factor authentication disabled successfully');
-      setOtpCode('');
-      setIs2FAEnabled(false);
-      fetchUserData();
-    }
-
-    return response;
-  }, false);
-
-  // Handle 2FA toggle
-  const handle2FAToggle = async () => {
+  // Handle 2FA enable
+  const enable2FA = async () => {
+    setLoading(true);
     setError(null);
-    setSuccess(null);
 
-    if (!is2FAEnabled) {
-      // Enable 2FA
-      try {
-        await generate2FASecret();
-      } catch (err) {
-        setError(err.message || 'Failed to generate 2FA secret');
+    try {
+      const response = await AuthService.toggle2FAMethod('otpless');
+
+      if (response.status) {
+        setSuccess('Two-factor authentication enabled successfully! You will now receive OTP codes via email during login.');
+        setShowSuccessAlert(true);
+        fetchUserData();
+      } else {
+        throw new Error(response.msg || 'Failed to enable 2FA');
       }
-    } else {
-      // Show dialog to disable 2FA
-      setShowQRCode(true);
+    } catch (err) {
+      throw err; // Re-throw to be caught by toggle handler
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Handle OTP verification
-  const handleVerifyOTP = async () => {
+  // Handle 2FA disable
+  const disable2FA = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await AuthService.toggle2FAMethod('totp');
+
+      if (response.status) {
+        setSuccess('Two-factor authentication disabled successfully');
+        setShowSuccessAlert(true);
+        fetchUserData();
+      } else {
+        throw new Error(response.msg || 'Failed to disable 2FA');
+      }
+    } catch (err) {
+      throw err; // Re-throw to be caught by toggle handler
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle 2FA toggle
+  const handle2FAToggle = async (event) => {
+    const newValue = event.target.checked;
+    const currentValue = is2FAEnabled;
+
     setError(null);
     setSuccess(null);
 
-    if (!otpCode) {
-      setError('Please enter the OTP code');
-      return;
-    }
+    // Optimistically update the UI
+    setIs2FAEnabled(newValue);
 
     try {
-      if (!is2FAEnabled) {
-        await verifyOTP();
+      if (newValue) {
+        // Enable 2FA
+        await enable2FA();
       } else {
+        // Disable 2FA
         await disable2FA();
       }
     } catch (err) {
-      setError(err.message || 'Failed to verify OTP');
+      // Revert the toggle if API call fails
+      setIs2FAEnabled(currentValue);
+      setError(err.msg || err.message || 'Failed to update 2FA setting');
     }
-  };
-
-  // Close QR code dialog
-  const handleCloseQRCode = () => {
-    setShowQRCode(false);
-    setOtpCode('');
-    setError(null);
   };
 
   return (
     <Box>
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }}>
+      <Snackbar
+        open={showSuccessAlert}
+        autoHideDuration={6000}
+        onClose={() => setShowSuccessAlert(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setShowSuccessAlert(false)} severity="success" variant="filled">
           {success}
         </Alert>
-      )}
+      </Snackbar>
 
-      {(error || generateSecretError || verifyOTPError || disable2FAError) && (
+      {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          {error || generateSecretError || verifyOTPError || disable2FAError}
+          {error}
         </Alert>
       )}
 
@@ -179,115 +158,48 @@ const SecuritySettings = () => {
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Two-factor authentication adds an extra layer of security to your account. When enabled, you'll need to enter a code from your authenticator app in addition to your password when logging in.
+          Two-factor authentication adds an extra layer of security to your account. When enabled, you'll receive a verification code via email during login.
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
           <Box>
-            <Typography variant="subtitle1">
-              {is2FAEnabled ? 'Enabled' : 'Disabled'}
+            <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center' }}>
+              {is2FAEnabled ? (
+                <>
+                  <CheckIcon color="success" sx={{ mr: 1, fontSize: 20 }} />
+                  Enabled
+                </>
+              ) : (
+                <>
+                  <CloseIcon color="error" sx={{ mr: 1, fontSize: 20 }} />
+                  Disabled
+                </>
+              )}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {is2FAEnabled
-                ? 'Your account is protected with two-factor authentication'
+                ? 'Your account is protected with email-based two-factor authentication'
                 : 'Enable two-factor authentication for enhanced security'}
             </Typography>
           </Box>
 
           <Switch
-            checked={is2FAEnabled}
+            checked={Boolean(is2FAEnabled)}
             onChange={handle2FAToggle}
             color="primary"
-            disabled={generatingSecret || verifyingOTP || disabling2FA}
+            disabled={loading}
+            inputProps={{ 'aria-label': '2FA toggle' }}
           />
+        </Box>
+
+        {/* Info Box */}
+        <Box sx={{ mt: 3, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+          <Typography variant="body2" color="info.dark">
+            🔐 <strong>How it works:</strong> When 2FA is enabled, you'll receive a 6-digit verification code via email each time you log in. This adds an extra layer of security to protect your account.
+          </Typography>
         </Box>
       </Paper>
 
-      {/* QR Code Dialog */}
-      <Dialog
-        open={showQRCode}
-        onClose={handleCloseQRCode}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          {is2FAEnabled ? 'Disable Two-Factor Authentication' : 'Enable Two-Factor Authentication'}
-        </DialogTitle>
-
-        <DialogContent>
-          {!is2FAEnabled && qrCodeData && (
-            <>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                Scan this QR code with your authenticator app (like Google Authenticator, Authy, or Microsoft Authenticator).
-              </Typography>
-
-              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-                <img src={qrCodeData} alt="QR Code" style={{ width: 200, height: 200 }} />
-              </Box>
-
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                If you can't scan the QR code, you can manually enter this secret key in your authenticator app:
-              </Typography>
-
-              <TextField
-                fullWidth
-                value={secret}
-                variant="outlined"
-                InputProps={{
-                  readOnly: true,
-                }}
-                sx={{ mb: 3 }}
-              />
-            </>
-          )}
-
-          {is2FAEnabled && (
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              To disable two-factor authentication, please enter the verification code from your authenticator app.
-            </Typography>
-          )}
-
-          <TextField
-            fullWidth
-            label="Verification Code"
-            value={otpCode}
-            onChange={(e) => setOtpCode(e.target.value)}
-            variant="outlined"
-            placeholder="Enter 6-digit code"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <QrCodeIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-        </DialogContent>
-
-        <DialogActions>
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={handleCloseQRCode}
-            startIcon={<CloseIcon />}
-            disabled={verifyingOTP || disabling2FA}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            color={is2FAEnabled ? 'error' : 'primary'}
-            onClick={handleVerifyOTP}
-            startIcon={(verifyingOTP || disabling2FA) ? <CircularProgress size={20} color="inherit" /> : <CheckIcon />}
-            disabled={verifyingOTP || disabling2FA}
-          >
-            {is2FAEnabled
-              ? (disabling2FA ? 'Disabling...' : 'Disable 2FA')
-              : (verifyingOTP ? 'Verifying...' : 'Verify & Enable')}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

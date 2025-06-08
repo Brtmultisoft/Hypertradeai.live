@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
 import useAuth from './hooks/useAuth';
 import { DataProvider } from './context/DataContext';
 import ThemeProvider from './context/ThemeContext';
@@ -40,12 +41,31 @@ import TradeActivationHistory from './pages/TradeActivationHistory';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 function App() {
-  const { isAuthenticated } = useAuth(); // loading is commented out since it's not being used
+  const { isAuthenticated, loading, token } = useAuth();
+
+  // Debug logging
+  console.log('App render - isAuthenticated:', isAuthenticated, 'loading:', loading, 'token:', !!token);
 
   // Show loading indicator while checking authentication status
-  // if (loading) {
-  //   return <Loader fullPage text="Loading application..." />;
-  // }
+  // Only show loading if we're actually loading and don't have a token yet
+  // Don't show loading screen on auth pages to avoid interfering with OTP/2FA flows
+  const isOnAuthPage = ['/login', '/forgot-password', '/register'].includes(window.location.pathname);
+
+  if (loading && !token && !isOnAuthPage) {
+    console.log('App showing loading spinner - loading:', loading, 'token:', !!token, 'isOnAuthPage:', isOnAuthPage);
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <ThemeProvider>

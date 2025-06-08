@@ -149,6 +149,16 @@ const UserService = {
       throw error.response?.data || { msg: 'Failed to check daily profit status' };
     }
   },
+
+  // Toggle 2FA method
+  toggle2FAMethod: async (method) => {
+    try {
+      const response = await api.post('/user/toggle-2fa-method', { method });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to toggle 2FA method' };
+    }
+  },
 };
 
 export default UserService;

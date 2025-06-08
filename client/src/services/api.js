@@ -23,7 +23,25 @@ api.interceptors.request.use(
         const token = localStorage.getItem('token');
 
         // If no token and not a login/register/public route, reject the request
-        const publicRoutes = ['/user/login', '/user/signup', '/user/forgot/password', '/user/reset/password', '/user/checkReferID', '/user/login/request'];
+        const publicRoutes = [
+            '/user/login',
+            '/user/signup',
+            '/user/forgot/password',
+            '/user/reset/password',
+            '/user/reset/password-with-otp',
+            '/user/verify-2fa-otp',
+            '/user/checkReferID',
+            '/user/get-default-sponsor',
+            '/user/login/request',
+            '/user/otpless/send-registration-otp',
+            '/user/otpless/verify-registration-otp',
+            '/user/otpless/send-login-otp',
+            '/user/otpless/verify-login-otp',
+            '/user/otpless/send-2fa-otp',
+            '/user/otpless/verify-2fa-otp',
+            '/user/otp/test-send',
+            '/user/otp/test-verify'
+        ];
         const isPublicRoute = publicRoutes.some(route => config.url.includes(route));
 
         // Check if we're in the middle of an admin login process

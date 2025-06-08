@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AppBar,
@@ -12,6 +12,15 @@ import {
   Tooltip,
   useMediaQuery,
   Button,
+  Badge,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider,
+  Paper,
+  Popper,
+  ClickAwayListener,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -19,6 +28,13 @@ import {
   ArrowDropDown as ArrowDropDownIcon,
   AccountBalanceWallet as WalletIcon,
   Share as ShareIcon,
+  Notifications as NotificationsIcon,
+  NotificationsNone as NotificationsNoneIcon,
+  Info as InfoIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  Announcement as AnnouncementIcon,
 } from '@mui/icons-material';
 
 import useAuth from '../../hooks/useAuth';
@@ -36,6 +52,72 @@ const Header = ({ onToggleSidebar }) => {
 
 
   const [anchorEl, setAnchorEl] = useState(null);
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/user/notifications?limit=10', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.data.notifications || []);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Fetch unread count
+  const fetchUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/user/notifications/unread-count', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.data.count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  // Load notifications on component mount
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      fetchUnreadCount();
+
+      // Refresh every 30 seconds
+      const interval = setInterval(() => {
+        fetchUnreadCount();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const handleProfileMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -43,6 +125,56 @@ const Header = ({ onToggleSidebar }) => {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleNotificationClick = (event) => {
+    setNotificationAnchorEl(notificationAnchorEl ? null : event.currentTarget);
+    if (!notificationAnchorEl) {
+      fetchNotifications();
+    }
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchorEl(null);
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`/api/user/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Update local state
+        setNotifications(prev =>
+          prev.map(notif =>
+            notif._id === notificationId
+              ? { ...notif, isRead: true }
+              : notif
+          )
+        );
+        fetchUnreadCount();
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'success': return <CheckCircleIcon sx={{ color: 'green' }} />;
+      case 'warning': return <WarningIcon sx={{ color: 'orange' }} />;
+      case 'error': return <ErrorIcon sx={{ color: 'red' }} />;
+      case 'announcement': return <AnnouncementIcon sx={{ color: 'blue' }} />;
+      default: return <InfoIcon sx={{ color: 'gray' }} />;
+    }
   };
 
   const handleLogout = () => {
@@ -207,7 +339,21 @@ const Header = ({ onToggleSidebar }) => {
               </Button> */}
                   {/* Theme Toggle removed from mobile view */}
 
-              {/* Referral Button (replaced notification icon) */}
+              {/* Notifications */}
+              <Tooltip title="Notifications">
+                <IconButton
+                  color="inherit"
+                  size="small"
+                  onClick={handleNotificationClick}
+                  sx={{ mr: 1 }}
+                >
+                  <Badge badgeContent={unreadCount} color="error">
+                    {unreadCount > 0 ? <NotificationsIcon fontSize="small" /> : <NotificationsNoneIcon fontSize="small" />}
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+
+              {/* Referral Button */}
               <Tooltip title="Copy Referral Link">
                 <IconButton
                   color="inherit"
@@ -387,7 +533,20 @@ const Header = ({ onToggleSidebar }) => {
                 Main Wallet
               </Button>
 
-              {/* Referral Button (replaced notification icon) */}
+              {/* Notifications */}
+              <Tooltip title="Notifications">
+                <IconButton
+                  color="inherit"
+                  onClick={handleNotificationClick}
+                  sx={{ mr: 1 }}
+                >
+                  <Badge badgeContent={unreadCount} color="error">
+                    {unreadCount > 0 ? <NotificationsIcon /> : <NotificationsNoneIcon />}
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+
+              {/* Referral Button */}
               <Tooltip title="Copy Referral Link">
                 <IconButton
                   color="inherit"
@@ -482,7 +641,144 @@ const Header = ({ onToggleSidebar }) => {
           <MenuItem onClick={handleLogout}>Logout</MenuItem>
         </Menu>
 
-        {/* Notifications Menu removed */}
+        {/* Notifications Dropdown */}
+        <Popper
+          open={Boolean(notificationAnchorEl)}
+          anchorEl={notificationAnchorEl}
+          placement="bottom-end"
+          sx={{ zIndex: 1300 }}
+        >
+          <ClickAwayListener onClickAway={handleNotificationClose}>
+            <Paper
+              sx={{
+                width: 350,
+                maxHeight: 400,
+                overflow: 'hidden',
+                borderRadius: 2,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+                border: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  Notifications
+                </Typography>
+                <Badge badgeContent={unreadCount} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </Box>
+
+              <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                {loadingNotifications ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Loading notifications...
+                    </Typography>
+                  </Box>
+                ) : notifications.length === 0 ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <NotificationsNoneIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      No notifications yet
+                    </Typography>
+                  </Box>
+                ) : (
+                  <List sx={{ p: 0 }}>
+                    {notifications.map((notification, index) => (
+                      <Box key={notification._id}>
+                        <ListItem
+                          sx={{
+                            py: 1.5,
+                            px: 2,
+                            backgroundColor: notification.isRead ? 'transparent' : 'rgba(51, 117, 187, 0.05)',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                            },
+                          }}
+                          onClick={() => {
+                            if (!notification.isRead) {
+                              markAsRead(notification._id);
+                            }
+                            if (notification.actionUrl) {
+                              window.location.href = notification.actionUrl;
+                            }
+                          }}
+                        >
+                          <ListItemIcon sx={{ minWidth: 40 }}>
+                            {getNotificationIcon(notification.type)}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={
+                              <Typography
+                                variant="subtitle2"
+                                sx={{
+                                  fontWeight: notification.isRead ? 'normal' : 'bold',
+                                  color: notification.isRead ? 'text.secondary' : 'text.primary',
+                                }}
+                              >
+                                {notification.title}
+                              </Typography>
+                            }
+                            secondary={
+                              <Box>
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    color: 'text.secondary',
+                                    mb: 0.5,
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  {notification.message}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {new Date(notification.createdAt).toLocaleDateString()}
+                                </Typography>
+                              </Box>
+                            }
+                          />
+                        </ListItem>
+                        {index < notifications.length - 1 && <Divider />}
+                      </Box>
+                    ))}
+                  </List>
+                )}
+              </Box>
+
+              {notifications.length > 0 && (
+                <Box
+                  sx={{
+                    p: 1,
+                    borderTop: `1px solid ${theme.palette.divider}`,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      // Navigate to notifications page
+                      window.location.href = '/notifications';
+                    }}
+                  >
+                    View All Notifications
+                  </Button>
+                </Box>
+              )}
+            </Paper>
+          </ClickAwayListener>
+        </Popper>
       </Toolbar>
     </AppBar>
   );

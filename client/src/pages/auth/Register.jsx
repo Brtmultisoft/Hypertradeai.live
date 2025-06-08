@@ -37,12 +37,14 @@ import {
 } from '@mui/icons-material';
 import useAuth from '../../hooks/useAuth';
 import useForm from '../../hooks/useForm';
+import AuthService from '../../services/auth.service';
+import OTPInput from '../../components/auth/OTPInput';
 import { isValidEmail, isValidPhone, validatePassword } from '../../utils/validators';
 
 const Register = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { register, loading, error, checkReferralId } = useAuth();
+  const { loading, error, checkReferralId } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [referralCode, setReferralCode] = useState('');
@@ -56,6 +58,14 @@ const Register = () => {
   const [referralInfo, setReferralInfo] = useState(null);
   const [copied, setCopied] = useState(false);
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  // OTP registration states
+  const [showOTPDialog, setShowOTPDialog] = useState(false);
+  const [otpRequestId, setOtpRequestId] = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState(null);
+  const [pendingUserData, setPendingUserData] = useState(null);
 
   // Get referral code from URL if present and default referrer from env
   useEffect(() => {
@@ -132,6 +142,90 @@ const Register = () => {
 
 
 
+  // OTP registration functions
+  const handleOTPRegistration = async (userData) => {
+    try {
+      setOtpLoading(true);
+      setOtpError(null);
+
+      console.log('Sending registration OTP for:', userData.email);
+
+      const response = await AuthService.sendRegistrationOTP(userData.email);
+
+      console.log('Registration OTP response:', response);
+
+      if (response.status) {
+        setOtpRequestId(response.data.requestId);
+        setOtpEmail(userData.email);
+        setPendingUserData(userData);
+        setShowOTPDialog(true);
+        setSuccessMessage('OTP sent to your email successfully!');
+        setShowSuccessAlert(true);
+      } else {
+        console.error('Failed to send OTP:', response);
+        setOtpError(response.msg || 'Failed to send OTP');
+      }
+    } catch (err) {
+      console.error('Error sending registration OTP:', err);
+      setOtpError(err.msg || err.message || 'Failed to send OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleOTPVerification = async (otp) => {
+    try {
+      setOtpLoading(true);
+      setOtpError(null);
+
+      console.log('Verifying registration OTP:', {
+        email: otpEmail,
+        otp: otp,
+        requestId: otpRequestId,
+        hasUserData: !!pendingUserData
+      });
+
+      const response = await AuthService.verifyRegistrationOTP(
+        otpEmail,
+        otp,
+        otpRequestId,
+        pendingUserData
+      );
+
+      console.log('Registration OTP verification response:', response);
+
+      if (response.status) {
+        // Store registration data for success dialog
+        setRegistrationData({
+          name: pendingUserData.name,
+          username: pendingUserData.username || response.data.username,
+          email: pendingUserData.email,
+          password: pendingUserData.password,
+          sponsorID: response.data.sponsorID, // Use sponsorID from response
+        });
+
+        // Show success dialog
+        setOpenSuccessDialog(true);
+        setShowOTPDialog(false);
+        resetForm();
+      } else {
+        console.error('OTP verification failed:', response);
+        setOtpError(response.msg || 'Invalid OTP');
+      }
+    } catch (err) {
+      console.error('Error verifying registration OTP:', err);
+      setOtpError(err.msg || err.message || 'Failed to verify OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (pendingUserData) {
+      await handleOTPRegistration(pendingUserData);
+    }
+  };
+
   // Handle copy to clipboard
   const handleCopyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -203,30 +297,18 @@ const Register = () => {
           }
         }
 
-        // Proceed with registration
-        const { confirmPassword, ...userData } = formValues;
-        const result = await register({
+        // Proceed with OTP registration
+        const { confirmPassword, phone, ...userData } = formValues;
+        const finalUserData = {
           ...userData,
-          referrer: referralCode,
-        });
+          phone_number: phone, // Backend expects phone_number
+          referralId: referralCode || undefined, // Backend expects referralId, undefined if empty
+        };
 
-        if (result.success) {
-          // Store registration data for success dialog
-          setRegistrationData({
-            name: formValues.name,
-            username: formValues.username,
-            email: formValues.email,
-            password: formValues.password,
-            referrer: referralCode,
-          });
+        console.log('Final user data being sent:', finalUserData);
 
-          // Show success dialog
-          setOpenSuccessDialog(true);
-          resetForm();
-        } else {
-          // Show error message from server
-          setError(result.error || 'Registration failed. Please try again.');
-        }
+        // Always use OTP registration
+        await handleOTPRegistration(finalUserData);
       } catch (err) {
         console.error('Registration error:', err);
         setError(err.message || 'An unexpected error occurred. Please try again.');
@@ -307,8 +389,17 @@ const Register = () => {
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2" fontWeight="bold">Sponsor ID:</Typography>
-              <Typography variant="body2">{registrationData?.referrer}</Typography>
+              <Typography variant="body2" fontWeight="bold">Your Sponsor ID:</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography variant="body2">{registrationData?.sponsorID}</Typography>
+                <IconButton
+                  size="small"
+                  onClick={() => handleCopyToClipboard(registrationData?.sponsorID)}
+                  sx={{ ml: 1 }}
+                >
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
+              </Box>
             </Box>
           </Paper>
 
@@ -357,6 +448,15 @@ const Register = () => {
               {error}
             </Alert>
           )}
+
+          {otpError && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {otpError}
+            </Alert>
+          )}
+
+          {/* OTP Registration Info */}
+
 
           {/* Registration Form */}
           <Box component="form" onSubmit={handleSubmit} noValidate>
@@ -550,17 +650,17 @@ const Register = () => {
               type="submit"
               variant="contained"
               color="primary"
-              disabled={loading || isSubmitting}
+              disabled={loading || isSubmitting || otpLoading}
               fullWidth={isMobile}
               sx={{ width: isMobile ? '100%' : 'auto' }}
             >
-              {loading || isSubmitting ? (
+              {loading || isSubmitting || otpLoading ? (
                 <>
                   <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
-                  Creating Account...
+                  Sending OTP...
                 </>
               ) : (
-                'Create Account'
+                'Send OTP to Register'
               )}
             </Button>
           </Box>
@@ -575,6 +675,26 @@ const Register = () => {
           </Box>
         </Box>
       </Grow>
+
+      {/* OTP Verification Dialog */}
+      <Dialog open={showOTPDialog} onClose={() => setShowOTPDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Verify Email OTP</DialogTitle>
+        <DialogContent>
+          <OTPInput
+            title="Enter Registration Code"
+            subtitle={`Enter the 4-digit code sent to ${otpEmail}`}
+            length={4}
+            onVerify={handleOTPVerification}
+            onResend={handleResendOTP}
+            loading={otpLoading}
+            error={otpError}
+            autoFocus={true}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowOTPDialog(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

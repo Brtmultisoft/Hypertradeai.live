@@ -143,6 +143,25 @@ const userSchema = new Schema({
         type: String,
         default: "",
     },
+    // OTPless related fields
+    otpless_enabled: {
+        type: Boolean,
+        default: false,
+    },
+    otpless_request_id: {
+        type: String,
+        default: "",
+    },
+    otpless_verified: {
+        type: Boolean,
+        default: false,
+    },
+    // 2FA preference - can be 'totp' or 'otpless'
+    two_fa_method: {
+        type: String,
+        enum: ['totp', 'otpless'],
+        default: 'totp',
+    },
     status: {
         type: Boolean,
         default: true

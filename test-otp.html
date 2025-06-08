@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OTP Test Page</h1>
+        <p>Test the OTP functionality directly with your backend API.</p>
+        
+        <div class="form-group">
+            <label for="email">Email Address:</label>
+            <input type="email" id="email" placeholder="Enter your email address" value="test@example.com">
+        </div>
+        
+        <div class="form-group">
+            <button onclick="sendOTP()" id="sendBtn">Send OTP</button>
+            <button onclick="testRegistration()" id="regBtn">Test Registration Flow</button>
+            <button onclick="testLogin()" id="loginBtn">Test Login Flow</button>
+        </div>
+        
+        <div class="form-group">
+            <label for="otp">OTP Code:</label>
+            <input type="text" id="otp" placeholder="Enter OTP code" maxlength="6">
+        </div>
+        
+        <div class="form-group">
+            <label for="requestId">Request ID:</label>
+            <input type="text" id="requestId" placeholder="Request ID from send OTP response">
+        </div>
+        
+        <div class="form-group">
+            <button onclick="verifyOTP()" id="verifyBtn">Verify OTP</button>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api'; // Change this to your server URL
+        
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+        
+        async function sendOTP() {
+            const email = document.getElementById('email').value;
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (!email) {
+                showResult('Please enter an email address', 'error');
+                return;
+            }
+            
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            try {
+                showResult('Sending OTP...', 'info');
+                
+                const response = await fetch(`${API_BASE}/user/otp/test-send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.result.success) {
+                    document.getElementById('requestId').value = data.result.requestId;
+                    showResult(`✅ OTP sent successfully!\n\nRequest ID: ${data.result.requestId}\n\nCheck your email for the OTP code.`, 'success');
+                } else {
+                    showResult(`❌ Failed to send OTP:\n\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Network error:\n\n${error.message}`, 'error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send OTP';
+            }
+        }
+        
+        async function verifyOTP() {
+            const otp = document.getElementById('otp').value;
+            const requestId = document.getElementById('requestId').value;
+            const verifyBtn = document.getElementById('verifyBtn');
+            
+            if (!otp || !requestId) {
+                showResult('Please enter both OTP and Request ID', 'error');
+                return;
+            }
+            
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying...';
+            
+            try {
+                showResult('Verifying OTP...', 'info');
+                
+                const response = await fetch(`${API_BASE}/user/otp/test-verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ otp, requestId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.result.success && data.result.isVerified) {
+                    showResult(`✅ OTP verified successfully!\n\n${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult(`❌ OTP verification failed:\n\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Network error:\n\n${error.message}`, 'error');
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Verify OTP';
+            }
+        }
+        
+        async function testRegistration() {
+            const email = document.getElementById('email').value;
+            const regBtn = document.getElementById('regBtn');
+            
+            if (!email) {
+                showResult('Please enter an email address', 'error');
+                return;
+            }
+            
+            regBtn.disabled = true;
+            regBtn.textContent = 'Testing...';
+            
+            try {
+                showResult('Testing registration OTP...', 'info');
+                
+                const response = await fetch(`${API_BASE}/user/otpless/send-registration-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status) {
+                    document.getElementById('requestId').value = data.data.requestId;
+                    showResult(`✅ Registration OTP sent successfully!\n\nRequest ID: ${data.data.requestId}\n\nMessage: ${data.msg}`, 'success');
+                } else {
+                    showResult(`❌ Registration OTP failed:\n\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Network error:\n\n${error.message}`, 'error');
+            } finally {
+                regBtn.disabled = false;
+                regBtn.textContent = 'Test Registration Flow';
+            }
+        }
+    </script>
+</body>
+</html>

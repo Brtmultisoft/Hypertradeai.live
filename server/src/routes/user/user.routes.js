@@ -7,6 +7,7 @@ const {
     userInfoController,
     userController,
     user2FAController,
+    otplessController,
     userSupportController,
     userDepositController,
     userFundTransferController,
@@ -126,6 +127,18 @@ module.exports = () => {
     ],
         userAuthController.resetPassword
     );
+
+    // New OTP-based password reset route
+    Router.post(
+        '/user/reset/password-with-otp',
+        userAuthController.resetPasswordWithOTP
+    );
+
+    // New 2FA OTP verification route (after login)
+    Router.post(
+        '/user/verify-2fa-otp',
+        userAuthController.verify2FAOTP
+    );
     /**
      * Email verification Route
      */
@@ -141,6 +154,105 @@ module.exports = () => {
         '/reg/email/u/verification',
         validationMiddleware(userAuthValidation.resendEmailVerification, 'body'),
         userAuthController.resendEmailVerification
+    );
+
+    /**
+     * OTPless Authentication Routes
+     */
+    Router.post(
+        '/user/otpless/send-registration-otp',
+        otplessController.sendRegistrationOTP
+    );
+
+    Router.post(
+        '/user/otpless/verify-registration-otp',
+        otplessController.verifyRegistrationOTP
+    );
+
+    Router.post(
+        '/user/otpless/send-login-otp',
+        otplessController.sendLoginOTP
+    );
+
+    Router.post(
+        '/user/otpless/verify-login-otp',
+        otplessController.verifyLoginOTP
+    );
+
+    Router.post(
+        '/user/otpless/send-2fa-otp',
+        otplessController.send2FAOTP
+    );
+
+    Router.post(
+        '/user/otpless/verify-2fa-otp',
+        otplessController.verify2FAOTP
+    );
+
+    // Test endpoint for OTP service
+    Router.post(
+        '/user/otp/test-send',
+        async (req, res) => {
+            try {
+                const { email } = req.body;
+                if (!email) {
+                    return res.json({ success: false, error: 'Email is required' });
+                }
+
+                console.log('Testing OTP send for email:', email);
+
+                const otplessService = require('../../services/otpless.service');
+                const result = await otplessService.sendRegistrationOTP(email);
+
+                console.log('OTP send result:', result);
+
+                return res.json({
+                    success: true,
+                    message: 'OTP test completed',
+                    result: result
+                });
+            } catch (error) {
+                console.error('OTP test error:', error);
+                return res.json({
+                    success: false,
+                    error: error.message,
+                    details: error.stack
+                });
+            }
+        }
+    );
+
+    // Test endpoint for OTP verification
+    Router.post(
+        '/user/otp/test-verify',
+        async (req, res) => {
+            try {
+                const { otp, requestId } = req.body;
+                if (!otp || !requestId) {
+                    return res.json({ success: false, error: 'OTP and requestId are required' });
+                }
+
+                console.log('Testing OTP verification:', { otp, requestId });
+
+                const otplessService = require('../../services/otpless.service');
+                const result = await otplessService.verifyRegistrationOTP(otp, requestId);
+
+                console.log('OTP verification result:', result);
+
+                return res.json({
+                    success: true,
+                    message: 'OTP verification test completed',
+                    result: result
+                });
+            } catch (error) {
+                console.error('OTP verification test error:', error);
+                return res.json({
+                    success: false,
+                    error: error.message,
+                    details: error.stack
+                });
+            }
+        }
     );
 
     /****************************
@@ -170,6 +282,11 @@ module.exports = () => {
     Router.post('/user/generate-2fa-secret', user2FAController.generate2faSecret);
     Router.post('/user/verify-otp', validationMiddleware(twoFaValidation.verifyOtp, 'body'), user2FAController.verifyOtp);
     Router.post('/user/disable-2fa', validationMiddleware(twoFaValidation.disable2fa, 'body'), user2FAController.disable2fa);
+
+    /**
+     * 2FA Method Toggle Route
+     */
+    Router.post('/user/toggle-2fa-method', user2FAController.toggle2FAMethod);
 
     /**
      * Routes for handle change password
@@ -321,6 +438,12 @@ module.exports = () => {
      */
     const tradeActivationRoutes = require('./trade.activation.routes');
     Router.use('/trade', tradeActivationRoutes);
+
+    /**
+     * Notification routes for users
+     */
+    const notificationRoutes = require('./notification.routes');
+    Router.use('/notifications', notificationRoutes);
 
     /**************************
      * END OF AUTHORIZED ROUTES

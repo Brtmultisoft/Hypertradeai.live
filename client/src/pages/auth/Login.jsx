@@ -19,11 +19,11 @@ import {
 import {
   Email as EmailIcon,
   Lock as LockIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
 import useAuth from '../../hooks/useAuth';
 import useForm from '../../hooks/useForm';
+
+import OTPInput from '../../components/auth/OTPInput';
 import axios from 'axios';
 
 // ✅ Custom hook moved OUTSIDE component to comply with React rules
@@ -64,18 +64,131 @@ export const clearFrontendSession = () => {
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation(); // Needed for logging
-  const { login, loading, error, isAuthenticated } = useAuth();
-
+  const { login: authLogin, complete2FALogin, loading, error, isAuthenticated } = useAuth();
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [processingHash, setProcessingHash] = useState(false);
   const [hashError, setHashError] = useState(null);
   const [showBlockedDialog, setShowBlockedDialog] = useState(false);
   const [blockReason, setBlockReason] = useState('');
   const hasRedirected = useRef(false);
 
-  const queryParams = useQueryParams();
+  // Login states
+  const [show2FADialog, setShow2FADialog] = useState(false);
+  const [twoFARequestId, setTwoFARequestId] = useState('');
+  const [userId, setUserId] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState(null);
+
+  // Add global error handler to catch any unhandled errors
+  useEffect(() => {
+    const handleError = (event) => {
+      console.error('🚨 Global error caught:', event.error);
+      console.error('🚨 Error details:', {
+        message: event.error?.message,
+        stack: event.error?.stack,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno
+      });
+      // Prevent default browser error handling that might cause page reload
+      event.preventDefault();
+    };
+
+    const handleUnhandledRejection = (event) => {
+      console.error('🚨 Unhandled promise rejection:', event.reason);
+      // Prevent default browser handling
+      event.preventDefault();
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
+  // Handle normal login with email and password
+  const handleLogin = async (email, password) => {
+    console.log('🚀 handleLogin called with:', { email, password: '***' });
+    try {
+      setOtpLoading(true);
+      setOtpError(null);
+
+      console.log('📞 Calling authLogin...');
+      const response = await authLogin({ email, password });
+      console.log('📡 Login response received:', response);
+
+      if (response.success) {
+        // Check if 2FA is required by checking the response data
+        if (response.userData && response.userData.requires_2fa_verification && response.userData.otp_request_id) {
+          // 2FA is enabled and OTP was sent
+          console.log('2FA required, setting up 2FA dialog:', {
+            otp_request_id: response.userData.otp_request_id,
+            user_id: response.userData.user_id
+          });
+
+          setTwoFARequestId(response.userData.otp_request_id);
+          setUserId(response.userData.user_id);
+          setShow2FADialog(true);
+          setSuccessMessage('2FA OTP sent to your email. Please verify to complete login.');
+          setShowSuccessAlert(true);
+
+          console.log('2FA dialog should be open now, show2FADialog:', true);
+        } else {
+          // Normal login without 2FA - AuthContext already handled token storage
+          console.log('Normal login without 2FA, redirecting to dashboard');
+          setSuccessMessage('Login successful! Redirecting to dashboard...');
+          setShowSuccessAlert(true);
+
+          // Redirect to dashboard after a short delay
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 1000);
+        }
+      } else {
+        console.log('Login failed:', response.error);
+        setOtpError(response.error || 'Login failed');
+      }
+    } catch (err) {
+      console.error('❌ Error in handleLogin:', err);
+      console.error('❌ Error stack:', err.stack);
+      setOtpError(err.message || 'Login failed');
+    } finally {
+      console.log('🏁 handleLogin finished, setting loading to false');
+      setOtpLoading(false);
+    }
+  };
+
+  const handle2FAVerification = async (otp) => {
+    try {
+      setOtpLoading(true);
+      setOtpError(null);
+
+      const response = await complete2FALogin(otp, twoFARequestId, userId);
+
+      if (response.success) {
+        // 2FA verification successful - AuthContext handled token storage
+        setSuccessMessage('2FA verification successful! Redirecting to dashboard...');
+        setShowSuccessAlert(true);
+        setShow2FADialog(false);
+
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
+      } else {
+        setOtpError(response.error || 'Invalid 2FA OTP');
+      }
+    } catch (err) {
+      console.error('2FA verification error:', err);
+      setOtpError(err.message || 'Failed to verify 2FA');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   // ✅ Admin Login via URL Hash
   useEffect(() => {
@@ -84,7 +197,6 @@ const Login = () => {
     const clearParam = params.get('clear');
     const forcedParam = params.get('forced');
     const expiredParam = params.get('expired');
-    const timestamp = params.get('t');
     const attemptId = params.get('attempt');
 
     // Function to clear all browser storage and session data
@@ -243,14 +355,39 @@ const Login = () => {
     }
   }, [location, navigate]);
 
-  // ✅ Normal Authenticated Redirect
+  // ✅ Normal Authenticated Redirect - Only redirect if not waiting for 2FA
   useEffect(() => {
-    if (isAuthenticated && !hasRedirected.current && !loading && !processingHash) {
-      console.log('User is authenticated, redirecting to dashboard');
+    console.log('🔄 Redirect useEffect triggered:', {
+      isAuthenticated,
+      hasRedirected: hasRedirected.current,
+      loading,
+      processingHash,
+      show2FADialog,
+      twoFARequestId
+    });
+
+    // Don't redirect if:
+    // 1. User is not authenticated
+    // 2. Already redirected
+    // 3. Still loading
+    // 4. Processing admin hash
+    // 5. 2FA dialog is open
+    // 6. Waiting for 2FA verification
+    if (isAuthenticated && !hasRedirected.current && !loading && !processingHash && !show2FADialog && !twoFARequestId) {
+      console.log('User is authenticated and no 2FA required, redirecting to dashboard');
       hasRedirected.current = true;
       navigate('/dashboard');
+    } else {
+      console.log('Not redirecting because:', {
+        notAuthenticated: !isAuthenticated,
+        alreadyRedirected: hasRedirected.current,
+        stillLoading: loading,
+        processingHash,
+        show2FADialog,
+        waitingFor2FA: !!twoFARequestId
+      });
     }
-  }, [isAuthenticated, navigate, loading, processingHash]);
+  }, [isAuthenticated, navigate, loading, processingHash, show2FADialog, twoFARequestId]);
 
   // ✅ Login Form Setup
   const validationRules = {
@@ -263,8 +400,8 @@ const Login = () => {
     password: {
       required: true,
       requiredMessage: 'Password is required',
-      minLength: 8,
-      minLengthMessage: 'Password must be at least 8 characters',
+      minLength: 6,
+      minLengthMessage: 'Password must be at least 6 characters',
     },
   };
 
@@ -283,15 +420,14 @@ const Login = () => {
     },
     validationRules,
     async (formValues) => {
-      const result = await login(formValues);
-      if (result.success) {
-        setSuccessMessage(result.message || 'Login successful!');
-        setShowSuccessAlert(true);
-        hasRedirected.current = false; // Let redirect happen again if needed
-      } else if (result.isBlocked) {
-        // Show blocked user dialog
-        setBlockReason(result.blockReason || 'No reason provided');
-        setShowBlockedDialog(true);
+      console.log('📝 Form submitted with values:', { email: formValues.email, password: '***' });
+      try {
+        // Use normal login with email and password
+        await handleLogin(formValues.email, formValues.password);
+        console.log('✅ handleLogin completed successfully');
+      } catch (error) {
+        console.error('❌ Error in form submission:', error);
+        throw error; // Re-throw to let useForm handle it
       }
     }
   );
@@ -318,6 +454,7 @@ const Login = () => {
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
       {hashError && <Alert severity="error" sx={{ mb: 3 }}>{hashError}</Alert>}
+      {otpError && <Alert severity="error" sx={{ mb: 3 }}>{otpError}</Alert>}
 
       {processingHash && (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
@@ -328,7 +465,22 @@ const Login = () => {
         </Box>
       )}
 
-      <Box component="form" onSubmit={handleSubmit} noValidate>
+      {/* Login Info */}
+    
+
+      <Box
+        component="form"
+        onSubmit={(e) => {
+          console.log('📋 Form onSubmit triggered');
+          console.log('📋 Event details:', {
+            type: e.type,
+            defaultPrevented: e.defaultPrevented,
+            target: e.target.tagName
+          });
+          handleSubmit(e);
+        }}
+        noValidate
+      >
         <TextField
           label="Email"
           name="email"
@@ -340,19 +492,21 @@ const Login = () => {
           helperText={touched.email && errors.email}
           fullWidth
           margin="normal"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <EmailIcon />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailIcon />
+                </InputAdornment>
+              ),
+            },
           }}
         />
 
         <TextField
           label="Password"
           name="password"
-          type={showPassword ? 'text' : 'password'}
+          type="password"
           value={values.password}
           onChange={handleChange}
           onBlur={handleBlur}
@@ -360,25 +514,20 @@ const Login = () => {
           helperText={touched.password && errors.password}
           fullWidth
           margin="normal"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <LockIcon />
-              </InputAdornment>
-            ),
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                  {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                </IconButton>
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockIcon />
+                </InputAdornment>
+              ),
+            },
           }}
         />
 
         <Box sx={{ textAlign: 'right', mt: 1, mb: 3 }}>
           <Link component={RouterLink} to="/forgot-password" variant="body2" color="primary">
-            Forgot password?
+            Forgot Password?
           </Link>
         </Box>
 
@@ -388,10 +537,18 @@ const Login = () => {
           color="primary"
           fullWidth
           size="large"
-          disabled={loading || isSubmitting}
+          disabled={loading || isSubmitting || otpLoading}
           sx={{ mb: 2 }}
+          onClick={(e) => {
+            console.log('🖱️ Login button clicked');
+            console.log('🖱️ Button event details:', {
+              type: e.type,
+              defaultPrevented: e.defaultPrevented,
+              target: e.target.tagName
+            });
+          }}
         >
-          {loading || isSubmitting ? (
+          {loading || isSubmitting || otpLoading ? (
             <>
               <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
               Signing In...
@@ -400,6 +557,7 @@ const Login = () => {
             'Sign In'
           )}
         </Button>
+
 
         <Typography variant="body2" align="center">
           Don't have an account?{' '}
@@ -416,11 +574,13 @@ const Login = () => {
         aria-labelledby="blocked-dialog-title"
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderTop: '4px solid',
-            borderColor: 'error.main',
-            borderRadius: '8px',
+        slotProps={{
+          paper: {
+            sx: {
+              borderTop: '4px solid',
+              borderColor: 'error.main',
+              borderRadius: '8px',
+            }
           }
         }}
       >
@@ -482,6 +642,34 @@ const Login = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 2FA Verification Dialog */}
+      <Dialog
+        open={show2FADialog}
+        onClose={() => setShow2FADialog(false)}
+        maxWidth="sm"
+        fullWidth
+        disableEscapeKeyDown
+        disableBackdropClick
+      >
+        <DialogTitle>Two-Factor Authentication</DialogTitle>
+        <DialogContent>
+          <OTPInput
+            title="Enter 2FA Code"
+            subtitle="Enter the 6-digit code sent to your email"
+            length={6}
+            onVerify={handle2FAVerification}
+            loading={otpLoading}
+            error={otpError}
+            autoFocus={true}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShow2FADialog(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+ 
     </Box>
   );
 };

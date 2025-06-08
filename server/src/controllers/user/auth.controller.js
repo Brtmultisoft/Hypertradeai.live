@@ -389,7 +389,7 @@ module.exports = {
             // Update user record
             await userDbHandler.updateById(getUser[0]._id, updateFields);
 
-            // Create token data
+            // Always proceed with normal login first, then check 2FA
             let tokenData = {
                 sub: getUser[0]._id,
                 username: getUser[0].username,
@@ -407,14 +407,63 @@ module.exports = {
                 email: getUser[0].email,
                 address: getUser[0].address,
                 email_verify: getUser[0].email_verified,
-
                 avatar: getUser[0] ?.avatar,
                 token: token,
                 two_fa_enabled: getUser[0] ?.two_fa_enabled,
-                sponsorID:getUser[0].sponsorID
+                sponsorID: getUser[0].sponsorID
+            };
 
+            // Check if 2FA is enabled and send OTP for additional verification
+            if (getUser[0].two_fa_enabled) {
+                log.info('2FA is enabled for user, sending OTP for verification:', getUser[0].username);
+
+                try {
+                    // Import OTPless service
+                    const otplessService = require('../../services/otpless.service');
+
+                    // Send OTP for 2FA verification
+                    const otpResult = await otplessService.sendLoginOTP(getUser[0].email);
+
+                    if (otpResult.success) {
+                        log.info('2FA OTP sent successfully', {
+                            email: getUser[0].email,
+                            requestId: otpResult.requestId
+                        });
+
+                        // Add 2FA verification info to response
+                        returnResponse.requires_2fa_verification = true;
+                        returnResponse.otp_request_id = otpResult.requestId;
+                        returnResponse.two_fa_message = 'OTP sent to your email for 2FA verification';
+
+                        // Remove token from response when 2FA is required
+                        // Token will be generated after successful 2FA verification
+                        delete returnResponse.token;
+
+                        responseData.msg = 'Login successful! Please verify OTP sent to your email for 2FA.';
+                        responseData.data = returnResponse;
+                        return responseHelper.success(res, responseData);
+
+                    } else {
+                        log.error('Failed to send 2FA OTP:', otpResult.error);
+                        // Still allow login but notify about 2FA failure
+                        returnResponse.two_fa_warning = 'Failed to send 2FA OTP. Please contact support.';
+                        responseData.msg = 'Login successful! (2FA OTP failed to send)';
+                        responseData.data = returnResponse;
+                        return responseHelper.success(res, responseData);
+                    }
+
+                } catch (otpError) {
+                    log.error('Error sending 2FA OTP:', otpError);
+                    // Still allow login but notify about 2FA failure
+                    returnResponse.two_fa_warning = 'Failed to send 2FA OTP. Please contact support.';
+                    responseData.msg = 'Login successful! (2FA OTP failed to send)';
+                    responseData.data = returnResponse;
+                    return responseHelper.success(res, responseData);
+                }
             }
-            responseData.msg = `Welcome !`;
+
+            // Normal login without 2FA
+            responseData.msg = 'Welcome!';
             responseData.data = returnResponse;
             console.log(responseData);
             return responseHelper.success(res, responseData);
@@ -424,6 +473,83 @@ module.exports = {
             log.error('failed to get user signin with error::', error);
             responseData.msg = 'Failed to get user login';
             return responseHelper.success2(res, responseData);
+        }
+    },
+
+    /**
+     * Method to verify 2FA OTP after successful login
+     */
+    verify2FAOTP: async (req, res) => {
+        let reqObj = req.body;
+        log.info('Received request for 2FA OTP verification:', reqObj);
+        let responseData = {};
+
+        try {
+            const { otp, otp_request_id, user_id } = reqObj;
+
+            // Validate required fields
+            if (!otp || !otp_request_id || !user_id) {
+                responseData.msg = 'OTP, otp_request_id, and user_id are required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Get user details
+            const user = await userDbHandler.getById(user_id);
+            if (!user) {
+                responseData.msg = 'User not found';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Verify OTP using OTPless service
+            const otplessService = require('../../services/otpless.service');
+            const verificationResult = await otplessService.verifyLoginOTP(otp, otp_request_id);
+
+            if (!verificationResult.success || !verificationResult.isVerified) {
+                log.error('2FA OTP verification failed:', verificationResult.error);
+                responseData.msg = verificationResult.error || 'Invalid or expired OTP';
+                return responseHelper.error(res, responseData);
+            }
+
+            log.info('2FA OTP verified successfully for user:', user.username);
+
+            // Generate token for complete login after 2FA verification
+            let time = new Date().getTime();
+            let tokenData = {
+                sub: user._id,
+                username: user.username,
+                email: user.email,
+                address: user.address,
+                name: user.name,
+                time: time
+            };
+
+            let token = _generateUserToken(tokenData);
+
+            // Update user's last login
+            await userDbHandler.updateById(user._id, {
+                last_login_date: new Date()
+            });
+
+            let returnResponse = {
+                user_id: user._id,
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                address: user.address,
+                email_verify: user.email_verified,
+                avatar: user.avatar,
+                token: token,
+                two_fa_enabled: user.two_fa_enabled
+            };
+
+            responseData.msg = '2FA verification successful! Login completed.';
+            responseData.data = returnResponse;
+            return responseHelper.success(res, responseData);
+
+        } catch (error) {
+            log.error('Failed to verify 2FA OTP:', error);
+            responseData.msg = 'Failed to verify 2FA OTP';
+            return responseHelper.error(res, responseData);
         }
     },
 
@@ -1368,88 +1494,148 @@ module.exports = {
         }
     },
     /**
-     * Method to handle forgot password by email
+     * Method to handle forgot password by sending OTP to email (no email links)
      */
     forgotPassword: async(req, res) => {
         let reqBody = req.body;
-        log.info('Recieved request for User forgot password:', reqBody);
+        log.info('Received request for forgot password with OTP:', reqBody);
         let userEmail = reqBody.email;
         let responseData = {};
-        let isVerificationDataExists = false;
+
         try {
+            // Validate email
+            if (!userEmail || !userEmail.includes('@')) {
+                responseData.msg = 'Valid email is required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Normalize email
+            const normalizedEmail = userEmail.toLowerCase().trim();
+
             let query = {
-                email: userEmail,
-                login_way: 'local'
+                email: normalizedEmail
             };
+
             let userData = await userDbHandler.getByQuery(query);
             if (!userData.length) {
-                log.error('user email doesnot exist for forget password request');
-                responseData.msg = 'User is not registered with us please register yourself!';
+                log.error('User email does not exist for forgot password request');
+                responseData.msg = 'User is not registered with us. Please register yourself!';
                 return responseHelper.error(res, responseData);
             }
-            // if (!userData[0].email_verified) {
-            //     responseData.msg = "Email not verified yet!";
-            //     return responseHelper.error(res, responseData);
-            // }
+
             if (!userData[0].status) {
-                responseData.msg = "Your account is Disabled please contact to admin!";
+                responseData.msg = "Your account is disabled. Please contact admin!";
                 return responseHelper.error(res, responseData);
             }
-            let tokenData = {
-                email: userData[0].email
-            };
-            let verificationType = 'password';
-            //generate password verification token
-            let passwordResetToken = _generateVerificationToken(tokenData, verificationType);
-            //check if user already have forgot password request data in verification collection
-            let passwordQuery = {
-                user_id: userData[0]._id,
-                verification_type: verificationType
-            };
-            let passwordTokenInfo = await verificationDbHandler.getByQuery(passwordQuery);
-            //if password verification data found update it with new token, else create new entry
-            if (passwordTokenInfo.length) {
-                isVerificationDataExists = true;
-                let updatePasswordVerificationObj = {
-                    token: passwordResetToken,
-                    attempts: passwordTokenInfo[0].attempts + 1
-                };
-                let updateQuery = {
-                    _id: passwordTokenInfo[0]._id,
-                };
-                let option = {
-                    upsert: false
-                };
-                let updatedVerificationData = await verificationDbHandler.updateByQuery(updateQuery, updatePasswordVerificationObj, option);
-                log.info('password verification token updated in the db', updatedVerificationData);
+
+            // Send OTP using OTPless service (no email links)
+            log.info('Sending forgot password OTP to:', normalizedEmail);
+
+            try {
+                const otplessService = require('../../services/otpless.service');
+                const otpResult = await otplessService.sendForgotPasswordOTP(normalizedEmail);
+
+                if (otpResult.success) {
+                    log.info('Forgot password OTP sent successfully', {
+                        email: normalizedEmail,
+                        requestId: otpResult.requestId
+                    });
+
+                    responseData.msg = 'OTP sent successfully to your email for password reset';
+                    responseData.data = {
+                        otp_request_id: otpResult.requestId,
+                        email: normalizedEmail,
+                        message: 'Please check your email for the OTP code'
+                    };
+                    return responseHelper.success(res, responseData);
+
+                } else {
+                    log.error('Failed to send forgot password OTP:', otpResult.error);
+                    responseData.msg = 'Failed to send OTP. Please try again.';
+                    return responseHelper.error(res, responseData);
+                }
+
+            } catch (otpError) {
+                log.error('Error sending forgot password OTP:', otpError);
+                responseData.msg = 'Failed to send OTP. Please try again.';
+                return responseHelper.error(res, responseData);
             }
-            //patch email verification templateBody
-            let templateBody = {
-                type: verificationType,
-                token: passwordResetToken
-            };
-            let emailBody = {
-                recipientsAddress: userData[0].email,
-                subject: `${config.brandName} Forgot Password Link`,
-                body: templates.passwordReset(templateBody)
-            };
-            let emailInfo = await emailService.sendEmail(emailBody).catch(e => { throw `Error while sending mail: ${e}` })
-            if (!isVerificationDataExists) {
-                log.info('password reset mail sent successfully', emailInfo);
-                let passwordResetObj = {
-                    token: passwordResetToken,
-                    user_id: userData[0]._id,
-                    verification_type: verificationType
-                };
-                let newPasswordVerification = await verificationDbHandler.create(passwordResetObj);
-                log.info('new forgot password entry created successfully in the database', newPasswordVerification);
-            }
-            responseData.msg = 'Email validated';
-            responseData.data = templateBody;
-            return responseHelper.success(res, responseData);
         } catch (error) {
-            log.error('failed to process forget password request with error::', error);
-            responseData.msg = 'Failed to process forget password request';
+            log.error('Failed to process forgot password request with error:', error);
+            responseData.msg = 'Failed to process forgot password request';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Method to reset password with OTP verification
+     */
+    resetPasswordWithOTP: async(req, res) => {
+        let reqBody = req.body;
+        log.info('Received request for password reset with OTP:', reqBody);
+        let responseData = {};
+
+        try {
+            const { email, otp, otp_request_id, new_password } = reqBody;
+
+            // Validate required fields
+            if (!email || !otp || !otp_request_id || !new_password) {
+                responseData.msg = 'Email, OTP, otp_request_id, and new_password are required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Normalize email
+            const normalizedEmail = email.toLowerCase().trim();
+
+            // Get user details
+            let userData = await userDbHandler.getByQuery({ email: normalizedEmail });
+            if (!userData.length) {
+                responseData.msg = 'User not found';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Verify OTP using OTPless service
+            const otplessService = require('../../services/otpless.service');
+            const verificationResult = await otplessService.verifyOTP(otp, otp_request_id);
+
+            if (!verificationResult.success || !verificationResult.isVerified) {
+                log.error('OTP verification failed for password reset:', verificationResult.error);
+                responseData.msg = verificationResult.error || 'Invalid or expired OTP';
+                return responseHelper.error(res, responseData);
+            }
+
+            log.info('Password reset OTP verified successfully for user:', userData[0].username);
+
+            // Check if new password is different from current password
+            let comparePassword = await _comparePassword(new_password, userData[0].password);
+            if (comparePassword) {
+                responseData.msg = 'New password cannot be the same as your current password';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Encrypt new password
+            let encryptedPassword = await _encryptPassword(new_password);
+
+            // Update user password
+            let updateUserQuery = {
+                password: encryptedPassword
+            };
+
+            let updatedUser = await userDbHandler.updateById(userData[0]._id, updateUserQuery);
+            if (!updatedUser) {
+                log.error('Failed to reset user password');
+                responseData.msg = 'Failed to reset password';
+                return responseHelper.error(res, responseData);
+            }
+
+            log.info('Password reset successfully for user:', userData[0].username);
+
+            responseData.msg = 'Password updated successfully! Please login with your new password.';
+            return responseHelper.success(res, responseData);
+
+        } catch (error) {
+            log.error('Failed to reset password with OTP:', error);
+            responseData.msg = 'Failed to reset password';
             return responseHelper.error(res, responseData);
         }
     },

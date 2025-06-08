@@ -122,6 +122,64 @@ module.exports = {
         }
     },
 
+    /**
+     * Toggle 2FA method between TOTP and OTPless
+     */
+    toggle2FAMethod: async (req, res) => {
+        let reqObj = req.body;
+        log.info('Received request to toggle 2FA method:', reqObj);
+        let responseData = {};
+
+        try {
+            const { method } = reqObj; // 'totp' or 'otpless'
+
+            // Validate method
+            if (!method || !['totp', 'otpless'].includes(method)) {
+                responseData.msg = 'Invalid 2FA method. Must be "totp" or "otpless"';
+                return responseHelper.error(res, responseData);
+            }
+
+            let query = {
+                email: req.user.email
+            };
+
+            const user = await userDbHandler.getOneByQuery(query);
+            if (!user) {
+                responseData.msg = 'User not found';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Update 2FA method and enable/disable 2FA accordingly
+            user.two_fa_method = method;
+
+            if (method === 'otpless') {
+                // Enable 2FA with OTPless method
+                user.two_fa_enabled = true;
+                user.otpless_enabled = true;
+            } else if (method === 'totp') {
+                // Disable 2FA (totp method means disabled in our case)
+                user.two_fa_enabled = false;
+                user.otpless_enabled = false;
+                user.two_fa_secret = ''; // Clear any existing secret
+            }
+
+            await user.save();
+
+            responseData.msg = `2FA method updated to ${method.toUpperCase()} successfully`;
+            responseData.data = {
+                two_fa_method: user.two_fa_method,
+                two_fa_enabled: user.two_fa_enabled,
+                otpless_enabled: user.otpless_enabled
+            };
+            return responseHelper.success(res, responseData);
+
+        } catch (error) {
+            log.error('Failed to toggle 2FA method:', error);
+            responseData.msg = 'Failed to update 2FA method';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
 
 
     /**

@@ -9,6 +9,7 @@ const userAuthController = require('./user/auth.controller');
 const userInfoController = require('./user/info.controller');
 const userController = require('./user/user.controller');
 const user2FAController = require('./user/2fa.controller');
+const otplessController = require('./user/otpless.controller');
 const userSupportController = require('./user/support.controller');
 const userDepositController = require('./user/deposit.controller');
 const userFundTransferController = require('./user/fundtransfer.controller');
@@ -107,6 +108,7 @@ module.exports = {
     userInfoController,
     userController,
     user2FAController,
+    otplessController,
     userSupportController,
     userDepositController,
     userFundTransferController,
