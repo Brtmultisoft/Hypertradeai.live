@@ -10,7 +10,7 @@ const config = require('../config/config');
 /*********************************************
  * SERVICE FOR HANDLING TOKEN AUTHENTICATION
  *********************************************/
-module.exports = (req, res, next) => {
+module.exports = async (req, res, next) => {
     let responseData = {};
 
     // Check if token is present in the Authorization header or the request body
@@ -34,22 +34,22 @@ module.exports = (req, res, next) => {
             req.user = decodedToken;
             req.headers.authorization = `Bearer ${token}`;
 
-            // Check if user is blocked
-            userDbHandler.getById(decodedToken.sub)
-                .then(user => {
-                    if (user && user.is_blocked) {
-                        responseData.msg = 'Your account has been blocked. Please contact support for assistance.';
-                        responseData.block_reason = user.block_reason || 'No reason provided';
-                        return responseHelper.forbidden(res, responseData);
-                    }
-                    // Continue to the next middleware if user is not blocked
-                    next();
-                })
-                .catch(err => {
-                    log.error('Failed to check user blocked status with error::', err);
-                    // Continue anyway if we can't check the blocked status
-                    next();
-                });
+            // Check if user is blocked (with database fallback)
+            try {
+                const user = await userDbHandler.getById(decodedToken.sub);
+                if (user && user.is_blocked) {
+                    responseData.msg = 'Your account has been blocked. Please contact support for assistance.';
+                    responseData.block_reason = user.block_reason || 'No reason provided';
+                    return responseHelper.forbidden(res, responseData);
+                }
+                // Continue to the next middleware if user is not blocked
+                next();
+            } catch (err) {
+                log.error('Failed to check user blocked status with error::', err);
+                log.warn('Continuing without database check due to connection issues');
+                // Continue anyway if we can't check the blocked status (database issue)
+                next();
+            }
         } catch (error) {
             log.error('Failed to verify JWT token with error::', error);
 

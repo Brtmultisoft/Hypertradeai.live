@@ -17,15 +17,21 @@ import {
   Divider,
   Chip,
   CircularProgress,
+  TextField,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
 import {
   Security as SecurityIcon,
   Smartphone as SmartphoneIcon,
   Email as EmailIcon,
   CheckCircle as CheckCircleIcon,
+  Visibility,
+  VisibilityOff,
 } from '@mui/icons-material';
 import AuthService from '../../services/auth.service';
 import OTPInput from '../../components/auth/OTPInput';
+import GoogleAuthenticatorSetup from '../../components/auth/GoogleAuthenticatorSetup';
 
 const TwoFactorAuth = () => {
   const [user, setUser] = useState(null);
@@ -35,6 +41,10 @@ const TwoFactorAuth = () => {
   const [showMethodDialog, setShowMethodDialog] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState('totp');
   const [showOTPDialog, setShowOTPDialog] = useState(false);
+  const [showGoogleAuthSetup, setShowGoogleAuthSetup] = useState(false);
+  const [showDisableDialog, setShowDisableDialog] = useState(false);
+  const [disablePassword, setDisablePassword] = useState('');
+  const [showDisablePassword, setShowDisablePassword] = useState(false);
   const [otpRequestId, setOtpRequestId] = useState('');
   const [tempToken, setTempToken] = useState('');
 
@@ -61,42 +71,68 @@ const TwoFactorAuth = () => {
       // Show method selection dialog
       setShowMethodDialog(true);
     } else {
-      // Disable 2FA
-      try {
-        setLoading(true);
-        // Implementation for disabling 2FA would go here
-        setSuccess('2FA has been disabled');
+      // Show disable confirmation dialog
+      setShowDisableDialog(true);
+    }
+  };
+
+  const handleDisable2FA = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await AuthService.disable2FA(disablePassword);
+
+      if (response.status) {
+        setSuccess('2FA has been disabled successfully');
+        setShowDisableDialog(false);
+        setDisablePassword('');
         await fetchUserProfile();
-      } catch (err) {
-        setError(err.msg || 'Failed to disable 2FA');
-      } finally {
-        setLoading(false);
+      } else {
+        throw new Error(response.msg || 'Failed to disable 2FA');
       }
+    } catch (err) {
+      setError(err.msg || 'Failed to disable 2FA');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleMethodSelection = async () => {
     try {
       setLoading(true);
-      
+      setError(null);
+
       if (selectedMethod === 'otpless') {
-        // Send OTP for verification
-        const response = await AuthService.send2FAOTP(user.email, '');
+        // Enable OTPless method directly
+        const response = await AuthService.toggle2FAMethod('otpless');
         if (response.status) {
-          setOtpRequestId(response.data.requestId);
+          setSuccess('Email OTP 2FA enabled successfully!');
           setShowMethodDialog(false);
-          setShowOTPDialog(true);
+          await fetchUserProfile();
+        } else {
+          throw new Error(response.msg || 'Failed to enable email OTP');
         }
-      } else {
-        // Handle TOTP setup (existing functionality)
-        // This would integrate with existing 2FA setup
+      } else if (selectedMethod === 'totp') {
+        // Show Google Authenticator setup
         setShowMethodDialog(false);
+        setShowGoogleAuthSetup(true);
       }
     } catch (err) {
       setError(err.msg || 'Failed to setup 2FA');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleAuthComplete = async (data) => {
+    setSuccess('Google Authenticator 2FA enabled successfully!');
+    setShowGoogleAuthSetup(false);
+    await fetchUserProfile();
+  };
+
+  const handleGoogleAuthCancel = () => {
+    setShowGoogleAuthSetup(false);
   };
 
   const handleOTPVerification = async (otp) => {
@@ -325,6 +361,77 @@ const TwoFactorAuth = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowOTPDialog(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Google Authenticator Setup Dialog */}
+      <Dialog
+        open={showGoogleAuthSetup}
+        onClose={() => setShowGoogleAuthSetup(false)}
+        maxWidth="md"
+        fullWidth
+        disableEscapeKeyDown
+      >
+        <DialogContent sx={{ p: 0 }}>
+          <GoogleAuthenticatorSetup
+            onComplete={handleGoogleAuthComplete}
+            onCancel={handleGoogleAuthCancel}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable 2FA Dialog */}
+      <Dialog open={showDisableDialog} onClose={() => setShowDisableDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Disable Two-Factor Authentication</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            To disable 2FA, please enter your account password for security verification.
+          </Typography>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          <TextField
+            label="Password"
+            type={showDisablePassword ? 'text' : 'password'}
+            value={disablePassword}
+            onChange={(e) => setDisablePassword(e.target.value)}
+            fullWidth
+            margin="normal"
+            required
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowDisablePassword(!showDisablePassword)}
+                    edge="end"
+                  >
+                    {showDisablePassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowDisableDialog(false);
+            setDisablePassword('');
+            setError(null);
+          }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDisable2FA}
+            variant="contained"
+            color="error"
+            disabled={loading || !disablePassword}
+          >
+            {loading ? <CircularProgress size={20} /> : 'Disable 2FA'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

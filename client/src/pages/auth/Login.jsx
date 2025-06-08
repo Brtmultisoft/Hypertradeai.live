@@ -19,6 +19,8 @@ import {
 import {
   Email as EmailIcon,
   Lock as LockIcon,
+  Security as SecurityIcon,
+  PhoneAndroid as PhoneIcon,
 } from '@mui/icons-material';
 import useAuth from '../../hooks/useAuth';
 import useForm from '../../hooks/useForm';
@@ -76,6 +78,7 @@ const Login = () => {
   // Login states
   const [show2FADialog, setShow2FADialog] = useState(false);
   const [twoFARequestId, setTwoFARequestId] = useState('');
+  const [twoFAMethod, setTwoFAMethod] = useState('otpless');
   const [userId, setUserId] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState(null);
@@ -120,26 +123,56 @@ const Login = () => {
       console.log('📞 Calling authLogin...');
       const response = await authLogin({ email, password });
       console.log('📡 Login response received:', response);
+      console.log('📡 Response type:', typeof response);
+      console.log('📡 Response keys:', Object.keys(response || {}));
+      console.log('📡 Response.userData:', response?.userData);
+      console.log('📡 Response.userData type:', typeof response?.userData);
 
       if (response.success) {
         // Check if 2FA is required by checking the response data
-        if (response.userData && response.userData.requires_2fa_verification && response.userData.otp_request_id) {
-          // 2FA is enabled and OTP was sent
-          console.log('2FA required, setting up 2FA dialog:', {
+        if (response.userData && response.userData.requires_2fa_verification) {
+          // 2FA is enabled
+          console.log('🔐 2FA required, full response data:', response.userData);
+          console.log('🔐 2FA required, setting up 2FA dialog:', {
+            two_fa_method: response.userData.two_fa_method,
             otp_request_id: response.userData.otp_request_id,
-            user_id: response.userData.user_id
+            user_id: response.userData.user_id,
+            all_keys: Object.keys(response.userData)
           });
 
-          setTwoFARequestId(response.userData.otp_request_id);
+          // Validate that we have the required data for 2FA
+          if (!response.userData.user_id) {
+            console.error('❌ Missing user_id in 2FA response');
+            console.error('❌ Full response userData:', JSON.stringify(response.userData, null, 2));
+            console.error('❌ user_id type:', typeof response.userData.user_id);
+            console.error('❌ user_id value:', response.userData.user_id);
+            setOtpError('2FA verification required but user_id is missing. Please contact support.');
+            return;
+          }
+
+          // Additional validation for 2FA method
+          if (!response.userData.two_fa_method) {
+            console.error('❌ Missing two_fa_method in 2FA response');
+            setOtpError('2FA verification required but method is not specified. Please contact support.');
+            return;
+          }
+
+          setTwoFAMethod(response.userData.two_fa_method || 'otpless');
+          setTwoFARequestId(response.userData.otp_request_id || null); // Can be null for TOTP
           setUserId(response.userData.user_id);
           setShow2FADialog(true);
-          setSuccessMessage('2FA OTP sent to your email. Please verify to complete login.');
+
+          if (response.userData.two_fa_method === 'totp') {
+            setSuccessMessage('🔐 Login successful! Please complete 2FA verification using your Google Authenticator app.');
+          } else {
+            setSuccessMessage('📧 Login successful! 2FA verification code sent to your email.');
+          }
           setShowSuccessAlert(true);
 
-          console.log('2FA dialog should be open now, show2FADialog:', true);
+          console.log('✅ 2FA dialog configured successfully');
         } else {
           // Normal login without 2FA - AuthContext already handled token storage
-          console.log('Normal login without 2FA, redirecting to dashboard');
+          console.log('✅ Normal login without 2FA, redirecting to dashboard');
           setSuccessMessage('Login successful! Redirecting to dashboard...');
           setShowSuccessAlert(true);
 
@@ -149,13 +182,16 @@ const Login = () => {
           }, 1000);
         }
       } else {
-        console.log('Login failed:', response.error);
-        setOtpError(response.error || 'Login failed');
+        console.error('❌ Login failed:', response.error);
+        // Only show the most specific error message
+        const errorMessage = response.error || 'Login failed. Please check your credentials.';
+        setOtpError(errorMessage);
       }
     } catch (err) {
       console.error('❌ Error in handleLogin:', err);
-      console.error('❌ Error stack:', err.stack);
-      setOtpError(err.message || 'Login failed');
+      // Only show the most specific error message to avoid duplicates
+      const errorMessage = err.response?.data?.msg || err.message || 'Login failed. Please try again.';
+      setOtpError(errorMessage);
     } finally {
       console.log('🏁 handleLogin finished, setting loading to false');
       setOtpLoading(false);
@@ -167,11 +203,20 @@ const Login = () => {
       setOtpLoading(true);
       setOtpError(null);
 
+      console.log('🔐 Starting 2FA verification:', {
+        otp: otp.substring(0, 2) + '****',
+        method: twoFAMethod,
+        requestId: twoFARequestId,
+        userId: userId
+      });
+
       const response = await complete2FALogin(otp, twoFARequestId, userId);
+
+      console.log('📡 2FA verification response:', response);
 
       if (response.success) {
         // 2FA verification successful - AuthContext handled token storage
-        setSuccessMessage('2FA verification successful! Redirecting to dashboard...');
+        setSuccessMessage(`✅ ${twoFAMethod === 'totp' ? 'Google Authenticator' : 'Email'} verification successful! Welcome to HypertradeAI!`);
         setShowSuccessAlert(true);
         setShow2FADialog(false);
 
@@ -180,11 +225,14 @@ const Login = () => {
           navigate('/dashboard');
         }, 1500);
       } else {
-        setOtpError(response.error || 'Invalid 2FA OTP');
+        console.error('❌ 2FA verification failed:', response.error);
+        setOtpError(response.error || 'Invalid 2FA code. Please try again.');
       }
     } catch (err) {
-      console.error('2FA verification error:', err);
-      setOtpError(err.message || 'Failed to verify 2FA');
+      console.error('❌ 2FA verification error:', err);
+      // Only show the most specific error message
+      const errorMessage = err.response?.data?.msg || err.message || 'Failed to verify 2FA code';
+      setOtpError(errorMessage);
     } finally {
       setOtpLoading(false);
     }
@@ -452,9 +500,12 @@ const Login = () => {
         </Alert>
       </Snackbar>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-      {hashError && <Alert severity="error" sx={{ mb: 3 }}>{hashError}</Alert>}
-      {otpError && <Alert severity="error" sx={{ mb: 3 }}>{otpError}</Alert>}
+      {/* Show only one error at a time to prevent duplicates */}
+      {(otpError || error || hashError) && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {otpError || error || hashError}
+        </Alert>
+      )}
 
       {processingHash && (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
@@ -565,6 +616,21 @@ const Login = () => {
             Sign Up
           </Link>
         </Typography>
+
+        {/* 2FA Information */}
+        {/* <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200' }}>
+          <Box display="flex" alignItems="center" justifyContent="center" sx={{ mb: 1 }}>
+            <SecurityIcon sx={{ fontSize: 20, mr: 1, color: 'primary.main' }} />
+            <Typography variant="subtitle2" fontWeight="bold" color="primary.main">
+              Enhanced Security
+            </Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary" align="center" display="block">
+            This platform supports Two-Factor Authentication (2FA) for enhanced security.
+            <br />
+            Supported methods: Google Authenticator (TOTP) and Email verification.
+          </Typography>
+        </Box> */}
       </Box>
 
       {/* Blocked User Dialog */}
@@ -651,21 +717,116 @@ const Login = () => {
         fullWidth
         disableEscapeKeyDown
         disableBackdropClick
+        slotProps={{
+          paper: {
+            sx: {
+              borderTop: '4px solid',
+              borderColor: 'primary.main',
+              borderRadius: '12px',
+            }
+          }
+        }}
       >
-        <DialogTitle>Two-Factor Authentication</DialogTitle>
+        <DialogTitle>
+          <Box display="flex" alignItems="center">
+            <Box
+              sx={{
+                bgcolor: twoFAMethod === 'totp' ? 'success.main' : 'info.main',
+                color: 'white',
+                borderRadius: '50%',
+                width: 48,
+                height: 48,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mr: 2
+              }}
+            >
+              {twoFAMethod === 'totp' ? <PhoneIcon /> : <EmailIcon />}
+            </Box>
+            <Box>
+              <Typography variant="h6">Two-Factor Authentication</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {twoFAMethod === 'totp'
+                  ? 'Google Authenticator Required'
+                  : 'Email Verification Required'
+                }
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
         <DialogContent>
+          {/* Method-specific instructions */}
+          <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+            {twoFAMethod === 'totp' ? (
+              <Box>
+                <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                  📱 Google Authenticator Instructions:
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  1. Open your Google Authenticator app<br/>
+                  2. Find the entry for "HypertradeAI"<br/>
+                  3. Enter the current 6-digit code below
+                </Typography>
+              </Box>
+            ) : (
+              <Box>
+                <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                  📧 Email Verification Instructions:
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  1. Check your email inbox<br/>
+                  2. Look for the 6-digit verification code<br/>
+                  3. Enter the code below (expires in 10 minutes)
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
           <OTPInput
             title="Enter 2FA Code"
-            subtitle="Enter the 6-digit code sent to your email"
+            subtitle={
+              twoFAMethod === 'totp'
+                ? "Enter the 6-digit code from your authenticator app"
+                : "Enter the 6-digit code sent to your email"
+            }
             length={6}
             onVerify={handle2FAVerification}
             loading={otpLoading}
             error={otpError}
             autoFocus={true}
           />
+
+          {/* Additional help text */}
+          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'info.light', borderRadius: 1 }}>
+            <Typography variant="caption" color="info.dark">
+              💡 <strong>Tip:</strong> {twoFAMethod === 'totp'
+                ? 'Make sure your device time is synchronized for accurate codes.'
+                : 'Check your spam folder if you don\'t see the email.'
+              }
+            </Typography>
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShow2FADialog(false)}>Cancel</Button>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={() => setShow2FADialog(false)}
+            variant="outlined"
+            color="secondary"
+          >
+            Cancel Login
+          </Button>
+          {twoFAMethod === 'otpless' && (
+            <Button
+              onClick={() => {
+                // Resend email OTP functionality could be added here
+                setOtpError('Resend functionality not implemented yet');
+              }}
+              variant="text"
+              color="primary"
+            >
+              Resend Email
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

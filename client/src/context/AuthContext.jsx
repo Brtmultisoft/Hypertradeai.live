@@ -96,12 +96,13 @@ const login = async (credentials) => {
       const responseData = res.data.result || res.data.data;
       console.log('Response data extracted:', responseData);
 
-      // Check if 2FA is required
-      if (responseData.requires_2fa_verification && responseData.otp_request_id) {
+      // Check if 2FA is required (for both TOTP and email OTP)
+      if (responseData.requires_2fa_verification) {
         // 2FA is required - don't store token yet, just return the 2FA data
         console.log('2FA required, returning 2FA data:', {
           requires_2fa_verification: responseData.requires_2fa_verification,
-          otp_request_id: responseData.otp_request_id,
+          two_fa_method: responseData.two_fa_method,
+          otp_request_id: responseData.otp_request_id, // Only present for email OTP
           user_id: responseData.user_id
         });
 
@@ -528,11 +529,24 @@ const login = async (credentials) => {
   const complete2FALogin = async (otp, requestId, userId) => {
     try {
       setLoading(true);
-      const res = await axios.post('/user/verify-2fa-otp', {
+
+      // Build request body - otp_request_id is only needed for email OTP, not TOTP
+      const requestBody = {
         otp,
-        otp_request_id: requestId,
         user_id: userId
+      };
+
+      // Only include otp_request_id if it exists (for email OTP)
+      if (requestId) {
+        requestBody.otp_request_id = requestId;
+      }
+
+      console.log('🔐 Sending 2FA verification request:', {
+        ...requestBody,
+        otp: otp.substring(0, 2) + '****'
       });
+
+      const res = await axios.post('/user/verify-2fa-otp', requestBody);
 
       if (res.data && res.data.status && res.data.data && res.data.data.token) {
         const userData = res.data.data;

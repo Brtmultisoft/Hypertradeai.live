@@ -8,7 +8,7 @@ const config = require('../../config/config');
  *  Logger instance
  */
 const logger = bunyan.createLogger({
-    name: config.brandName,
+    name: config.brandName || 'HypertradeAI',
     streams: [{
         level: 'trace',
         stream: process.stdout

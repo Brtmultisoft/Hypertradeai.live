@@ -10,6 +10,14 @@ const responseHelper = require('../../utils/customResponse');
 const qrcode = require("qrcode");
 const { authenticator } = require("otplib");
 
+// Configure authenticator options
+authenticator.options = {
+    step: 30,        // Time step in seconds (30 is standard)
+    window: 1,       // Allow ±1 time step (±30 seconds)
+    digits: 6,       // 6-digit codes
+    algorithm: 'sha1' // SHA1 algorithm (standard for Google Authenticator)
+};
+
 /**************************
  * END OF PRIVATE FUNCTIONS
  **************************/
@@ -25,29 +33,68 @@ module.exports = {
             }
             const user = await userDbHandler.getOneByQuery(query);
 
-            if (user.two_fa_enabled) {
-                responseData.msg = "2FA already verified and enabled!";
-                responseData.data = { two_fa_enabled: user.two_fa_enabled };
+            if (user.two_fa_enabled && user.two_fa_method === 'totp') {
+                responseData.msg = "Google Authenticator 2FA already verified and enabled!";
+                responseData.data = {
+                    two_fa_enabled: user.two_fa_enabled,
+                    two_fa_method: user.two_fa_method
+                };
                 return responseHelper.error(res, responseData);
             }
 
-            const secret = authenticator.generateSecret();
-            user.two_fa_secret = secret;
-            user.save();
-            const appName = `${config.brandName} 2FA`;
+            // If user already has a TOTP secret but hasn't enabled 2FA yet, reuse the existing secret
+            let secret;
+            if (user.two_fa_secret && user.two_fa_method === 'totp' && !user.two_fa_enabled) {
+                log.info('Reusing existing TOTP secret for user:', user.email);
+                secret = user.two_fa_secret;
+            } else {
+                log.info('Generating new TOTP secret for user:', user.email);
+                secret = authenticator.generateSecret();
+                user.two_fa_secret = secret;
+                user.two_fa_method = 'totp';
+                await user.save();
+            }
 
-            responseData.msg = `2FA secret generation successfully!`;
+            const appName = config.brandName || 'HypertradeAI';
+
+            // Generate QR code URI
+            const otpAuthUrl = authenticator.keyuri(user.email, appName, secret);
+
+            // Generate QR code with smaller size and error correction
+            const qrImageDataUrl = await qrcode.toDataURL(otpAuthUrl, {
+                errorCorrectionLevel: 'M',
+                type: 'image/png',
+                quality: 0.92,
+                margin: 1,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                },
+                width: 256
+            });
+
+            responseData.msg = user.two_fa_secret && user.two_fa_method === 'totp' && !user.two_fa_enabled
+                ? `Using existing Google Authenticator secret. Please verify with your current setup.`
+                : `Google Authenticator secret generated successfully!`;
             responseData.data = {
                 secret: secret,
-                qrImageDataUrl: await qrcode.toDataURL(
-                    authenticator.keyuri(user.email, appName, secret)
-                ),
+                qrImageDataUrl: qrImageDataUrl,
                 two_fa_enabled: user.two_fa_enabled,
+                two_fa_method: user.two_fa_method,
+                manual_entry_key: secret,
+                app_name: appName,
+                account_name: user.email,
+                otpauth_url: otpAuthUrl,
+                current_token: authenticator.generate(secret), // For debugging - shows current valid token
+                debug_info: {
+                    secret_reused: user.two_fa_secret === secret,
+                    timestamp: new Date().toISOString()
+                }
             };
             return responseHelper.success(res, responseData);
         } catch (error) {
             log.error('failed to get user 2fa secret with error::', error);
-            responseData.msg = 'Failed to get user 2fa secret';
+            responseData.msg = 'Failed to generate Google Authenticator secret';
             return responseHelper.error(res, responseData);
         }
     },
@@ -61,37 +108,85 @@ module.exports = {
                 email: req.user.email
             }
             const user = await userDbHandler.getOneByQuery(query);
-            if (user.two_fa_enabled) {
-                responseData.msg = "2FA already verified and enabled!";
-                responseData.data = { two_fa_enabled: user.two_fa_enabled };
-                return responseHelper.error(res, responseData);
-            }
-
-            const token = reqObj.token.replaceAll(" ", "");
-            if (!authenticator.check(token, user.two_fa_secret)) {
-                responseData.msg = "The entered OTP is invalid!";
-                responseData.data = { two_fa_enabled: user.two_fa_enabled };
-                return responseHelper.error(res, responseData);
-            } else {
-                user.two_fa_enabled = true;
-                user.save();
-
-                responseData.msg = `2FA enabled successfully!`;
+            if (user.two_fa_enabled && user.two_fa_method === 'totp') {
+                responseData.msg = "Google Authenticator 2FA already verified and enabled!";
                 responseData.data = {
                     two_fa_enabled: user.two_fa_enabled,
+                    two_fa_method: user.two_fa_method
                 };
-                return responseHelper.success(res, responseData);
+                return responseHelper.error(res, responseData);
             }
+
+            const token = reqObj.token.replace(/\s/g, ""); // Remove all whitespace
+
+            // Log for debugging
+            log.info('Verifying TOTP token:', {
+                token: token,
+                tokenLength: token.length,
+                secret: user.two_fa_secret ? 'present' : 'missing',
+                secretLength: user.two_fa_secret ? user.two_fa_secret.length : 0,
+                currentServerToken: user.two_fa_secret ? authenticator.generate(user.two_fa_secret) : 'no-secret'
+            });
+
+            // Validate token format
+            if (!token || token.length !== 6 || !/^\d{6}$/.test(token)) {
+                responseData.msg = "Please enter a valid 6-digit code from your authenticator app.";
+                return responseHelper.error(res, responseData);
+            }
+
+            // Validate secret exists
+            if (!user.two_fa_secret) {
+                responseData.msg = "2FA secret not found. Please set up Google Authenticator again.";
+                return responseHelper.error(res, responseData);
+            }
+
+            // Use authenticator.verify with window tolerance for better compatibility
+            const verifyOptions = {
+                token: token,
+                secret: user.two_fa_secret,
+                window: 2 // Allow ±2 time steps (±60 seconds) for clock drift
+            };
+
+            const isValid = authenticator.verify(verifyOptions);
+
+            log.info('TOTP verification result:', {
+                isValid: isValid,
+                token: token,
+                secretPresent: !!user.two_fa_secret,
+                currentTime: new Date().toISOString(),
+                currentToken: authenticator.generate(user.two_fa_secret)
+            });
+
+            if (!isValid) {
+                responseData.msg = "The entered Google Authenticator code is invalid or expired. Please ensure your device time is synchronized and try the current code from your app.";
+                responseData.data = {
+                    two_fa_enabled: user.two_fa_enabled,
+                    two_fa_method: user.two_fa_method
+                };
+                return responseHelper.error(res, responseData);
+            }
+
+            // Success - enable 2FA
+            user.two_fa_enabled = true;
+            user.two_fa_method = 'totp';
+            await user.save();
+
+            responseData.msg = `Google Authenticator 2FA enabled successfully!`;
+            responseData.data = {
+                two_fa_enabled: user.two_fa_enabled,
+                two_fa_method: user.two_fa_method,
+            };
+            return responseHelper.success(res, responseData);
         } catch (error) {
-            log.error('failed to get user 2fa verify Otp with error::', error);
-            responseData.msg = 'Failed to get user 2fa verify Otp';
+            log.error('failed to verify Google Authenticator OTP with error::', error);
+            responseData.msg = 'Failed to verify Google Authenticator code';
             return responseHelper.error(res, responseData);
         }
     },
 
     disable2fa: async(req, res) => {
         let reqObj = req.body;
-        log.info('Recieved request for User 2FA Disable:', reqObj);
+        log.info('Received request to disable 2FA:', reqObj);
         let responseData = {};
         try {
             let query = {
@@ -99,152 +194,128 @@ module.exports = {
             }
             const user = await userDbHandler.getOneByQuery(query);
 
-            const token = reqObj ?.token.replaceAll(" ", "");
-            if (!authenticator.check(token, user.two_fa_secret)) {
-                responseData.msg = "The entered OTP is invalid!";
-                responseData.data = { two_fa_enabled: user.two_fa_enabled };
-                return responseHelper.error(res, responseData);
-            } else {
-                user.two_fa_enabled = false;
-                user.two_fa_secret = "";
-                await user.save();
-
-                responseData.msg = `2FA disabled successfully!`;
+            if (!user.two_fa_enabled) {
+                responseData.msg = "2FA is not enabled!";
                 responseData.data = {
                     two_fa_enabled: user.two_fa_enabled,
+                    two_fa_method: user.two_fa_method
+                };
+                return responseHelper.error(res, responseData);
+            }
+
+            // Verify current password for security
+            if (!reqObj.password) {
+                responseData.msg = "Password is required to disable 2FA";
+                return responseHelper.error(res, responseData);
+            }
+
+            const isPasswordValid = await bcrypt.compare(reqObj.password, user.password);
+            if (!isPasswordValid) {
+                responseData.msg = "Invalid password!";
+                return responseHelper.error(res, responseData);
+            }
+
+            // Disable 2FA
+            user.two_fa_enabled = false;
+            user.two_fa_secret = "";
+            user.two_fa_method = "otpless"; // Reset to default
+            await user.save();
+
+            responseData.msg = `2FA disabled successfully!`;
+            responseData.data = {
+                two_fa_enabled: user.two_fa_enabled,
+                two_fa_method: user.two_fa_method,
+            };
+            return responseHelper.success(res, responseData);
+        } catch (error) {
+            log.error('failed to disable 2FA with error::', error);
+            responseData.msg = 'Failed to disable 2FA';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    toggle2FAMethod: async(req, res) => {
+        let reqObj = req.body;
+        log.info('Received request to toggle 2FA method:', reqObj);
+        let responseData = {};
+        try {
+            let query = {
+                email: req.user.email
+            }
+            const user = await userDbHandler.getOneByQuery(query);
+
+            const method = reqObj.method; // 'totp' or 'otpless'
+
+            if (!method || !['totp', 'otpless'].includes(method)) {
+                responseData.msg = "Invalid 2FA method. Must be 'totp' or 'otpless'";
+                return responseHelper.error(res, responseData);
+            }
+
+            if (method === 'otpless') {
+                // Enable OTPless method
+                user.two_fa_enabled = true;
+                user.two_fa_method = 'otpless';
+                user.two_fa_secret = ""; // Clear TOTP secret
+                await user.save();
+
+                responseData.msg = `Email OTP 2FA enabled successfully!`;
+                responseData.data = {
+                    two_fa_enabled: user.two_fa_enabled,
+                    two_fa_method: user.two_fa_method,
+                };
+                return responseHelper.success(res, responseData);
+            } else {
+                // For TOTP, just update method but don't enable until verification
+                user.two_fa_method = 'totp';
+                user.two_fa_enabled = false; // Will be enabled after TOTP verification
+                await user.save();
+
+                responseData.msg = `2FA method set to Google Authenticator. Please complete setup to enable.`;
+                responseData.data = {
+                    two_fa_enabled: user.two_fa_enabled,
+                    two_fa_method: user.two_fa_method,
+                    setup_required: true
                 };
                 return responseHelper.success(res, responseData);
             }
         } catch (error) {
-            log.error('failed to get user 2fa disable with error::', error);
-            responseData.msg = 'Failed to get user 2fa disable';
+            log.error('failed to toggle 2FA method with error::', error);
+            responseData.msg = 'Failed to toggle 2FA method';
             return responseHelper.error(res, responseData);
         }
     },
 
-    /**
-     * Toggle 2FA method between TOTP and OTPless
-     */
-    toggle2FAMethod: async (req, res) => {
-        let reqObj = req.body;
-        log.info('Received request to toggle 2FA method:', reqObj);
+    // Debug endpoint to get current valid token
+    getCurrentToken: async(req, res) => {
         let responseData = {};
-
         try {
-            const { method } = reqObj; // 'totp' or 'otpless'
-
-            // Validate method
-            if (!method || !['totp', 'otpless'].includes(method)) {
-                responseData.msg = 'Invalid 2FA method. Must be "totp" or "otpless"';
-                return responseHelper.error(res, responseData);
-            }
-
             let query = {
                 email: req.user.email
-            };
-
+            }
             const user = await userDbHandler.getOneByQuery(query);
-            if (!user) {
-                responseData.msg = 'User not found';
+
+            if (!user.two_fa_secret) {
+                responseData.msg = "No 2FA secret found. Please set up Google Authenticator first.";
                 return responseHelper.error(res, responseData);
             }
 
-            // Update 2FA method and enable/disable 2FA accordingly
-            user.two_fa_method = method;
+            const currentToken = authenticator.generate(user.two_fa_secret);
 
-            if (method === 'otpless') {
-                // Enable 2FA with OTPless method
-                user.two_fa_enabled = true;
-                user.otpless_enabled = true;
-            } else if (method === 'totp') {
-                // Disable 2FA (totp method means disabled in our case)
-                user.two_fa_enabled = false;
-                user.otpless_enabled = false;
-                user.two_fa_secret = ''; // Clear any existing secret
-            }
-
-            await user.save();
-
-            responseData.msg = `2FA method updated to ${method.toUpperCase()} successfully`;
+            responseData.msg = "Current valid token retrieved successfully";
             responseData.data = {
-                two_fa_method: user.two_fa_method,
+                current_token: currentToken,
+                secret: user.two_fa_secret,
                 two_fa_enabled: user.two_fa_enabled,
-                otpless_enabled: user.otpless_enabled
+                two_fa_method: user.two_fa_method,
+                timestamp: new Date().toISOString(),
+                expires_in_seconds: 30 - (Math.floor(Date.now() / 1000) % 30)
             };
             return responseHelper.success(res, responseData);
-
         } catch (error) {
-            log.error('Failed to toggle 2FA method:', error);
-            responseData.msg = 'Failed to update 2FA method';
+            log.error('failed to get current token with error::', error);
+            responseData.msg = 'Failed to get current token';
             return responseHelper.error(res, responseData);
         }
     },
 
-
-
-    /**
-     * Method to handle user login
-     */
-    login: async(req, res) => {
-        let reqObj = req.body;
-        log.info('Recieved request for User 2FA:', reqObj);
-        let responseData = {};
-        try {
-            let query = {
-                email: reqObj.email
-            }
-            let getUser = await userDbHandler.getByQuery(query);
-            if (!getUser.length) {
-                responseData.msg = "Invalid Credentials!";
-                return responseHelper.error(res, responseData);
-            }
-            let checkPassword = await _comparePassword(reqObj.password, getUser[0].password);
-            console.log();
-            if (!checkPassword) {
-                responseData.msg = "Invalid Credentials!";
-                return responseHelper.error(res, responseData);
-            }
-            if (!getUser[0].email_verified) {
-                responseData.msg = "Email not verified yet!";
-                return responseHelper.error(res, responseData);
-            }
-            if (!getUser[0].status) {
-                responseData.msg = "Your account is Disabled please contact to admin!";
-                return responseHelper.error(res, responseData);
-            }
-
-            let time = new Date().getTime();
-            let tokenData = {
-                sub: getUser[0]._id,
-                email: getUser[0].email,
-                name: getUser[0].name,
-                time: time
-            };
-
-            // Don't set force_relogin_time during login to avoid immediate session expiration
-            let updatedObj = {
-                // force_relogin_time: time,
-                // force_relogin_type: 'session_expired',
-                last_login_date: new Date()
-            }
-            await userDbHandler.updateById(getUser[0]._id, updatedObj);
-
-            let token = _generateUserToken(tokenData);
-            let returnResponse = {
-                user_id: getUser[0]._id,
-                name: getUser[0].name,
-                email: getUser[0].email,
-                email_verify: getUser[0].email_verified,
-                token: token
-            }
-            responseData.msg = `Welcome ${getUser[0].username} !`;
-            responseData.data = returnResponse;
-            return responseHelper.success(res, responseData);
-
-        } catch (error) {
-            log.error('failed to get user 2fa with error::', error);
-            responseData.msg = 'Failed to get user 2fa';
-            return responseHelper.error(res, responseData);
-        }
-    },
 };

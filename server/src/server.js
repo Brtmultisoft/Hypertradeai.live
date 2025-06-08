@@ -3,7 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const http = require('http');
 const cors = require('cors');
-const env = require('dotenv').config();
+const env = require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const helmet = require('helmet');
 const passport = require('passport');
 const compression = require('compression');
@@ -85,7 +85,8 @@ class Server {
             log.info('Database connection loaded successfully');
         } catch (error) {
             log.error('Failed to load database connection:', error);
-            throw error; // Rethrow to stop server startup
+            log.warn('Server will start with limited functionality (database-dependent features disabled)');
+            // Don't throw error - allow server to start without database
         }
     }
     _loadPassPort() {

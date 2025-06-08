@@ -279,14 +279,14 @@ module.exports = () => {
     Router.put('/user/update_profile', [multerService.uploadFile('avatar').single('avatar'), validationMiddleware(userInfoValidation.updateProfile, 'body')], userInfoController.updateProfile);
     // Router.put('/user/update_profile', userInfoController.updateProfile);
 
-    Router.post('/user/generate-2fa-secret', user2FAController.generate2faSecret);
-    Router.post('/user/verify-otp', validationMiddleware(twoFaValidation.verifyOtp, 'body'), user2FAController.verifyOtp);
-    Router.post('/user/disable-2fa', validationMiddleware(twoFaValidation.disable2fa, 'body'), user2FAController.disable2fa);
+    Router.post('/user/generate-2fa-secret', [userAuthenticateMiddleware], user2FAController.generate2faSecret);
+    Router.post('/user/verify-otp', [userAuthenticateMiddleware, validationMiddleware(twoFaValidation.verifyOtp, 'body')], user2FAController.verifyOtp);
+    Router.post('/user/disable-2fa', [userAuthenticateMiddleware, validationMiddleware(twoFaValidation.disable2fa, 'body')], user2FAController.disable2fa);
 
     /**
      * 2FA Method Toggle Route
      */
-    Router.post('/user/toggle-2fa-method', user2FAController.toggle2FAMethod);
+    Router.post('/user/toggle-2fa-method', [userAuthenticateMiddleware, validationMiddleware(twoFaValidation.toggle2FAMethod, 'body')], user2FAController.toggle2FAMethod);
 
     /**
      * Routes for handle change password

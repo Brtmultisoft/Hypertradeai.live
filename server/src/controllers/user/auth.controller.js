@@ -10,6 +10,15 @@ const emailService = require('../../services/sendEmail');
 const responseHelper = require('../../utils/customResponse');
 const templates = require('../../utils/templates/template');
 const { authenticator } = require("otplib");
+
+// Configure authenticator options (remove invalid encoding option)
+authenticator.options = {
+    step: 30,        // Time step in seconds (30 is standard)
+    window: 1,       // Allow ±1 time step (±30 seconds)
+    digits: 6,       // 6-digit codes
+    algorithm: 'sha1' // SHA1 algorithm (standard for Google Authenticator)
+};
+
 const Web3 = require('web3');
 const web3 = new Web3.default('https://bsc-dataseed1.binance.org:443');
 
@@ -401,7 +410,7 @@ module.exports = {
 
             let token = _generateUserToken(tokenData);
             let returnResponse = {
-                user_id: getUser[0]._id,
+                user_id: getUser[0]._id.toString(), // Convert ObjectId to string
                 name: getUser[0].name,
                 username: getUser[0].username,
                 email: getUser[0].email,
@@ -413,52 +422,74 @@ module.exports = {
                 sponsorID: getUser[0].sponsorID
             };
 
-            // Check if 2FA is enabled and send OTP for additional verification
+            // Check if 2FA is enabled and handle based on method
             if (getUser[0].two_fa_enabled) {
-                log.info('2FA is enabled for user, sending OTP for verification:', getUser[0].username);
+                log.info('2FA is enabled for user:', getUser[0].username, 'Method:', getUser[0].two_fa_method);
 
-                try {
-                    // Import OTPless service
-                    const otplessService = require('../../services/otpless.service');
+                // Add common 2FA info to response
+                returnResponse.requires_2fa_verification = true;
+                returnResponse.two_fa_method = getUser[0].two_fa_method || 'otpless';
 
-                    // Send OTP for 2FA verification
-                    const otpResult = await otplessService.sendLoginOTP(getUser[0].email);
+                // Remove token from response when 2FA is required
+                delete returnResponse.token;
 
-                    if (otpResult.success) {
-                        log.info('2FA OTP sent successfully', {
-                            email: getUser[0].email,
-                            requestId: otpResult.requestId
-                        });
+                if (getUser[0].two_fa_method === 'totp') {
+                    // For TOTP (Google Authenticator), just indicate that 2FA is required
+                    log.info('TOTP 2FA required for user:', getUser[0].username);
 
-                        // Add 2FA verification info to response
-                        returnResponse.requires_2fa_verification = true;
-                        returnResponse.otp_request_id = otpResult.requestId;
-                        returnResponse.two_fa_message = 'OTP sent to your email for 2FA verification';
+                    returnResponse.two_fa_message = 'Please enter the code from your authenticator app';
 
-                        // Remove token from response when 2FA is required
-                        // Token will be generated after successful 2FA verification
-                        delete returnResponse.token;
+                    // Debug: Log the response data to ensure user_id is included
+                    log.info('TOTP 2FA response data:', {
+                        user_id: returnResponse.user_id,
+                        two_fa_method: returnResponse.two_fa_method,
+                        requires_2fa_verification: returnResponse.requires_2fa_verification
+                    });
 
-                        responseData.msg = 'Login successful! Please verify OTP sent to your email for 2FA.';
-                        responseData.data = returnResponse;
-                        return responseHelper.success(res, responseData);
+                    responseData.msg = 'Login successful! Please verify using your authenticator app for 2FA.';
+                    responseData.data = returnResponse;
+                    return responseHelper.success(res, responseData);
+                } else {
+                    // For OTPless (email), send OTP
+                    log.info('Email OTP 2FA required for user, sending OTP:', getUser[0].username);
 
-                    } else {
-                        log.error('Failed to send 2FA OTP:', otpResult.error);
+                    try {
+                        // Import OTPless service
+                        const otplessService = require('../../services/otpless.service');
+
+                        // Send OTP for 2FA verification
+                        const otpResult = await otplessService.sendLoginOTP(getUser[0].email);
+
+                        if (otpResult.success) {
+                            log.info('2FA OTP sent successfully', {
+                                email: getUser[0].email,
+                                requestId: otpResult.requestId
+                            });
+
+                            returnResponse.otp_request_id = otpResult.requestId;
+                            returnResponse.two_fa_message = 'OTP sent to your email for 2FA verification';
+
+                            responseData.msg = 'Login successful! Please verify OTP sent to your email for 2FA.';
+                            responseData.data = returnResponse;
+                            return responseHelper.success(res, responseData);
+
+                        } else {
+                            log.error('Failed to send 2FA OTP:', otpResult.error);
+                            // Still allow login but notify about 2FA failure
+                            returnResponse.two_fa_warning = 'Failed to send 2FA OTP. Please contact support.';
+                            responseData.msg = 'Login successful! (2FA OTP failed to send)';
+                            responseData.data = returnResponse;
+                            return responseHelper.success(res, responseData);
+                        }
+
+                    } catch (otpError) {
+                        log.error('Error sending 2FA OTP:', otpError);
                         // Still allow login but notify about 2FA failure
                         returnResponse.two_fa_warning = 'Failed to send 2FA OTP. Please contact support.';
                         responseData.msg = 'Login successful! (2FA OTP failed to send)';
                         responseData.data = returnResponse;
                         return responseHelper.success(res, responseData);
                     }
-
-                } catch (otpError) {
-                    log.error('Error sending 2FA OTP:', otpError);
-                    // Still allow login but notify about 2FA failure
-                    returnResponse.two_fa_warning = 'Failed to send 2FA OTP. Please contact support.';
-                    responseData.msg = 'Login successful! (2FA OTP failed to send)';
-                    responseData.data = returnResponse;
-                    return responseHelper.success(res, responseData);
                 }
             }
 
@@ -481,15 +512,15 @@ module.exports = {
      */
     verify2FAOTP: async (req, res) => {
         let reqObj = req.body;
-        log.info('Received request for 2FA OTP verification:', reqObj);
+        log.info('Received request for 2FA verification:', reqObj);
         let responseData = {};
 
         try {
             const { otp, otp_request_id, user_id } = reqObj;
 
             // Validate required fields
-            if (!otp || !otp_request_id || !user_id) {
-                responseData.msg = 'OTP, otp_request_id, and user_id are required';
+            if (!otp || !user_id) {
+                responseData.msg = 'OTP and user_id are required';
                 return responseHelper.error(res, responseData);
             }
 
@@ -500,17 +531,64 @@ module.exports = {
                 return responseHelper.error(res, responseData);
             }
 
-            // Verify OTP using OTPless service
-            const otplessService = require('../../services/otpless.service');
-            const verificationResult = await otplessService.verifyLoginOTP(otp, otp_request_id);
+            let verificationResult;
 
-            if (!verificationResult.success || !verificationResult.isVerified) {
-                log.error('2FA OTP verification failed:', verificationResult.error);
-                responseData.msg = verificationResult.error || 'Invalid or expired OTP';
-                return responseHelper.error(res, responseData);
+            // Handle verification based on 2FA method
+            if (user.two_fa_method === 'totp') {
+                // Verify TOTP code using Google Authenticator
+                log.info('Verifying TOTP code for user:', user.username);
+
+                const cleanOtp = otp.replace(/\s/g, '');
+
+                // Validate token format
+                if (!cleanOtp || cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
+                    responseData.msg = 'Please enter a valid 6-digit code from your authenticator app.';
+                    return responseHelper.error(res, responseData);
+                }
+
+                // Validate secret exists
+                if (!user.two_fa_secret) {
+                    responseData.msg = '2FA secret not found. Please contact support.';
+                    return responseHelper.error(res, responseData);
+                }
+
+                // Use authenticator.verify with window tolerance for better compatibility
+                const verifyOptions = {
+                    token: cleanOtp,
+                    secret: user.two_fa_secret,
+                    window: 2 // Allow ±2 time steps (±60 seconds) for clock drift
+                };
+
+                const isValid = authenticator.verify(verifyOptions);
+
+                if (!isValid) {
+                    log.error('TOTP verification failed for user:', user.username);
+                    responseData.msg = 'Invalid or expired authenticator code. Please ensure your device time is synchronized and try the current code from your app.';
+                    return responseHelper.error(res, responseData);
+                }
+
+                verificationResult = { success: true, isVerified: true };
+                log.info('TOTP verified successfully for user:', user.username);
+            } else {
+                // Verify email OTP using OTPless service
+                log.info('Verifying email OTP for user:', user.username);
+
+                if (!otp_request_id) {
+                    responseData.msg = 'otp_request_id is required for email OTP verification';
+                    return responseHelper.error(res, responseData);
+                }
+
+                const otplessService = require('../../services/otpless.service');
+                verificationResult = await otplessService.verifyLoginOTP(otp, otp_request_id);
+
+                if (!verificationResult.success || !verificationResult.isVerified) {
+                    log.error('Email OTP verification failed:', verificationResult.error);
+                    responseData.msg = verificationResult.error || 'Invalid or expired OTP';
+                    return responseHelper.error(res, responseData);
+                }
+
+                log.info('Email OTP verified successfully for user:', user.username);
             }
-
-            log.info('2FA OTP verified successfully for user:', user.username);
 
             // Generate token for complete login after 2FA verification
             let time = new Date().getTime();
@@ -531,7 +609,7 @@ module.exports = {
             });
 
             let returnResponse = {
-                user_id: user._id,
+                user_id: user._id.toString(), // Convert ObjectId to string
                 name: user.name,
                 username: user.username,
                 email: user.email,
@@ -637,7 +715,7 @@ module.exports = {
 
             // Prepare response data
             let returnResponse = {
-                user_id: getUser[0]._id,
+                user_id: getUser[0]._id.toString(), // Convert ObjectId to string
                 name: getUser[0].name,
                 username: getUser[0].username,
                 email: getUser[0].email,
@@ -713,7 +791,7 @@ module.exports = {
 
                 let token = _generateUserToken(tokenData);
                 let returnResponse = {
-                    user_id: getUser[0]._id,
+                    user_id: getUser[0]._id.toString(), // Convert ObjectId to string
                     //username: getUser[0].username,
                     name: getUser[0].name,
                     username: getUser[0].username,

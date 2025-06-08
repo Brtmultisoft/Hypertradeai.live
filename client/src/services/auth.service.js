@@ -164,6 +164,36 @@ const AuthService = {
       throw error.response?.data || { msg: 'Failed to toggle 2FA method' };
     }
   },
+
+  // Generate 2FA secret for Google Authenticator
+  generate2FASecret: async () => {
+    try {
+      const response = await api.post('/user/generate-2fa-secret');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to generate 2FA secret' };
+    }
+  },
+
+  // Verify TOTP code for Google Authenticator
+  verifyTOTP: async (token) => {
+    try {
+      const response = await api.post('/user/verify-otp', { token });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to verify TOTP code' };
+    }
+  },
+
+  // Disable 2FA
+  disable2FA: async (password) => {
+    try {
+      const response = await api.post('/user/disable-2fa', { password });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to disable 2FA' };
+    }
+  },
 };
 
 export default AuthService;
