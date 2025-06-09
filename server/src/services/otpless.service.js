@@ -490,7 +490,7 @@ class OTPlessService {
      */
     async sendForgotPasswordOTP(email) {
         log.info('Sending forgot password OTP to:', email);
-        return await this.sendOTP(email, 6, 600); // 6-digit OTP, 10 minutes expiry
+        return await this.sendOTP(email, 4, 600); // 4-digit OTP, 10 minutes expiry
     }
 
     /**
