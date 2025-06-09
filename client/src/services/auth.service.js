@@ -309,6 +309,61 @@ const AuthService = {
       throw error.response?.data || { msg: 'Failed to verify mobile OTP' };
     }
   },
+
+  // Verify email OTP for forgot password (without resetting password)
+  verifyForgotPasswordOTP: async (otp, requestId) => {
+    try {
+      const response = await api.post('/user/verify/forgot-password-otp', {
+        otp,
+        otp_request_id: requestId
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to verify forgot password OTP' };
+    }
+  },
+
+  // Verify mobile OTP for forgot password (without resetting password)
+  verifyForgotPasswordMobileOTP: async (otp, requestId) => {
+    try {
+      const response = await api.post('/user/verify/forgot-password-mobile-otp', {
+        otp,
+        requestId
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to verify forgot password mobile OTP' };
+    }
+  },
+
+  // Reset password with already verified OTP (email)
+  resetPasswordWithVerifiedOTP: async (email, requestId, newPassword) => {
+    try {
+      const response = await api.post('/user/reset/password-with-verified-otp', {
+        email,
+        otp_request_id: requestId,
+        new_password: newPassword
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to reset password' };
+    }
+  },
+
+  // Reset password with already verified mobile OTP
+  resetPasswordWithVerifiedMobileOTP: async (phoneNumber, requestId, newPassword) => {
+    try {
+      const response = await api.post('/user/reset/password-with-verified-mobile-otp', {
+        phone_number: phoneNumber,
+        requestId,
+        password: newPassword,
+        confirm_password: newPassword
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to reset password' };
+    }
+  },
 };
 
 export default AuthService;

@@ -1478,9 +1478,19 @@ module.exports = {
 
                 log.info('Mobile OTP verified successfully for password reset');
 
+                // Check if new password is different from current password
+                let comparePassword = await _comparePassword(password, user.password);
+                if (comparePassword) {
+                    responseData.msg = 'New password cannot be the same as your current password';
+                    return responseHelper.error(res, responseData);
+                }
+
+                // Encrypt new password
+                let encryptedPassword = await _encryptPassword(password);
+
                 // Update user password
                 const updateData = {
-                    password: password // Will be hashed by the pre-save hook
+                    password: encryptedPassword
                 };
 
                 await userDbHandler.updateById(user._id, updateData);
@@ -1960,6 +1970,198 @@ module.exports = {
         } catch (error) {
             log.error('Failed to process forgot password request with error:', error);
             responseData.msg = 'Failed to process forgot password request';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Method to verify forgot password OTP (without resetting password)
+     */
+    verifyForgotPasswordOTP: async(req, res) => {
+        let reqBody = req.body;
+        log.info('Received request for forgot password OTP verification:', reqBody);
+        let responseData = {};
+
+        try {
+            const { otp, otp_request_id } = reqBody;
+
+            // Validate required fields
+            if (!otp || !otp_request_id) {
+                responseData.msg = 'OTP and otp_request_id are required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Verify OTP using OTPless service
+            const otplessService = require('../../services/otpless.service');
+            const verificationResult = await otplessService.verifyForgotPasswordOTP(otp, otp_request_id);
+
+            if (verificationResult.success && verificationResult.isVerified) {
+                log.info('Forgot password OTP verified successfully');
+                responseData.msg = 'OTP verified successfully';
+                responseData.data = {
+                    verified: true,
+                    otp_request_id: otp_request_id
+                };
+                return responseHelper.success(res, responseData);
+            } else {
+                log.error('Forgot password OTP verification failed:', verificationResult.error);
+                responseData.msg = verificationResult.error || 'Invalid or expired OTP';
+                return responseHelper.error(res, responseData);
+            }
+
+        } catch (error) {
+            log.error('Failed to verify forgot password OTP:', error);
+            responseData.msg = 'Failed to verify OTP';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Method to verify forgot password mobile OTP (without resetting password)
+     */
+    verifyForgotPasswordMobileOTP: async(req, res) => {
+        let reqBody = req.body;
+        log.info('Received request for forgot password mobile OTP verification:', reqBody);
+        let responseData = {};
+
+        try {
+            const { otp, requestId } = reqBody;
+
+            // Validate required fields
+            if (!otp || !requestId) {
+                responseData.msg = 'OTP and requestId are required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Verify mobile OTP using OTPless service
+            const otplessService = require('../../services/otpless.service');
+            const verificationResult = await otplessService.verifyForgotPasswordSMSOTP(otp, requestId);
+
+            if (verificationResult.success && verificationResult.isVerified) {
+                log.info('Forgot password mobile OTP verified successfully');
+                responseData.msg = 'Mobile OTP verified successfully';
+                responseData.data = {
+                    verified: true,
+                    requestId: requestId
+                };
+                return responseHelper.success(res, responseData);
+            } else {
+                log.error('Forgot password mobile OTP verification failed:', verificationResult.error);
+                responseData.msg = verificationResult.error || 'Invalid or expired OTP';
+                return responseHelper.error(res, responseData);
+            }
+
+        } catch (error) {
+            log.error('Failed to verify forgot password mobile OTP:', error);
+            responseData.msg = 'Failed to verify mobile OTP';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Method to reset password with already verified OTP (email)
+     */
+    resetPasswordWithVerifiedOTP: async(req, res) => {
+        let reqBody = req.body;
+        log.info('Received request for password reset with verified OTP:', { email: reqBody.email });
+        let responseData = {};
+
+        try {
+            const { email, otp_request_id, new_password } = reqBody;
+
+            // Validate required fields
+            if (!email || !otp_request_id || !new_password) {
+                responseData.msg = 'Email, otp_request_id, and new_password are required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Find user by email
+            const user = await userDbHandler.findByQuery({ email: email.toLowerCase() });
+            if (!user) {
+                responseData.msg = 'User not found';
+                return responseHelper.error(res, responseData);
+            }
+
+            log.info('User found for password reset:', user._id);
+
+            // Check if new password is different from current password
+            let comparePassword = await _comparePassword(new_password, user.password);
+            if (comparePassword) {
+                responseData.msg = 'New password cannot be the same as your current password';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Encrypt new password
+            let encryptedPassword = await _encryptPassword(new_password);
+
+            // Update user password (OTP already verified)
+            await userDbHandler.updateById(user._id, { password: encryptedPassword });
+            log.info('Password updated successfully for user:', user._id);
+
+            responseData.msg = 'Password reset successfully';
+            responseData.data = { success: true };
+            return responseHelper.success(res, responseData);
+
+        } catch (error) {
+            log.error('Failed to reset password with verified OTP:', error);
+            responseData.msg = 'Failed to reset password';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Method to reset password with already verified mobile OTP
+     */
+    resetPasswordWithVerifiedMobileOTP: async(req, res) => {
+        let reqBody = req.body;
+        log.info('Received request for password reset with verified mobile OTP:', { phone_number: reqBody.phone_number });
+        let responseData = {};
+
+        try {
+            const { phone_number, requestId, password, confirm_password } = reqBody;
+
+            // Validate required fields
+            if (!phone_number || !requestId || !password || !confirm_password) {
+                responseData.msg = 'Phone number, requestId, password, and confirm_password are required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Check if passwords match
+            if (password !== confirm_password) {
+                responseData.msg = 'Passwords do not match';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Find user by phone number
+            const user = await userDbHandler.findByQuery({ phone_number });
+            if (!user) {
+                responseData.msg = 'User not found with this phone number';
+                return responseHelper.error(res, responseData);
+            }
+
+            log.info('User found for mobile password reset:', user._id);
+
+            // Check if new password is different from current password
+            let comparePassword = await _comparePassword(password, user.password);
+            if (comparePassword) {
+                responseData.msg = 'New password cannot be the same as your current password';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Encrypt new password
+            let encryptedPassword = await _encryptPassword(password);
+
+            // Update user password (OTP already verified)
+            await userDbHandler.updateById(user._id, { password: encryptedPassword });
+            log.info('Password updated successfully for user:', user._id);
+
+            responseData.msg = 'Password reset successfully';
+            responseData.data = { success: true };
+            return responseHelper.success(res, responseData);
+
+        } catch (error) {
+            log.error('Failed to reset password with verified mobile OTP:', error);
+            responseData.msg = 'Failed to reset password';
             return responseHelper.error(res, responseData);
         }
     },

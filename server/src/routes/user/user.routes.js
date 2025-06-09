@@ -142,10 +142,32 @@ module.exports = () => {
         userAuthController.resetPasswordWithOTP
     );
 
+    // Password reset with already verified OTP (no re-verification)
+    Router.post(
+        '/user/reset/password-with-verified-otp',
+        userAuthController.resetPasswordWithVerifiedOTP
+    );
+
+    Router.post(
+        '/user/reset/password-with-verified-mobile-otp',
+        userAuthController.resetPasswordWithVerifiedMobileOTP
+    );
+
     // New 2FA OTP verification route (after login)
     Router.post(
         '/user/verify-2fa-otp',
         userAuthController.verify2FAOTP
+    );
+
+    // OTP verification routes for forgot password (without resetting password)
+    Router.post(
+        '/user/verify/forgot-password-otp',
+        userAuthController.verifyForgotPasswordOTP
+    );
+
+    Router.post(
+        '/user/verify/forgot-password-mobile-otp',
+        userAuthController.verifyForgotPasswordMobileOTP
     );
     /**
      * Email verification Route

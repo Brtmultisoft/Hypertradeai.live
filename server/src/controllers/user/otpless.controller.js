@@ -5,6 +5,7 @@ const { userDbHandler } = require('../../services/db');
 const otplessService = require('../../services/otpless.service');
 const responseHelper = require('../../utils/customResponse');
 const jwtService = require('../../services/jwt');
+const passwordService = require('../../services/password.service');
 
 /**
  * OTPless Controller for handling OTPless authentication
@@ -209,6 +210,9 @@ const otplessController = {
 
             const sponsorID = await generateSponsorId();
 
+            // Hash the password manually since updateById doesn't trigger pre-save hooks
+            const hashedPassword = await passwordService.hashPassword(userData.password);
+
             // Create user with OTPless verification and proper referral data (matching existing structure)
             const newUserData = {
                 refer_id: refer_id,
@@ -217,7 +221,7 @@ const otplessController = {
                 trace_id: trace_id,
                 sponsorID: sponsorID, // Add the generated sponsor ID
                 email: normalizedEmail, // Store email
-                password: userData.password, // Password will be encrypted by the pre-save hook in the user model
+                password: hashedPassword, // Password is now properly hashed
                 name: userData.name, // Store name
                 phone_number: userData.phone_number || userData.phone, // Store phone number
                 country: userData.country, // Store country

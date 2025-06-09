@@ -56,6 +56,7 @@ const ForgotPassword = () => {
   const [otpError, setOtpError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [localError, setLocalError] = useState(null);
 
   // Password form state
   const [passwordData, setPasswordData] = useState({
@@ -114,18 +115,36 @@ const ForgotPassword = () => {
         }
 
         console.log('📡 Forgot password result:', result);
+        console.log('📡 Result success:', result.success);
+        console.log('📡 Result status:', result.status);
+        console.log('📡 Result data:', result.data);
 
         if (result.success || result.status) {
           console.log('✅ OTP sent successfully, showing dialog');
           // Handle both AuthContext response format and direct API response format
           const responseData = result.data || result;
-          setOtpRequestId(responseData.otp_request_id || responseData.requestId);
+          console.log('📡 Response data:', responseData);
+
+          const requestId = responseData.otp_request_id || responseData.requestId;
+          console.log('📡 Request ID:', requestId);
+
+          setOtpRequestId(requestId);
           setShowOTPDialog(true);
           setSuccessMessage(`OTP sent to your ${contactMethod}. Please check your ${contactMethod === 'email' ? 'inbox' : 'messages'}.`);
           setShowSuccessAlert(true);
           resetForm();
+
+          console.log('✅ Modal should be showing now. showOTPDialog:', true);
+          console.log('✅ State after setting showOTPDialog:', {
+            showOTPDialog: true,
+            otpRequestId: requestId,
+            contactMethod,
+            email,
+            phoneNumber
+          });
         } else {
           console.error('❌ Forgot password failed:', result.msg || result.message || result.error);
+          setLocalError(result.msg || result.message || result.error || 'Failed to send OTP');
         }
       } catch (error) {
         console.error('❌ Error in forgot password form submission:', error);
@@ -134,7 +153,7 @@ const ForgotPassword = () => {
     }
   );
 
-  // Handle OTP verification
+  // Handle OTP verification - Simplified approach
   const handleOTPVerification = async (otp) => {
     console.log('🔢 OTP verification started with OTP:', otp);
     try {
@@ -147,9 +166,8 @@ const ForgotPassword = () => {
         return;
       }
 
-      console.log('✅ OTP format valid, proceeding to password reset');
-      // Store the OTP for later use in password reset
-      // The actual OTP verification will happen during password reset
+      console.log('✅ OTP format valid, storing for password reset');
+      // Store the OTP for later use in password reset (original working approach)
       setPasswordData(prev => ({ ...prev, otp }));
       setShowOTPDialog(false);
       setShowPasswordDialog(true);
@@ -157,7 +175,7 @@ const ForgotPassword = () => {
       setShowSuccessAlert(true);
     } catch (err) {
       console.error('❌ Error in OTP verification:', err);
-      setOtpError(err.msg || err.message || 'Failed to verify OTP');
+      setOtpError(err.msg || err.message || 'Failed to process OTP');
     } finally {
       setOtpLoading(false);
     }
@@ -306,9 +324,9 @@ const ForgotPassword = () => {
       </Snackbar>
 
       {/* Error Message */}
-      {error && (
+      {(error || localError) && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+          {error || localError}
         </Alert>
       )}
 
@@ -442,6 +460,7 @@ const ForgotPassword = () => {
       </Box>
 
       {/* OTP Verification Dialog */}
+      {console.log('🔍 Rendering OTP Dialog. showOTPDialog:', showOTPDialog)}
       <Dialog open={showOTPDialog} onClose={() => setShowOTPDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
