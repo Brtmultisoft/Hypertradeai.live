@@ -115,15 +115,17 @@ const ForgotPassword = () => {
 
         console.log('📡 Forgot password result:', result);
 
-        if (result.status) {
+        if (result.success || result.status) {
           console.log('✅ OTP sent successfully, showing dialog');
-          setOtpRequestId(result.data.otp_request_id || result.data.requestId);
+          // Handle both AuthContext response format and direct API response format
+          const responseData = result.data || result;
+          setOtpRequestId(responseData.otp_request_id || responseData.requestId);
           setShowOTPDialog(true);
           setSuccessMessage(`OTP sent to your ${contactMethod}. Please check your ${contactMethod === 'email' ? 'inbox' : 'messages'}.`);
           setShowSuccessAlert(true);
           resetForm();
         } else {
-          console.error('❌ Forgot password failed:', result.msg || result.message);
+          console.error('❌ Forgot password failed:', result.msg || result.message || result.error);
         }
       } catch (error) {
         console.error('❌ Error in forgot password form submission:', error);
