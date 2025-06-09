@@ -10,6 +10,7 @@ module.exports = {
 	/* User Validation */
 	userAuthValidation: require('./user/auth.validation'),
 	userInfoValidation: require('./user/info.validation'),
+	dualVerificationValidation: require('./dual.verification.validation'),
 
 	/* Common Validation */
 	userValidation: require('./user.validation'),

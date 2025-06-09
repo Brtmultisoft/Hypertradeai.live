@@ -49,8 +49,14 @@ export const validatePassword = (password) => {
  * @returns {boolean} True if valid, false otherwise
  */
 export const isValidPhone = (phone) => {
-  const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-  return phoneRegex.test(phone);
+  if (!phone) return false;
+
+  // Remove all non-digit characters except +
+  const cleanPhone = phone.replace(/[^\d+]/g, '');
+
+  // Check if it's a valid international format
+  const phoneRegex = /^\+?[1-9]\d{9,14}$/;
+  return phoneRegex.test(cleanPhone);
 };
 
 /**

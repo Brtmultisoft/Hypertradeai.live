@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Frontend API Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, button {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Frontend API Fix Test</h1>
+        <p>Test the dual verification API directly from the browser</p>
+
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" value="rajatsinha547@gmail.com">
+        </div>
+
+        <div class="form-group">
+            <label for="phone">Phone Number:</label>
+            <input type="tel" id="phone" value="7367989866">
+        </div>
+
+        <button onclick="testDualVerification()" id="testBtn">Test Dual Verification</button>
+        <button onclick="testEmailOTP()" id="emailBtn">Test Email OTP</button>
+        <button onclick="testMobileOTP()" id="mobileBtn">Test Mobile OTP</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:2015/api/v1';
+
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        async function testDualVerification() {
+            const testBtn = document.getElementById('testBtn');
+            testBtn.disabled = true;
+            testBtn.textContent = 'Testing...';
+
+            try {
+                showResult('🔄 Testing dual verification endpoint...', 'info');
+
+                const response = await fetch(`${API_BASE}/user/dual-verification/send-registration-otps`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: document.getElementById('email').value,
+                        phone_number: document.getElementById('phone').value
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.status) {
+                    showResult(`✅ SUCCESS! Dual verification working!
+
+Response: ${JSON.stringify(data, null, 2)}
+
+📧 Email Request ID: ${data.data.emailRequestId}
+📱 Mobile Request ID: ${data.data.mobileRequestId}
+
+💡 Check server console for test OTPs!`, 'success');
+                } else {
+                    showResult(`⚠️ API responded but with error:
+Status: ${response.status}
+Response: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Request failed:
+Error: ${error.message}
+
+This might be a CORS issue or server not running.
+Make sure server is running on port 2015.`, 'error');
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = 'Test Dual Verification';
+            }
+        }
+
+        async function testEmailOTP() {
+            const emailBtn = document.getElementById('emailBtn');
+            emailBtn.disabled = true;
+            emailBtn.textContent = 'Testing...';
+
+            try {
+                const response = await fetch(`${API_BASE}/user/otpless/send-registration-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: document.getElementById('email').value
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ Email OTP endpoint working!
+Response: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult(`❌ Email OTP failed:
+Status: ${response.status}
+Response: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Email OTP request failed: ${error.message}`, 'error');
+            } finally {
+                emailBtn.disabled = false;
+                emailBtn.textContent = 'Test Email OTP';
+            }
+        }
+
+        async function testMobileOTP() {
+            const mobileBtn = document.getElementById('mobileBtn');
+            mobileBtn.disabled = true;
+            mobileBtn.textContent = 'Testing...';
+
+            try {
+                const response = await fetch(`${API_BASE}/user/otpless/send-mobile-registration-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        phone_number: document.getElementById('phone').value
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ Mobile OTP endpoint working!
+Response: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult(`❌ Mobile OTP failed:
+Status: ${response.status}
+Response: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Mobile OTP request failed: ${error.message}`, 'error');
+            } finally {
+                mobileBtn.disabled = false;
+                mobileBtn.textContent = 'Test Mobile OTP';
+            }
+        }
+
+        // Show initial message
+        showResult('📋 Click the buttons above to test the API endpoints.', 'info');
+    </script>
+</body>
+</html>

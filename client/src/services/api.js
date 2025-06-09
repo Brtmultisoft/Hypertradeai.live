@@ -26,9 +26,12 @@ api.interceptors.request.use(
         const publicRoutes = [
             '/user/login',
             '/user/signup',
+            '/user/signup-with-verification',
             '/user/forgot/password',
+            '/user/forgot/password-mobile',
             '/user/reset/password',
             '/user/reset/password-with-otp',
+            '/user/reset/password-with-mobile-otp',
             '/user/verify-2fa-otp',
             '/user/checkReferID',
             '/user/get-default-sponsor',
@@ -39,6 +42,10 @@ api.interceptors.request.use(
             '/user/otpless/verify-login-otp',
             '/user/otpless/send-2fa-otp',
             '/user/otpless/verify-2fa-otp',
+            '/user/otpless/send-mobile-registration-otp',
+            '/user/otpless/verify-mobile-registration-otp',
+            '/user/dual-verification/send-registration-otps',
+            '/user/dual-verification/verify-registration-otps',
             '/user/otp/test-send',
             '/user/otp/test-verify'
         ];

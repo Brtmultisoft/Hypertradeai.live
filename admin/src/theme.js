@@ -1,36 +1,61 @@
 import { createTheme } from '@mui/material/styles';
 
-// Binance-inspired color palette
+// Binance-inspired color palette - Updated to match main theme
 const colors = {
   primary: {
-    main: '#FCD535', // Primary Yellow
-    light: '#FFDF6B',
-    dark: '#E1B000',
-    contrastText: '#000000',
+    main: '#F0B90B', // Binance Gold - Primary brand color
+    light: '#FCD535', // Lighter gold for hover states
+    dark: '#D4A200', // Darker gold for pressed states
+    contrastText: '#000000', // Black text on gold background
   },
   secondary: {
-    main: '#0ECB81', // Green (Profit/Success)
+    main: '#0ECB81', // Binance Green (Profit/Success)
     light: '#3FE1A0',
-    dark: '#0A9F65',
+    dark: '#0BA572',
     contrastText: '#FFFFFF',
   },
   error: {
-    main: '#F6465D', // Red (Loss/Warning)
+    main: '#F6465D', // Binance Red (Loss/Warning)
     light: '#FF7A8A',
-    dark: '#C41E35',
+    dark: '#D93D52',
+    contrastText: '#FFFFFF',
+  },
+  warning: {
+    main: '#F0B90B', // Binance Gold for warnings
+    light: '#FCD535',
+    dark: '#D4A200',
+    contrastText: '#000000',
+  },
+  info: {
+    main: '#F0B90B', // Binance Gold for info
+    light: '#FCD535',
+    dark: '#D4A200',
+    contrastText: '#000000',
+  },
+  success: {
+    main: '#0ECB81', // Binance Green
+    light: '#3FE1A0',
+    dark: '#0BA572',
     contrastText: '#FFFFFF',
   },
   background: {
-    default: '#0B0E11', // Dark Gray / Background
-    paper: '#1E2329',
-    light: '#2B3139',
+    default: '#0B0E11', // Deep black background
+    paper: '#1E2329', // Dark card/paper background
+    light: '#2B3139', // Secondary background
   },
   text: {
-    primary: '#FFFFFF',
-    secondary: '#B7BDC6',
+    primary: '#FFFFFF', // White primary text
+    secondary: '#B7BDC6', // Light gray secondary text
     disabled: '#5E6673',
   },
   divider: '#2B3139',
+  action: {
+    active: '#F0B90B', // Gold for active states
+    hover: 'rgba(240, 185, 11, 0.08)', // Gold hover with transparency
+    selected: 'rgba(240, 185, 11, 0.16)', // Gold selected with transparency
+    disabled: 'rgba(255, 255, 255, 0.3)',
+    disabledBackground: 'rgba(255, 255, 255, 0.12)',
+  },
 };
 
 // Create a theme instance

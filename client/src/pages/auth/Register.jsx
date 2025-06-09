@@ -39,6 +39,7 @@ import useAuth from '../../hooks/useAuth';
 import useForm from '../../hooks/useForm';
 import AuthService from '../../services/auth.service';
 import OTPInput from '../../components/auth/OTPInput';
+import DualOTPVerificationModal from '../../components/auth/DualOTPVerificationModal';
 import { isValidEmail, isValidPhone, validatePassword } from '../../utils/validators';
 
 const Register = () => {
@@ -66,6 +67,15 @@ const Register = () => {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState(null);
   const [pendingUserData, setPendingUserData] = useState(null);
+
+  // Dual verification states
+  const [showDualOTPDialog, setShowDualOTPDialog] = useState(false);
+  const [dualOtpLoading, setDualOtpLoading] = useState(false);
+  const [dualOtpError, setDualOtpError] = useState(null);
+  const [emailRequestId, setEmailRequestId] = useState('');
+  const [mobileRequestId, setMobileRequestId] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationPhone, setVerificationPhone] = useState('');
 
   // Get referral code from URL if present and default referrer from env
   useEffect(() => {
@@ -142,7 +152,43 @@ const Register = () => {
 
 
 
-  // OTP registration functions
+  // Dual verification functions
+  const handleDualVerificationRegistration = async (userData, email, phone) => {
+    try {
+      setDualOtpLoading(true);
+      setDualOtpError(null);
+
+      console.log('Sending dual verification OTPs for:', {
+        email: email,
+        phone: phone
+      });
+
+      const response = await AuthService.sendDualRegistrationOTPs(email, phone);
+
+      console.log('Dual verification OTPs response:', response);
+
+      if (response.status) {
+        setEmailRequestId(response.data.emailRequestId);
+        setMobileRequestId(response.data.mobileRequestId);
+        setVerificationEmail(email);
+        setVerificationPhone(phone);
+        setPendingUserData(userData);
+        setShowDualOTPDialog(true);
+        setSuccessMessage('Verification codes sent to your email and mobile!');
+        setShowSuccessAlert(true);
+      } else {
+        console.error('Failed to send dual OTPs:', response);
+        setDualOtpError(response.msg || 'Failed to send verification codes');
+      }
+    } catch (err) {
+      console.error('Error sending dual verification OTPs:', err);
+      setDualOtpError(err.msg || err.message || 'Failed to send verification codes');
+    } finally {
+      setDualOtpLoading(false);
+    }
+  };
+
+  // OTP registration functions (fallback for email-only)
   const handleOTPRegistration = async (userData) => {
     try {
       setOtpLoading(true);
@@ -173,6 +219,67 @@ const Register = () => {
     }
   };
 
+  // Handle dual verification
+  const handleDualVerification = async (verificationData) => {
+    try {
+      setDualOtpLoading(true);
+      setDualOtpError(null);
+
+      console.log('Verifying dual registration OTPs:', {
+        email: verificationEmail,
+        phone: verificationPhone,
+        emailOtp: verificationData.emailOtp,
+        mobileOtp: verificationData.mobileOtp,
+        emailRequestId: verificationData.emailRequestId,
+        mobileRequestId: verificationData.mobileRequestId,
+        hasUserData: !!pendingUserData
+      });
+
+      const response = await AuthService.verifyDualRegistrationOTPs(
+        verificationEmail,
+        verificationPhone,
+        verificationData.emailOtp,
+        verificationData.mobileOtp,
+        verificationData.emailRequestId,
+        verificationData.mobileRequestId,
+        pendingUserData
+      );
+
+      console.log('Dual verification response:', response);
+
+      if (response.status) {
+        // Store registration data for success dialog
+        setRegistrationData({
+          name: pendingUserData.name,
+          username: pendingUserData.username || response.data.username,
+          email: verificationEmail, // Use verification email instead of pendingUserData
+          password: pendingUserData.password,
+          sponsorID: response.data.sponsorID,
+        });
+
+        // Show success dialog
+        setOpenSuccessDialog(true);
+        setShowDualOTPDialog(false);
+        resetForm();
+      } else {
+        console.error('Dual verification failed:', response);
+        setDualOtpError(response.msg || 'Invalid verification codes');
+      }
+    } catch (err) {
+      console.error('Error verifying dual registration OTPs:', err);
+      setDualOtpError(err.msg || err.message || 'Failed to verify codes');
+    } finally {
+      setDualOtpLoading(false);
+    }
+  };
+
+  // Handle resend dual OTPs
+  const handleResendDualOTPs = async () => {
+    if (pendingUserData && verificationEmail && verificationPhone) {
+      await handleDualVerificationRegistration(pendingUserData, verificationEmail, verificationPhone);
+    }
+  };
+
   const handleOTPVerification = async (otp) => {
     try {
       setOtpLoading(true);
@@ -199,7 +306,7 @@ const Register = () => {
         setRegistrationData({
           name: pendingUserData.name,
           username: pendingUserData.username || response.data.username,
-          email: pendingUserData.email,
+          email: otpEmail, // Use OTP email instead of pendingUserData
           password: pendingUserData.password,
           sponsorID: response.data.sponsorID, // Use sponsorID from response
         });
@@ -298,17 +405,18 @@ const Register = () => {
         }
 
         // Proceed with OTP registration
-        const { confirmPassword, phone, ...userData } = formValues;
+        const { confirmPassword, phone, email, ...userData } = formValues;
         const finalUserData = {
           ...userData,
-          phone_number: phone, // Backend expects phone_number
+          confirm_password: confirmPassword, // Backend expects confirm_password
           referralId: referralCode || undefined, // Backend expects referralId, undefined if empty
+          // Note: email and phone_number are passed separately, not in userData
         };
 
         console.log('Final user data being sent:', finalUserData);
 
-        // Always use OTP registration
-        await handleOTPRegistration(finalUserData);
+        // Use dual verification (email + mobile) for registration
+        await handleDualVerificationRegistration(finalUserData, email, phone);
       } catch (err) {
         console.error('Registration error:', err);
         setError(err.message || 'An unexpected error occurred. Please try again.');
@@ -452,6 +560,12 @@ const Register = () => {
           {otpError && (
             <Alert severity="error" sx={{ mb: 3 }}>
               {otpError}
+            </Alert>
+          )}
+
+          {dualOtpError && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {dualOtpError}
             </Alert>
           )}
 
@@ -650,17 +764,17 @@ const Register = () => {
               type="submit"
               variant="contained"
               color="primary"
-              disabled={loading || isSubmitting || otpLoading}
+              disabled={loading || isSubmitting || otpLoading || dualOtpLoading}
               fullWidth={isMobile}
               sx={{ width: isMobile ? '100%' : 'auto' }}
             >
-              {loading || isSubmitting || otpLoading ? (
+              {loading || isSubmitting || otpLoading || dualOtpLoading ? (
                 <>
                   <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
-                  Sending OTP...
+                  Sending Verification Codes...
                 </>
               ) : (
-                'Send OTP to Register'
+                'Send Verification Codes'
               )}
             </Button>
           </Box>
@@ -676,7 +790,21 @@ const Register = () => {
         </Box>
       </Grow>
 
-      {/* OTP Verification Dialog */}
+      {/* Dual OTP Verification Dialog */}
+      <DualOTPVerificationModal
+        open={showDualOTPDialog}
+        onClose={() => setShowDualOTPDialog(false)}
+        onVerify={handleDualVerification}
+        onResend={handleResendDualOTPs}
+        email={verificationEmail}
+        phoneNumber={verificationPhone}
+        emailRequestId={emailRequestId}
+        mobileRequestId={mobileRequestId}
+        loading={dualOtpLoading}
+        error={dualOtpError}
+      />
+
+      {/* OTP Verification Dialog (Fallback for email-only) */}
       <Dialog open={showOTPDialog} onClose={() => setShowOTPDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Verify Email OTP</DialogTitle>
         <DialogContent>

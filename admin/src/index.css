@@ -3,9 +3,21 @@
   line-height: 1.5;
   font-weight: 400;
 
+  /* Binance-inspired color variables for admin */
+  --binance-gold: #F0B90B;
+  --binance-gold-light: #FCD535;
+  --binance-gold-dark: #D4A200;
+  --binance-black: #0B0E11;
+  --binance-dark-gray: #1E2329;
+  --binance-medium-gray: #2B3139;
+  --binance-green: #0ECB81;
+  --binance-red: #F6465D;
+  --binance-text-primary: #FFFFFF;
+  --binance-text-secondary: #B7BDC6;
+
   color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #0B0E11;
+  color: var(--binance-text-primary);
+  background-color: var(--binance-black);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -33,6 +45,12 @@ body {
 
 a {
   text-decoration: none;
+  color: var(--binance-gold);
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--binance-gold-light);
 }
 
 /* Scrollbar styling */
@@ -51,5 +69,39 @@ a {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #FCD535;
+  background: var(--binance-gold-light);
+}
+
+/* Additional Binance-inspired utility classes for admin */
+.binance-gold {
+  color: var(--binance-gold) !important;
+}
+
+.binance-gold-bg {
+  background-color: var(--binance-gold) !important;
+  color: #000000 !important;
+}
+
+.binance-green {
+  color: var(--binance-green) !important;
+}
+
+.binance-red {
+  color: var(--binance-red) !important;
+}
+
+.binance-gradient {
+  background: linear-gradient(135deg, var(--binance-gold) 0%, var(--binance-gold-light) 100%) !important;
+  color: #000000 !important;
+}
+
+.admin-card {
+  background: linear-gradient(135deg, var(--binance-dark-gray) 0%, var(--binance-medium-gray) 100%);
+  border: 1px solid rgba(240, 185, 11, 0.1);
+  transition: all 0.3s ease;
+}
+
+.admin-card:hover {
+  border-color: rgba(240, 185, 11, 0.3);
+  box-shadow: 0 4px 20px rgba(240, 185, 11, 0.1);
 }

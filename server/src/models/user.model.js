@@ -93,6 +93,15 @@ const userSchema = new Schema({
         type: Boolean,
         default: false,
     },
+    // Mobile OTP verification fields
+    mobile_otp_request_id: {
+        type: String,
+        default: "",
+    },
+    mobile_otp_verified: {
+        type: Boolean,
+        default: false,
+    },
     reward: {
         type: Number,
         default: 0,

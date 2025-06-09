@@ -501,6 +501,123 @@ const otplessController = {
     },
 
     /**
+     * Send mobile OTP for registration
+     */
+    sendRegistrationMobileOTP: async (req, res) => {
+        let reqObj = req.body;
+        log.info('Received request for mobile registration OTP:', { phone_number: reqObj.phone_number });
+        let responseData = {};
+
+        try {
+            const { phone_number } = reqObj;
+
+            // Validate phone number
+            if (!phone_number) {
+                responseData.msg = 'Valid phone number is required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Normalize phone number
+            const normalizedPhone = phone_number.trim();
+
+            // Check if phone number already exists
+            const existingUser = await userDbHandler.getByQuery({ phone_number: normalizedPhone });
+            if (existingUser && existingUser.length > 0) {
+                responseData.msg = 'Phone number already registered. Please login instead.';
+                return responseHelper.error(res, responseData);
+            }
+
+            log.info('Sending mobile registration OTP to:', normalizedPhone);
+
+            // Send mobile OTP
+            const otpResult = await otplessService.sendRegistrationSMSOTP(normalizedPhone);
+
+            log.info('Mobile OTP service result:', otpResult);
+
+            if (otpResult.success) {
+                responseData.msg = 'OTP sent successfully to your mobile number';
+                responseData.data = {
+                    requestId: otpResult.requestId,
+                    phone_number: normalizedPhone
+                };
+                log.info('Mobile registration OTP sent successfully:', { phone: normalizedPhone, requestId: otpResult.requestId });
+                return responseHelper.success(res, responseData);
+            } else {
+                log.error('Mobile OTP service failed:', {
+                    error: otpResult.error,
+                    details: otpResult.details,
+                    statusCode: otpResult.statusCode,
+                    phone: normalizedPhone
+                });
+                responseData.msg = otpResult.error || 'Failed to send mobile OTP';
+                responseData.details = otpResult.details;
+                responseData.statusCode = otpResult.statusCode;
+                return responseHelper.error(res, responseData);
+            }
+
+        } catch (error) {
+            log.error('Failed to send mobile registration OTP:', error);
+            responseData.msg = 'Failed to send mobile OTP. Please try again.';
+            responseData.error = error.message;
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Verify mobile OTP for registration
+     */
+    verifyRegistrationMobileOTP: async (req, res) => {
+        let reqObj = req.body;
+        log.info('Received request for mobile registration OTP verification:', {
+            phone_number: reqObj.phone_number,
+            requestId: reqObj.requestId
+        });
+        let responseData = {};
+
+        try {
+            const { phone_number, otp, requestId } = reqObj;
+
+            // Validate required fields
+            if (!phone_number || !otp || !requestId) {
+                responseData.msg = 'Phone number, OTP, and requestId are required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Normalize phone number
+            const normalizedPhone = phone_number.trim();
+
+            log.info('Verifying mobile registration OTP:', {
+                phone: normalizedPhone,
+                requestId,
+                otpLength: otp.length
+            });
+
+            // Verify mobile OTP
+            const verificationResult = await otplessService.verifyRegistrationSMSOTP(otp, requestId);
+
+            log.info('Mobile OTP verification result:', verificationResult);
+
+            if (!verificationResult.success || !verificationResult.isVerified) {
+                responseData.msg = verificationResult.error || 'Invalid or expired mobile OTP';
+                return responseHelper.error(res, responseData);
+            }
+
+            responseData.msg = 'Mobile OTP verified successfully';
+            responseData.data = {
+                phone_number: normalizedPhone,
+                verified: true
+            };
+            return responseHelper.success(res, responseData);
+
+        } catch (error) {
+            log.error('Failed to verify mobile registration OTP:', error);
+            responseData.msg = 'Failed to verify mobile OTP. Please try again.';
+            responseData.error = error.message;
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
      * Verify 2FA OTP and complete login
      */
     verify2FAOTP: async (req, res) => {

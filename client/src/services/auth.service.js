@@ -194,6 +194,121 @@ const AuthService = {
       throw error.response?.data || { msg: 'Failed to disable 2FA' };
     }
   },
+
+  // Dual Verification Methods (Email + Mobile)
+
+  // Send dual registration OTPs (email + mobile)
+  sendDualRegistrationOTPs: async (email, phoneNumber) => {
+    try {
+      const response = await api.post('/user/dual-verification/send-registration-otps', {
+        email,
+        phone_number: phoneNumber
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to send verification codes' };
+    }
+  },
+
+  // Verify dual registration OTPs and create user
+  verifyDualRegistrationOTPs: async (email, phoneNumber, emailOtp, mobileOtp, emailRequestId, mobileRequestId, userData) => {
+    try {
+      const response = await api.post('/user/dual-verification/verify-registration-otps', {
+        email,
+        phone_number: phoneNumber,
+        emailOtp,
+        mobileOtp,
+        emailRequestId,
+        mobileRequestId,
+        userData
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to verify codes' };
+    }
+  },
+
+  // Mobile OTP Methods
+
+  // Send mobile registration OTP
+  sendMobileRegistrationOTP: async (phoneNumber) => {
+    try {
+      const response = await api.post('/user/otpless/send-mobile-registration-otp', {
+        phone_number: phoneNumber
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to send mobile OTP' };
+    }
+  },
+
+  // Verify mobile registration OTP
+  verifyMobileRegistrationOTP: async (phoneNumber, otp, requestId) => {
+    try {
+      const response = await api.post('/user/otpless/verify-mobile-registration-otp', {
+        phone_number: phoneNumber,
+        otp,
+        requestId
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to verify mobile OTP' };
+    }
+  },
+
+  // Enhanced signup with verification flags
+  signupWithVerification: async (userData) => {
+    try {
+      const response = await api.post('/user/signup-with-verification', userData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Registration failed' };
+    }
+  },
+
+  // Forgot Password Methods
+
+  // Send mobile forgot password OTP
+  sendMobileForgotPasswordOTP: async (phoneNumber) => {
+    try {
+      const response = await api.post('/user/forgot/password-mobile', {
+        phone_number: phoneNumber
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to send mobile OTP' };
+    }
+  },
+
+  // Reset password with mobile OTP
+  resetPasswordWithMobileOTP: async (phoneNumber, otp, requestId, newPassword) => {
+    try {
+      const response = await api.post('/user/reset/password-with-mobile-otp', {
+        phone_number: phoneNumber,
+        otp,
+        requestId,
+        password: newPassword,
+        confirm_password: newPassword
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to reset password with mobile OTP' };
+    }
+  },
+
+  // Verify mobile OTP (for forgot password flow)
+  verifyMobileOTP: async (phoneNumber, otp, requestId) => {
+    try {
+      const response = await api.post('/user/otpless/verify-mobile-otp', {
+        phone_number: phoneNumber,
+        otp,
+        requestId
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to verify mobile OTP' };
+    }
+  },
 };
 
 export default AuthService;

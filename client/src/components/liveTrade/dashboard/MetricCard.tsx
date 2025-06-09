@@ -9,24 +9,24 @@ interface MetricCardProps {
 
 const colorStyles = {
   blue: {
-    background: 'rgba(59, 130, 246, 0.1)', // bg-blue-500/10
-    border: '1px solid rgba(59, 130, 246, 0.3)', // border-blue-500/30
-    text: '#3b82f6', // text-blue-400
+    background: 'rgba(240, 185, 11, 0.1)', // Binance Gold with transparency
+    border: '1px solid rgba(240, 185, 11, 0.3)', // Binance Gold border
+    text: '#F0B90B', // Binance Gold text
   },
   green: {
-    background: 'rgba(34, 197, 94, 0.1)', // bg-green-500/10
-    border: '1px solid rgba(34, 197, 94, 0.3)', // border-green-500/30
-    text: '#10b981', // text-green-400
+    background: 'rgba(14, 203, 129, 0.1)', // Binance Green with transparency
+    border: '1px solid rgba(14, 203, 129, 0.3)', // Binance Green border
+    text: '#0ECB81', // Binance Green text
   },
   amber: {
-    background: 'rgba(234, 179, 8, 0.1)', // bg-amber-500/10
-    border: '1px solid rgba(234, 179, 8, 0.3)', // border-amber-500/30
-    text: '#f59e0b', // text-amber-400
+    background: 'rgba(240, 185, 11, 0.1)', // Binance Gold with transparency
+    border: '1px solid rgba(240, 185, 11, 0.3)', // Binance Gold border
+    text: '#F0B90B', // Binance Gold text
   },
   red: {
-    background: 'rgba(239, 68, 68, 0.1)', // bg-red-500/10
-    border: '1px solid rgba(239, 68, 68, 0.3)', // border-red-500/30
-    text: '#ef4444', // text-red-400
+    background: 'rgba(246, 70, 93, 0.1)', // Binance Red with transparency
+    border: '1px solid rgba(246, 70, 93, 0.3)', // Binance Red border
+    text: '#F6465D', // Binance Red text
   }
 };
 

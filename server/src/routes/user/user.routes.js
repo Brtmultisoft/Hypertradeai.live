@@ -8,6 +8,7 @@ const {
     userController,
     user2FAController,
     otplessController,
+    dualVerificationController,
     userSupportController,
     userDepositController,
     userFundTransferController,
@@ -49,6 +50,7 @@ const {
     userInfoValidation,
     userValidation,
     twoFaValidation,
+    dualVerificationValidation,
     supportValidation,
     depositValidation,
     fundDeductValidation,
@@ -106,6 +108,12 @@ module.exports = () => {
         '/user/signup',
         validationMiddleware(userAuthValidation.signup, 'body'),
         userAuthController.signup
+    );
+
+    Router.post(
+        '/user/signup-with-verification',
+        validationMiddleware(userAuthValidation.signup, 'body'),
+        userAuthController.signupWithVerification
     );
     Router.post(
         '/user/checkReferID',
@@ -187,6 +195,51 @@ module.exports = () => {
     Router.post(
         '/user/otpless/verify-2fa-otp',
         otplessController.verify2FAOTP
+    );
+
+    /**
+     * Dual Verification Routes (Email + Mobile) - PUBLIC ROUTES
+     */
+    Router.post(
+        '/user/dual-verification/send-registration-otps',
+        validationMiddleware(dualVerificationValidation.sendRegistrationOTPs, 'body'),
+        dualVerificationController.sendRegistrationOTPs
+    );
+
+    Router.post(
+        '/user/dual-verification/verify-registration-otps',
+        validationMiddleware(dualVerificationValidation.verifyRegistrationOTPs, 'body'),
+        dualVerificationController.verifyRegistrationOTPs
+    );
+
+    /**
+     * Individual Mobile OTP Routes - PUBLIC ROUTES
+     */
+    Router.post(
+        '/user/otpless/send-mobile-registration-otp',
+        validationMiddleware(dualVerificationValidation.sendMobileOTP, 'body'),
+        otplessController.sendRegistrationMobileOTP
+    );
+
+    Router.post(
+        '/user/otpless/verify-mobile-registration-otp',
+        validationMiddleware(dualVerificationValidation.verifyMobileOTP, 'body'),
+        otplessController.verifyRegistrationMobileOTP
+    );
+
+    /**
+     * Mobile Forgot Password Routes - PUBLIC ROUTES
+     */
+    Router.post(
+        '/user/forgot/password-mobile',
+        validationMiddleware(dualVerificationValidation.sendMobileForgotPasswordOTP, 'body'),
+        userAuthController.forgotPasswordMobile
+    );
+
+    Router.post(
+        '/user/reset/password-with-mobile-otp',
+        validationMiddleware(dualVerificationValidation.resetPasswordWithMobileOTP, 'body'),
+        userAuthController.resetPasswordWithMobileOTP
     );
 
     // Test endpoint for OTP service

@@ -3,9 +3,21 @@
   line-height: 1.5;
   font-weight: 400;
 
+  /* Binance-inspired color variables */
+  --binance-gold: #F0B90B;
+  --binance-gold-light: #FCD535;
+  --binance-gold-dark: #D4A200;
+  --binance-black: #0B0E11;
+  --binance-dark-gray: #1E2329;
+  --binance-medium-gray: #2B3139;
+  --binance-green: #0ECB81;
+  --binance-red: #F6465D;
+  --binance-text-primary: #FFFFFF;
+  --binance-text-secondary: #B7BDC6;
+
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: var(--binance-text-primary);
+  background-color: var(--binance-black);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -15,11 +27,12 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--binance-gold);
   text-decoration: inherit;
+  transition: color 0.2s ease;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--binance-gold-light);
 }
 
 body {
@@ -42,27 +55,34 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--binance-dark-gray);
+  color: var(--binance-text-primary);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: all 0.25s ease;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: var(--binance-gold);
+  background-color: var(--binance-medium-gray);
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 2px solid var(--binance-gold);
+  outline-offset: 2px;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    color: #1E2329;
+    background-color: #FAFAFA;
   }
   a:hover {
-    color: #747bff;
+    color: var(--binance-gold-dark);
   }
   button {
-    background-color: #f9f9f9;
+    background-color: #F5F5F5;
+    color: #1E2329;
+  }
+  button:hover {
+    background-color: #E0E0E0;
   }
 }

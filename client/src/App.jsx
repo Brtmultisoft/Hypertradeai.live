@@ -5,6 +5,9 @@ import { DataProvider } from './context/DataContext';
 import ThemeProvider from './context/ThemeContext';
 import { TradingContextProvider } from './context/TradingContext';
 
+// Import Binance theme styles
+import './styles/BinanceTheme.css';
+
 // Layouts
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';

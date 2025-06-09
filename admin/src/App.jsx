@@ -3,6 +3,9 @@ import { ThemeProvider, CssBaseline, Box, CircularProgress, Typography } from '@
 import theme from './theme';
 import useAuth from './hooks/useAuth';
 
+// Import Binance admin theme styles
+import './styles/BinanceAdminTheme.css';
+
 // Layouts
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
@@ -78,7 +81,7 @@ function App() {
           size={50}
           thickness={4}
           sx={{
-            color: '#FCD535', // Primary yellow from theme
+            color: '#F0B90B', // Binance Gold from theme
             mb: 2,
             animation: 'spin 1.5s linear infinite',
             '@keyframes spin': {

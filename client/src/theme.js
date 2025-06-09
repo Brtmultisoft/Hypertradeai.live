@@ -1,62 +1,62 @@
 import { createTheme } from '@mui/material/styles';
 
-// Trust Wallet exact color palettes
+// Binance-inspired black and golden color palettes
 const darkColors = {
     primary: {
-        main: '#3375BB', // Trust Blue - Primary brand color
-        light: '#4A8AD4',
-        dark: '#2A5F9E',
-        contrastText: '#FFFFFF',
+        main: '#F0B90B', // Binance Gold - Primary brand color
+        light: '#FCD535', // Lighter gold for hover states
+        dark: '#D4A200', // Darker gold for pressed states
+        contrastText: '#000000', // Black text on gold background
     },
     secondary: {
-        main: '#0ECB81', // Trust Green - Success actions
+        main: '#0ECB81', // Binance Green - Success actions
         light: '#3FE1A0',
         dark: '#0BA572',
         contrastText: '#FFFFFF',
     },
     info: {
-        main: '#3375BB', // Trust Blue for info
-        light: '#4A8AD4',
-        dark: '#2A5F9E',
-        contrastText: '#FFFFFF',
+        main: '#F0B90B', // Binance Gold for info
+        light: '#FCD535',
+        dark: '#D4A200',
+        contrastText: '#000000',
     },
     success: {
-        main: '#0ECB81', // Trust Green
+        main: '#0ECB81', // Binance Green
         light: '#3FE1A0',
         dark: '#0BA572',
         contrastText: '#FFFFFF',
     },
     warning: {
-        main: '#F0B90B', // Trust Yellow - Warning actions
-        light: '#F8CF4D',
+        main: '#F0B90B', // Binance Gold - Warning actions
+        light: '#FCD535',
         dark: '#D4A200',
-        contrastText: '#FFFFFF',
+        contrastText: '#000000',
     },
     error: {
-        main: '#F6465D', // Trust Red - Error/Danger actions
+        main: '#F6465D', // Binance Red - Error/Danger actions
         light: '#FF7A8A',
         dark: '#D93D52',
         contrastText: '#FFFFFF',
     },
     background: {
-        default: '#0B0E11', // Trust Dark Background
-        paper: '#1E2329', // Trust Dark Card/Paper
-        light: '#2B3139', // Trust Dark Secondary Background
+        default: '#0B0E11', // Deep black background
+        paper: '#1E2329', // Dark card/paper background
+        light: '#2B3139', // Secondary background
         card: '#1E2329',
         actionButton: '#2B3139',
         highlight: '#2B3139', // Highlighted areas
     },
     text: {
-        primary: '#FFFFFF',
-        secondary: '#848E9C', // Trust Wallet secondary text
+        primary: '#FFFFFF', // White primary text
+        secondary: '#B7BDC6', // Light gray secondary text
         disabled: '#5E6673',
-        hint: '#848E9C',
+        hint: '#B7BDC6',
     },
     divider: '#2B3139',
     action: {
-        active: '#3375BB',
-        hover: 'rgba(51, 117, 187, 0.08)',
-        selected: 'rgba(51, 117, 187, 0.16)',
+        active: '#F0B90B', // Gold for active states
+        hover: 'rgba(240, 185, 11, 0.08)', // Gold hover with transparency
+        selected: 'rgba(240, 185, 11, 0.16)', // Gold selected with transparency
         disabled: 'rgba(255, 255, 255, 0.3)',
         disabledBackground: 'rgba(255, 255, 255, 0.12)',
     },
@@ -64,60 +64,60 @@ const darkColors = {
 
 const lightColors = {
     primary: {
-        main: '#3375BB', // Trust Blue - Primary brand color
-        light: '#4A8AD4',
-        dark: '#2A5F9E',
-        contrastText: '#FFFFFF',
+        main: '#F0B90B', // Binance Gold - Primary brand color
+        light: '#FCD535', // Lighter gold for hover states
+        dark: '#D4A200', // Darker gold for pressed states
+        contrastText: '#000000', // Black text on gold background
     },
     secondary: {
-        main: '#0ECB81', // Trust Green - Success actions
+        main: '#0ECB81', // Binance Green - Success actions
         light: '#3FE1A0',
         dark: '#0BA572',
         contrastText: '#FFFFFF',
     },
     info: {
-        main: '#3375BB', // Trust Blue for info
-        light: '#4A8AD4',
-        dark: '#2A5F9E',
-        contrastText: '#FFFFFF',
+        main: '#F0B90B', // Binance Gold for info
+        light: '#FCD535',
+        dark: '#D4A200',
+        contrastText: '#000000',
     },
     success: {
-        main: '#0ECB81', // Trust Green
+        main: '#0ECB81', // Binance Green
         light: '#3FE1A0',
         dark: '#0BA572',
         contrastText: '#FFFFFF',
     },
     warning: {
-        main: '#F0B90B', // Trust Yellow - Warning actions
-        light: '#F8CF4D',
+        main: '#F0B90B', // Binance Gold - Warning actions
+        light: '#FCD535',
         dark: '#D4A200',
-        contrastText: '#FFFFFF',
+        contrastText: '#000000',
     },
     error: {
-        main: '#F6465D', // Trust Red - Error/Danger actions
+        main: '#F6465D', // Binance Red - Error/Danger actions
         light: '#FF7A8A',
         dark: '#D93D52',
         contrastText: '#FFFFFF',
     },
     background: {
-        default: '#F5F7FA', // Trust Light Background
-        paper: '#FFFFFF', // Trust Light Card/Paper
-        light: '#F8FAFD', // Trust Light Secondary Background
+        default: '#FAFAFA', // Light gray background for light mode
+        paper: '#FFFFFF', // White card/paper background
+        light: '#F5F5F5', // Light secondary background
         card: '#FFFFFF',
-        actionButton: '#F5F7FA',
-        highlight: '#F8FAFD', // Highlighted areas
+        actionButton: '#F5F5F5',
+        highlight: '#F5F5F5', // Highlighted areas
     },
     text: {
-        primary: '#1E2329', // Trust Wallet primary text
-        secondary: '#707A8A', // Trust Wallet secondary text
+        primary: '#1E2329', // Dark text for light mode
+        secondary: '#707A8A', // Medium gray secondary text
         disabled: '#AEB4BC',
         hint: '#707A8A',
     },
-    divider: '#E6E8EA', // Trust Wallet light divider
+    divider: '#E6E8EA', // Light divider
     action: {
-        active: '#3375BB',
-        hover: 'rgba(51, 117, 187, 0.08)',
-        selected: 'rgba(51, 117, 187, 0.16)',
+        active: '#F0B90B', // Gold for active states
+        hover: 'rgba(240, 185, 11, 0.08)', // Gold hover with transparency
+        selected: 'rgba(240, 185, 11, 0.16)', // Gold selected with transparency
         disabled: 'rgba(0, 0, 0, 0.26)',
         disabledBackground: 'rgba(0, 0, 0, 0.12)',
     },

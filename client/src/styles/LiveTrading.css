@@ -30,11 +30,15 @@
 }
 
 .flash-green {
-    background: rgba(14, 203, 129, 0.1);
+    background: rgba(14, 203, 129, 0.1); /* Binance Green with transparency */
 }
 
 .flash-red {
-    background: rgba(246, 70, 93, 0.1);
+    background: rgba(246, 70, 93, 0.1); /* Binance Red with transparency */
+}
+
+.flash-gold {
+    background: rgba(240, 185, 11, 0.1); /* Binance Gold with transparency */
 }
 
 @keyframes priceUp {
@@ -71,7 +75,32 @@
 .market-trend-visualization {
     width: 100%;
     height: 200px;
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(30, 35, 41, 0.5); /* Binance dark background with transparency */
     border-radius: 12px;
     overflow: hidden;
+    border: 1px solid rgba(240, 185, 11, 0.1); /* Subtle gold border */
+}
+
+/* Additional Binance-inspired trading styles */
+.price-positive {
+    color: #0ECB81; /* Binance Green for positive prices */
+}
+
+.price-negative {
+    color: #F6465D; /* Binance Red for negative prices */
+}
+
+.price-neutral {
+    color: #F0B90B; /* Binance Gold for neutral prices */
+}
+
+.trading-card {
+    background: linear-gradient(135deg, #1E2329 0%, #2B3139 100%);
+    border: 1px solid rgba(240, 185, 11, 0.1);
+    transition: all 0.3s ease;
+}
+
+.trading-card:hover {
+    border-color: rgba(240, 185, 11, 0.3);
+    box-shadow: 0 4px 20px rgba(240, 185, 11, 0.1);
 }

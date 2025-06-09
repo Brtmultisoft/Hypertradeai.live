@@ -1187,6 +1187,325 @@ module.exports = {
             return responseHelper.error(res, responseData);
         }
     },
+
+    /**
+     * Enhanced signup method with optional email and mobile verification
+     */
+    signupWithVerification: async(req, res) => {
+        let reqObj = req.body;
+        log.info('Received request for User Signup with Verification:', reqObj);
+        let responseData = {};
+
+        try {
+            // Check if username already exists
+            let checkUsername = await userDbHandler.getByQuery({ username: reqObj?.userAddress });
+
+            if (checkUsername.length) {
+                responseData.msg = `User already exists!`;
+                return responseHelper.error(res, responseData);
+            }
+
+            // Check if email already exists (if provided)
+            if (reqObj?.email) {
+                let checkEmail = await userDbHandler.getByQuery({ email: reqObj.email.toLowerCase() });
+                if (checkEmail.length) {
+                    responseData.msg = 'Email already exists!';
+                    return responseHelper.error(res, responseData);
+                }
+            }
+
+            // Check if phone number already exists (if provided)
+            if (reqObj?.phone_number) {
+                let checkPhone = await userDbHandler.getByQuery({ phone_number: reqObj.phone_number });
+                if (checkPhone.length) {
+                    responseData.msg = 'Phone number already exists!';
+                    return responseHelper.error(res, responseData);
+                }
+            }
+
+            // Handle referral system
+            let trace_id = reqObj?.referralId;
+            let refer_id = null;
+
+            if (trace_id) {
+                // First check if it's a sponsor ID
+                if (trace_id.startsWith('HS') || trace_id.startsWith('SI')) {
+                    let sponsorUser = await userDbHandler.getOneByQuery({ sponsorID: trace_id }, { _id: 1 });
+                    if (sponsorUser) {
+                        refer_id = sponsorUser._id;
+                    }
+                }
+
+                // If not a sponsor ID or sponsor ID not found, check username
+                if (!refer_id) {
+                    let referUser = await userDbHandler.getOneByQuery({ username: trace_id }, { _id: 1 });
+                    if (referUser) {
+                        refer_id = referUser._id;
+                    }
+                }
+
+                // If still not found, check if it's 'admin'
+                if (!refer_id && trace_id === 'admin') {
+                    const adminUser = await userDbHandler.getOneByQuery({ is_default: true }, { _id: 1 });
+                    if (adminUser) {
+                        refer_id = adminUser._id;
+                    }
+                }
+
+                // If no valid refer_id found, return error
+                if (!refer_id) {
+                    responseData.msg = 'Invalid referral ID!';
+                    return responseHelper.error(res, responseData);
+                }
+            }
+
+            // If no referral ID is provided, assign default refer_id and generate a trace_id
+            if (!trace_id) {
+                const defaultUser = await userDbHandler.getOneByQuery({ is_default: true }, { _id: 1 });
+                refer_id = defaultUser ? defaultUser._id : null;
+                if (!refer_id) {
+                    responseData.msg = 'Default referral setup missing!';
+                    return responseHelper.error(res, responseData);
+                }
+
+                // Generate a unique trace_id
+                trace_id = generateTraceId();
+                while (await userDbHandler.getOneByQuery({ trace_id: trace_id }, { _id: 1 })) {
+                    trace_id = generateTraceId(); // Ensure uniqueness
+                }
+            }
+
+            let placement_id = await getPlacementId("678f9a82a2dac325900fc47e", 3); // 3x matrix
+            if (!placement_id) {
+                responseData.msg = 'No placement available!';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Generate a unique sponsor ID for the user
+            const sponsorID = await generateSponsorId();
+
+            // Determine verification status based on provided verification flags
+            const emailVerified = reqObj?.email_verified === true;
+            const phoneVerified = reqObj?.phone_verified === true;
+
+            let submitData = {
+                refer_id: refer_id,
+                placement_id: placement_id,
+                username: reqObj?.userAddress || reqObj?.email?.toLowerCase(),
+                trace_id: trace_id,
+                sponsorID: sponsorID,
+                email: reqObj?.email?.toLowerCase(),
+                password: reqObj?.password,
+                name: reqObj?.name,
+                phone_number: reqObj?.phone_number,
+                country: reqObj?.country,
+                email_verified: emailVerified,
+                phone_verified: phoneVerified,
+                mobile_otp_verified: phoneVerified
+            };
+
+            // If this is the admin/default user, set refer_id to "admin"
+            if (reqObj?.userAddress === "0x4379df369c1F5e336662aF35ffe549F857A05EcF" || reqObj?.is_default) {
+                submitData.refer_id = "admin";
+                submitData.is_default = true;
+            }
+
+            let newUser = await userDbHandler.create(submitData);
+            log.info('User created in the database collection with verification status:', {
+                userId: newUser._id,
+                email_verified: emailVerified,
+                phone_verified: phoneVerified
+            });
+
+            // Create welcome notification
+            try {
+                const notificationController = require('./notification.controller');
+                await notificationController.createWelcomeNotification(newUser._id, submitData);
+                log.info('Welcome notification created for user:', newUser._id);
+            } catch (notificationError) {
+                log.error('Failed to create welcome notification:', notificationError);
+                // Don't fail registration if notification creation fails
+            }
+
+            // Include the sponsor ID in the response
+            responseData.msg = 'Your account has been created successfully!';
+            responseData.data = {
+                userId: newUser._id,
+                sponsorID: sponsorID,
+                email_verified: emailVerified,
+                phone_verified: phoneVerified
+            };
+            return responseHelper.success(res, responseData);
+
+        } catch (error) {
+            log.error('Failed to get user signup with verification with error::', error);
+            responseData.msg = 'Failed to create user';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Method to handle forgot password by sending OTP to mobile number
+     */
+    forgotPasswordMobile: async(req, res) => {
+        let reqBody = req.body;
+        log.info('Received request for mobile forgot password with OTP:', reqBody);
+        let phoneNumber = reqBody.phone_number;
+        let responseData = {};
+
+        try {
+            // Validate phone number
+            if (!phoneNumber) {
+                responseData.msg = 'Phone number is required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Normalize phone number
+            const normalizedPhone = phoneNumber.trim();
+
+            let query = {
+                phone_number: normalizedPhone
+            };
+
+            let userData = await userDbHandler.getByQuery(query);
+            if (!userData.length) {
+                log.error('User phone number does not exist for forgot password request');
+                responseData.msg = 'Phone number is not registered with us. Please register yourself!';
+                return responseHelper.error(res, responseData);
+            }
+
+            if (!userData[0].status) {
+                responseData.msg = "Your account is disabled. Please contact admin!";
+                return responseHelper.error(res, responseData);
+            }
+
+            // Send OTP using OTPless service for mobile
+            log.info('Sending mobile forgot password OTP to:', normalizedPhone);
+
+            try {
+                const otplessService = require('../../services/otpless.service');
+                const otpResult = await otplessService.sendForgotPasswordSMSOTP(normalizedPhone);
+
+                if (otpResult.success) {
+                    log.info('Mobile forgot password OTP sent successfully', {
+                        phone: normalizedPhone,
+                        requestId: otpResult.requestId
+                    });
+
+                    responseData.msg = 'OTP sent successfully to your mobile number for password reset';
+                    responseData.data = {
+                        requestId: otpResult.requestId,
+                        phone_number: normalizedPhone,
+                        message: 'Please check your mobile for the OTP code'
+                    };
+                    return responseHelper.success(res, responseData);
+
+                } else {
+                    log.error('Failed to send mobile forgot password OTP:', otpResult.error);
+                    responseData.msg = 'Failed to send OTP. Please try again.';
+                    return responseHelper.error(res, responseData);
+                }
+
+            } catch (otpError) {
+                log.error('Error sending mobile forgot password OTP:', otpError);
+                responseData.msg = 'Failed to send OTP. Please try again.';
+                return responseHelper.error(res, responseData);
+            }
+        } catch (error) {
+            log.error('Failed to process mobile forgot password request with error:', error);
+            responseData.msg = 'Failed to process forgot password request';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    /**
+     * Method to reset password with mobile OTP verification
+     */
+    resetPasswordWithMobileOTP: async(req, res) => {
+        let reqBody = req.body;
+        log.info('Received request for mobile password reset with OTP:', {
+            phone_number: reqBody.phone_number,
+            requestId: reqBody.requestId,
+            hasOtp: !!reqBody.otp,
+            hasPassword: !!reqBody.password
+        });
+
+        let responseData = {};
+
+        try {
+            const { phone_number, otp, requestId, password, confirm_password } = reqBody;
+
+            // Validate required fields
+            if (!phone_number || !otp || !requestId || !password || !confirm_password) {
+                responseData.msg = 'All fields are required: phone_number, otp, requestId, password, confirm_password';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Validate password match
+            if (password !== confirm_password) {
+                responseData.msg = 'Password and confirm password do not match';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Normalize phone number
+            const normalizedPhone = phone_number.trim();
+
+            // Find user by phone number
+            let userData = await userDbHandler.getByQuery({ phone_number: normalizedPhone });
+            if (!userData.length) {
+                responseData.msg = 'Phone number not found';
+                return responseHelper.error(res, responseData);
+            }
+
+            const user = userData[0];
+
+            // Verify mobile OTP
+            log.info('Verifying mobile OTP for password reset:', {
+                phone: normalizedPhone,
+                requestId,
+                otpLength: otp.length
+            });
+
+            try {
+                const otplessService = require('../../services/otpless.service');
+                const verificationResult = await otplessService.verifyForgotPasswordSMSOTP(otp, requestId);
+
+                if (!verificationResult.success || !verificationResult.isVerified) {
+                    log.error('Mobile OTP verification failed for password reset:', verificationResult.error);
+                    responseData.msg = verificationResult.error || 'Invalid or expired OTP';
+                    return responseHelper.error(res, responseData);
+                }
+
+                log.info('Mobile OTP verified successfully for password reset');
+
+                // Update user password
+                const updateData = {
+                    password: password // Will be hashed by the pre-save hook
+                };
+
+                await userDbHandler.updateById(user._id, updateData);
+                log.info('Password updated successfully for user:', user._id);
+
+                responseData.msg = 'Password reset successful! You can now login with your new password.';
+                responseData.data = {
+                    userId: user._id,
+                    phone_number: normalizedPhone,
+                    message: 'Password has been reset successfully'
+                };
+                return responseHelper.success(res, responseData);
+
+            } catch (otpError) {
+                log.error('Error verifying mobile OTP for password reset:', otpError);
+                responseData.msg = 'Failed to verify OTP. Please try again.';
+                return responseHelper.error(res, responseData);
+            }
+
+        } catch (error) {
+            log.error('Failed to reset password with mobile OTP:', error);
+            responseData.msg = 'Failed to reset password. Please try again.';
+            return responseHelper.error(res, responseData);
+        }
+    },
     // signup: async (req, res) => {
     //     let reqObj = req.body;
     //     log.info('Received request for User Signup:', reqObj);

@@ -169,11 +169,11 @@ const Header = ({ onToggleSidebar }) => {
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'success': return <CheckCircleIcon sx={{ color: 'green' }} />;
-      case 'warning': return <WarningIcon sx={{ color: 'orange' }} />;
-      case 'error': return <ErrorIcon sx={{ color: 'red' }} />;
-      case 'announcement': return <AnnouncementIcon sx={{ color: 'blue' }} />;
-      default: return <InfoIcon sx={{ color: 'gray' }} />;
+      case 'success': return <CheckCircleIcon sx={{ color: theme.palette.success.main }} />;
+      case 'warning': return <WarningIcon sx={{ color: theme.palette.warning.main }} />;
+      case 'error': return <ErrorIcon sx={{ color: theme.palette.error.main }} />;
+      case 'announcement': return <AnnouncementIcon sx={{ color: theme.palette.primary.main }} />;
+      default: return <InfoIcon sx={{ color: theme.palette.text.secondary }} />;
     }
   };
 
@@ -206,7 +206,7 @@ const Header = ({ onToggleSidebar }) => {
             color: theme.palette.text.secondary,
             '&:hover': {
               color: theme.palette.primary.main,
-              backgroundColor: 'rgba(51, 117, 187, 0.08)',
+              backgroundColor: theme.palette.action.hover,
             },
             transition: 'all 0.2s ease',
           }}
@@ -257,7 +257,7 @@ const Header = ({ onToggleSidebar }) => {
                     fontWeight: 'bold',
                     lineHeight: 1.2,
                     letterSpacing: '0.5px',
-                    textShadow: mode === 'dark' ? '0 0 8px rgba(51, 117, 187, 0.3)' : 'none',
+                    textShadow: mode === 'dark' ? `0 0 8px ${theme.palette.primary.main}30` : 'none',
                   }}
                 >
                   HypeTrade AI
@@ -266,11 +266,11 @@ const Header = ({ onToggleSidebar }) => {
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.15)' : 'rgba(51, 117, 187, 0.08)',
+                    backgroundColor: mode === 'dark' ? theme.palette.action.selected : theme.palette.action.hover,
                     borderRadius: 1.5,
                     px: 1,
                     py: 0.3,
-                    border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.3)' : 'rgba(51, 117, 187, 0.15)'}`,
+                    border: `1px solid ${theme.palette.primary.main}30`,
                     boxShadow: mode === 'dark' ? '0 2px 4px rgba(0, 0, 0, 0.2)' : '0 1px 3px rgba(0, 0, 0, 0.05)',
                     minWidth: 80,
                   }}
@@ -288,7 +288,7 @@ const Header = ({ onToggleSidebar }) => {
                       component="span"
                       sx={{
                         fontWeight: 'bold',
-                        color: mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
+                        color: theme.palette.primary.main,
                       }}
                     >
                       {user?.sponsorID || 'Loading...'}
@@ -452,7 +452,7 @@ const Header = ({ onToggleSidebar }) => {
                     fontWeight: 'bold',
                     lineHeight: 1.2,
                     letterSpacing: '0.5px',
-                    textShadow: mode === 'dark' ? '0 0 8px rgba(51, 117, 187, 0.3)' : 'none',
+                    textShadow: mode === 'dark' ? `0 0 8px ${theme.palette.primary.main}30` : 'none',
                   }}
                 >
                   HypeTrade AI
@@ -461,11 +461,11 @@ const Header = ({ onToggleSidebar }) => {
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    backgroundColor: mode === 'dark' ? 'rgba(51, 117, 187, 0.15)' : 'rgba(51, 117, 187, 0.08)',
+                    backgroundColor: mode === 'dark' ? theme.palette.action.selected : theme.palette.action.hover,
                     borderRadius: 1.5,
                     px: 1,
                     py: 0.3,
-                    border: `1px solid ${mode === 'dark' ? 'rgba(51, 117, 187, 0.3)' : 'rgba(51, 117, 187, 0.15)'}`,
+                    border: `1px solid ${theme.palette.primary.main}30`,
                     boxShadow: mode === 'dark' ? '0 2px 4px rgba(0, 0, 0, 0.2)' : '0 1px 3px rgba(0, 0, 0, 0.05)',
                     minWidth: 80,
                   }}
@@ -483,7 +483,7 @@ const Header = ({ onToggleSidebar }) => {
                       component="span"
                       sx={{
                         fontWeight: 'bold',
-                        color: mode === 'dark' ? theme.palette.primary.light : theme.palette.primary.dark,
+                        color: theme.palette.primary.main,
                       }}
                     >
                       {user?.sponsorID || 'Loading...'}
@@ -505,12 +505,12 @@ const Header = ({ onToggleSidebar }) => {
                   mr: 2,
                   px: 2,
                   py: 0.75,
-                  backgroundColor: 'rgba(51, 117, 187, 0.08)',
-                  border: '1px solid rgba(51, 117, 187, 0.2)',
+                  backgroundColor: theme.palette.action.hover,
+                  border: `1px solid ${theme.palette.primary.main}30`,
                   display: 'flex',
                   alignItems: 'center',
                   '&:hover': {
-                    backgroundColor: 'rgba(51, 117, 187, 0.12)',
+                    backgroundColor: theme.palette.action.selected,
                   },
                   transition: 'all 0.2s ease',
                 }}
@@ -528,7 +528,7 @@ const Header = ({ onToggleSidebar }) => {
                     justifyContent: 'center',
                   }}
                 >
-                  <WalletIcon sx={{ fontSize: 16, color: 'white' }} />
+                  <WalletIcon sx={{ fontSize: 16, color: theme.palette.primary.contrastText }} />
                 </Box>
                 Main Wallet
               </Button>
@@ -698,10 +698,10 @@ const Header = ({ onToggleSidebar }) => {
                           sx={{
                             py: 1.5,
                             px: 2,
-                            backgroundColor: notification.isRead ? 'transparent' : 'rgba(51, 117, 187, 0.05)',
+                            backgroundColor: notification.isRead ? 'transparent' : theme.palette.action.hover,
                             cursor: 'pointer',
                             '&:hover': {
-                              backgroundColor: 'rgba(51, 117, 187, 0.08)',
+                              backgroundColor: theme.palette.action.selected,
                             },
                           }}
                           onClick={() => {

@@ -12,10 +12,10 @@
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  filter: drop-shadow(0 0 2em rgba(240, 185, 11, 0.6)); /* Binance Gold glow */
 }
 .logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  filter: drop-shadow(0 0 2em rgba(240, 185, 11, 0.8)); /* Stronger gold glow for React logo */
 }
 
 @keyframes logo-spin {
@@ -38,5 +38,28 @@
 }
 
 .read-the-docs {
-  color: #888;
+  color: #B7BDC6; /* Binance secondary text color */
+}
+
+/* Additional Binance-inspired utility classes */
+.binance-gold {
+  color: #F0B90B !important;
+}
+
+.binance-gold-bg {
+  background-color: #F0B90B !important;
+  color: #000000 !important;
+}
+
+.binance-green {
+  color: #0ECB81 !important;
+}
+
+.binance-red {
+  color: #F6465D !important;
+}
+
+.binance-gradient {
+  background: linear-gradient(135deg, #F0B90B 0%, #FCD535 100%) !important;
+  color: #000000 !important;
 }

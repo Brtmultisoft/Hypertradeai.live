@@ -16,18 +16,26 @@ import {
   DialogActions,
   Snackbar,
   IconButton,
+  ToggleButton,
+  ToggleButtonGroup,
+  Paper,
+  Divider,
+  Chip,
 } from '@mui/material';
 import {
   Email as EmailIcon,
   ArrowBack as ArrowBackIcon,
   Lock as LockIcon,
   Visibility,
-  VisibilityOff
+  VisibilityOff,
+  Phone as PhoneIcon,
+  Send as SendIcon,
 } from '@mui/icons-material';
 import useAuth from '../../hooks/useAuth';
 import useForm from '../../hooks/useForm';
-import { isValidEmail } from '../../utils/validators';
+import { isValidEmail, isValidPhone } from '../../utils/validators';
 import OTPInput from '../../components/auth/OTPInput';
+import AuthService from '../../services/auth.service';
 
 const ForgotPassword = () => {
   const theme = useTheme();
@@ -35,8 +43,10 @@ const ForgotPassword = () => {
   const { forgotPassword, resetPasswordWithOTP, loading, error } = useAuth();
 
   // State management
-  const [step, setStep] = useState('email'); // 'email', 'otp', 'password'
+  const [step, setStep] = useState('contact'); // 'contact', 'otp', 'password'
+  const [contactMethod, setContactMethod] = useState('email'); // 'email' or 'mobile'
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [otpRequestId, setOtpRequestId] = useState('');
   const [showOTPDialog, setShowOTPDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -55,16 +65,28 @@ const ForgotPassword = () => {
   });
   const [passwordErrors, setPasswordErrors] = useState({});
 
-  // Email form validation rules
-  const validationRules = {
-    email: {
-      required: true,
-      requiredMessage: 'Email is required',
-      validate: (value) => (!isValidEmail(value) ? 'Please enter a valid email address' : null),
-    },
+  // Contact form validation rules
+  const getValidationRules = () => {
+    if (contactMethod === 'email') {
+      return {
+        email: {
+          required: true,
+          requiredMessage: 'Email is required',
+          validate: (value) => (!isValidEmail(value) ? 'Please enter a valid email address' : null),
+        },
+      };
+    } else {
+      return {
+        phoneNumber: {
+          required: true,
+          requiredMessage: 'Phone number is required',
+          validate: (value) => (!isValidPhone(value) ? 'Please enter a valid phone number' : null),
+        },
+      };
+    }
   };
 
-  // Initialize email form
+  // Initialize contact form
   const {
     values,
     errors,
@@ -75,26 +97,33 @@ const ForgotPassword = () => {
     handleSubmit,
     resetForm,
   } = useForm(
-    {
-      email: '',
-    },
-    validationRules,
+    { email: '', phoneNumber: '' },
+    getValidationRules(),
     async (formValues) => {
-      console.log('🔐 Forgot password form submitted with email:', formValues.email);
+      console.log('🔐 Forgot password form submitted:', { contactMethod, formValues });
       try {
-        const result = await forgotPassword(formValues.email);
+        let result;
+
+        if (contactMethod === 'email') {
+          result = await forgotPassword(formValues.email);
+          setEmail(formValues.email);
+        } else {
+          // Send mobile OTP for forgot password
+          result = await AuthService.sendMobileForgotPasswordOTP(formValues.phoneNumber);
+          setPhoneNumber(formValues.phoneNumber);
+        }
+
         console.log('📡 Forgot password result:', result);
 
-        if (result.success) {
+        if (result.status) {
           console.log('✅ OTP sent successfully, showing dialog');
-          setEmail(formValues.email);
-          setOtpRequestId(result.data.otp_request_id);
+          setOtpRequestId(result.data.otp_request_id || result.data.requestId);
           setShowOTPDialog(true);
-          setSuccessMessage('OTP sent to your email. Please check your inbox.');
+          setSuccessMessage(`OTP sent to your ${contactMethod}. Please check your ${contactMethod === 'email' ? 'inbox' : 'messages'}.`);
           setShowSuccessAlert(true);
           resetForm();
         } else {
-          console.error('❌ Forgot password failed:', result.error);
+          console.error('❌ Forgot password failed:', result.msg || result.message);
         }
       } catch (error) {
         console.error('❌ Error in forgot password form submission:', error);
@@ -110,16 +139,23 @@ const ForgotPassword = () => {
       setOtpLoading(true);
       setOtpError(null);
 
-      console.log('✅ OTP verified successfully, showing password dialog');
+      // Basic validation
+      if (!otp || otp.length !== 4) {
+        setOtpError('Please enter a valid 4-digit OTP');
+        return;
+      }
+
+      console.log('✅ OTP format valid, proceeding to password reset');
       // Store the OTP for later use in password reset
+      // The actual OTP verification will happen during password reset
       setPasswordData(prev => ({ ...prev, otp }));
       setShowOTPDialog(false);
       setShowPasswordDialog(true);
-      setSuccessMessage('OTP verified! Please enter your new password.');
+      setSuccessMessage('Please enter your new password.');
       setShowSuccessAlert(true);
     } catch (err) {
-      console.error('❌ OTP verification failed:', err);
-      setOtpError(err.msg || 'Failed to verify OTP');
+      console.error('❌ Error in OTP verification:', err);
+      setOtpError(err.msg || err.message || 'Failed to verify OTP');
     } finally {
       setOtpLoading(false);
     }
@@ -128,10 +164,17 @@ const ForgotPassword = () => {
   // Handle OTP resend
   const handleResendOTP = async () => {
     try {
-      const result = await forgotPassword(email);
-      if (result.success) {
-        setOtpRequestId(result.data.otp_request_id);
-        setSuccessMessage('New OTP sent to your email.');
+      let result;
+
+      if (contactMethod === 'email') {
+        result = await forgotPassword(email);
+      } else {
+        result = await AuthService.sendMobileForgotPasswordOTP(phoneNumber);
+      }
+
+      if (result.status) {
+        setOtpRequestId(result.data.otp_request_id || result.data.requestId);
+        setSuccessMessage(`New OTP sent to your ${contactMethod}.`);
         setShowSuccessAlert(true);
       }
     } catch (err) {
@@ -198,16 +241,27 @@ const ForgotPassword = () => {
       setOtpError(null);
 
       console.log('📞 Calling resetPasswordWithOTP...');
-      const result = await resetPasswordWithOTP(
-        email,
-        passwordData.otp,
-        otpRequestId,
-        passwordData.password
-      );
+      let result;
+
+      if (contactMethod === 'email') {
+        result = await resetPasswordWithOTP(
+          email,
+          passwordData.otp,
+          otpRequestId,
+          passwordData.password
+        );
+      } else {
+        result = await AuthService.resetPasswordWithMobileOTP(
+          phoneNumber,
+          passwordData.otp,
+          otpRequestId,
+          passwordData.password
+        );
+      }
 
       console.log('📡 Password reset result:', result);
 
-      if (result.success) {
+      if (result.status) {
         console.log('✅ Password reset successful, redirecting to login');
         setShowPasswordDialog(false);
         setSuccessMessage('Password reset successful! You can now login with your new password.');
@@ -218,8 +272,8 @@ const ForgotPassword = () => {
           navigate('/login');
         }, 3000);
       } else {
-        console.error('❌ Password reset failed:', result.error);
-        setOtpError(result.error || 'Failed to reset password');
+        console.error('❌ Password reset failed:', result.msg || result.message);
+        setOtpError(result.msg || result.message || 'Failed to reset password');
       }
     } catch (err) {
       console.error('❌ Error in password reset:', err);
@@ -234,8 +288,8 @@ const ForgotPassword = () => {
       <Typography variant="h5" component="h1" fontWeight="bold" gutterBottom>
         Forgot Password
       </Typography>
-      <Typography variant="body2" color="text.secondary" paragraph>
-        Enter your email address and we'll send you an OTP to reset your password
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Choose how you'd like to receive your password reset code
       </Typography>
 
       <Snackbar
@@ -258,28 +312,100 @@ const ForgotPassword = () => {
 
 
 
+      {/* Contact Method Selection */}
+      <Paper elevation={1} sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Choose Verification Method
+        </Typography>
+
+        <ToggleButtonGroup
+          value={contactMethod}
+          exclusive
+          onChange={(_, newMethod) => {
+            if (newMethod !== null) {
+              setContactMethod(newMethod);
+              resetForm();
+            }
+          }}
+          aria-label="contact method"
+          fullWidth
+          sx={{ mb: 3 }}
+        >
+          <ToggleButton value="email" aria-label="email">
+            <EmailIcon sx={{ mr: 1 }} />
+            Email
+          </ToggleButton>
+          <ToggleButton value="mobile" aria-label="mobile">
+            <PhoneIcon sx={{ mr: 1 }} />
+            Mobile
+          </ToggleButton>
+        </ToggleButtonGroup>
+
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2 }}>
+          <Chip
+            icon={<EmailIcon />}
+            label="Email OTP"
+            color={contactMethod === 'email' ? 'primary' : 'default'}
+            variant={contactMethod === 'email' ? 'filled' : 'outlined'}
+          />
+          <Chip
+            icon={<PhoneIcon />}
+            label="SMS OTP"
+            color={contactMethod === 'mobile' ? 'primary' : 'default'}
+            variant={contactMethod === 'mobile' ? 'filled' : 'outlined'}
+          />
+        </Box>
+      </Paper>
+
       {/* Forgot Password Form */}
       <Box component="form" onSubmit={handleSubmit} noValidate>
-        {/* Email Field */}
-        <TextField
-          label="Email"
-          name="email"
-          type="email"
-          value={values.email}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          error={touched.email && Boolean(errors.email)}
-          helperText={touched.email && errors.email}
-          fullWidth
-          margin="normal"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <EmailIcon />
-              </InputAdornment>
-            ),
-          }}
-        />
+        {/* Dynamic Contact Field */}
+        {contactMethod === 'email' ? (
+          <TextField
+            label="Email Address"
+            name="email"
+            type="email"
+            value={values.email || ''}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            error={touched.email && Boolean(errors.email)}
+            helperText={touched.email && errors.email}
+            fullWidth
+            margin="normal"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <EmailIcon />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        ) : (
+          <TextField
+            label="Phone Number"
+            name="phoneNumber"
+            type="tel"
+            value={values.phoneNumber || ''}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            error={touched.phoneNumber && Boolean(errors.phoneNumber)}
+            helperText={touched.phoneNumber && errors.phoneNumber}
+            fullWidth
+            margin="normal"
+            placeholder="+1234567890"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <PhoneIcon />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        )}
 
         {/* Submit Button */}
         <Button
@@ -289,15 +415,16 @@ const ForgotPassword = () => {
           fullWidth
           size="large"
           disabled={loading || isSubmitting}
+          startIcon={<SendIcon />}
           sx={{ mt: 3, mb: 2 }}
         >
           {loading || isSubmitting ? (
             <>
               <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
-              Sending OTP...
+              Sending...
             </>
           ) : (
-            'Send OTP'
+            `Send OTP to ${contactMethod === 'email' ? 'Email' : 'Mobile'}`
           )}
         </Button>
 
@@ -314,12 +441,24 @@ const ForgotPassword = () => {
 
       {/* OTP Verification Dialog */}
       <Dialog open={showOTPDialog} onClose={() => setShowOTPDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Verify Email OTP</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {contactMethod === 'email' ? <EmailIcon /> : <PhoneIcon />}
+            Verify {contactMethod === 'email' ? 'Email' : 'Mobile'} OTP
+          </Box>
+        </DialogTitle>
         <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            We've sent a verification code to your {contactMethod === 'email' ? 'email address' : 'mobile number'}:
+          </Typography>
+          <Typography variant="body1" fontWeight="bold" sx={{ mb: 3 }}>
+            {contactMethod === 'email' ? email : phoneNumber}
+          </Typography>
+
           <OTPInput
             title="Enter Verification Code"
-            subtitle={`Enter the 6-digit code sent to ${email}`}
-            length={6}
+            subtitle={`Enter the 4-digit code sent to your ${contactMethod}`}
+            length={4}
             onVerify={handleOTPVerification}
             onResend={handleResendOTP}
             loading={otpLoading}
@@ -337,7 +476,7 @@ const ForgotPassword = () => {
         <DialogTitle>Reset Password</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Enter your new password for {email}
+            Enter your new password for {contactMethod === 'email' ? email : phoneNumber}
           </Typography>
 
           {otpError && (

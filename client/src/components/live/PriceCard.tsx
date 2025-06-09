@@ -45,7 +45,7 @@ const PriceCard: React.FC = () => {
 
   // Determine color based on price change
   const isPositive = marketData ? marketData.change24h >= 0 : (isIncreasing !== false);
-  const changeColor = isPositive ? theme.palette.primary.main : theme.palette.secondary.main;
+  const changeColor = isPositive ? theme.palette.success.main : theme.palette.error.main;
 
   // Get the change percentage
   const changePercentage = marketData ?
@@ -56,8 +56,8 @@ const PriceCard: React.FC = () => {
   const getBackgroundColor = () => {
     if (isIncreasing === null) return 'transparent';
     return isIncreasing
-      ? 'rgba(0, 230, 118, 0.1)'
-      : 'rgba(255, 82, 82, 0.1)';
+      ? 'rgba(14, 203, 129, 0.1)' // Binance Green
+      : 'rgba(246, 70, 93, 0.1)'; // Binance Red
   };
 
   return (

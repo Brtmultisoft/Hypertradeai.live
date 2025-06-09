@@ -34,9 +34,12 @@ module.exports = {
 
     email: Joi.string().trim().optional().allow("").min(3).max(100).email().label('Email'),
     address: Joi.string().trim().optional().allow("").min(32).max(64).label("Address"),
-    phone_number: Joi.string().optional().allow("").max(10).label("Phone Number"),
+    phone_number: Joi.string().optional().allow("").min(10).max(16).pattern(/^[\+]?[1-9]\d{1,14}$/).label("Phone Number"),
     password: Joi.string().optional().allow("").min(8).max(20).custom(password).label('Password'),
     confirm_password: Joi.string().optional().allow("").min(8).max(20).valid(Joi.ref('password')).error(new Error('Confirm password and password must be same')),
+    country: Joi.string().trim().optional().allow("").max(100).label("Country"),
+    email_verified: Joi.boolean().optional().label("Email Verified"),
+    phone_verified: Joi.boolean().optional().label("Phone Verified"),
   }),
   forgotPassword: Joi.object().keys({
     email: Joi.string().email().required().label('Email'),

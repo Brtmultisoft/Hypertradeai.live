@@ -39,8 +39,8 @@ const StatCard = ({
       sx={{
         height: '100%',
         borderRadius: 3,
-        backgroundColor: 'rgba(51, 117, 187, 0.05)',
-        border: `1px solid ${theme.palette.primary.main}15`,
+        backgroundColor: theme.palette.action.hover,
+        border: `1px solid ${theme.palette.primary.main}30`,
         transition: 'transform 0.2s, box-shadow 0.2s',
         cursor: onClick ? 'pointer' : 'default',
         overflow: 'hidden',
@@ -74,7 +74,7 @@ const StatCard = ({
                   width: 36,
                   height: 36,
                   borderRadius: '50%',
-                  backgroundColor: `${theme.palette.primary.main}15`,
+                  backgroundColor: `${theme.palette.primary.main}20`,
                   color: theme.palette.primary.main,
                   mr: 1.5,
                 }}
