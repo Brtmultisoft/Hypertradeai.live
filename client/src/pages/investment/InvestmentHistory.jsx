@@ -175,7 +175,7 @@ const InvestmentHistory = () => {
                 Daily MPR Rate
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
-                8%
+                 0.266 %
               </Typography>
             </CardContent>
           </Card>

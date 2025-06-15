@@ -40,7 +40,7 @@ import AuthService from '../../services/auth.service';
 const ForgotPassword = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { forgotPassword, resetPasswordWithOTP, loading, error } = useAuth();
+  const { forgotPassword, loading, error } = useAuth();
 
   // State management
   const [step, setStep] = useState('contact'); // 'contact', 'otp', 'password'
@@ -57,6 +57,7 @@ const ForgotPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [localError, setLocalError] = useState(null);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
 
   // Password form state
   const [passwordData, setPasswordData] = useState({
@@ -65,6 +66,22 @@ const ForgotPassword = () => {
     otp: ''
   });
   const [passwordErrors, setPasswordErrors] = useState({});
+
+  // Reset all states when starting over
+  const resetAllStates = () => {
+    setEmail('');
+    setPhoneNumber('');
+    setOtpRequestId('');
+    setShowOTPDialog(false);
+    setShowPasswordDialog(false);
+    setShowSuccessAlert(false);
+    setSuccessMessage('');
+    setOtpError(null);
+    setLocalError(null);
+    setIsOtpVerified(false);
+    setPasswordData({ password: '', confirmPassword: '', otp: '' });
+    setPasswordErrors({});
+  };
 
   // Contact form validation rules
   const getValidationRules = () => {
@@ -166,16 +183,39 @@ const ForgotPassword = () => {
         return;
       }
 
-      console.log('✅ OTP format valid, storing for password reset');
-      // Store the OTP for later use in password reset (original working approach)
-      setPasswordData(prev => ({ ...prev, otp }));
-      setShowOTPDialog(false);
-      setShowPasswordDialog(true);
-      setSuccessMessage('Please enter your new password.');
-      setShowSuccessAlert(true);
+      console.log('🔍 Verifying OTP with backend before proceeding...');
+
+      // Verify OTP with backend first
+      let verificationResult;
+      if (contactMethod === 'email') {
+        verificationResult = await AuthService.verifyForgotPasswordOTP(otp, otpRequestId);
+      } else {
+        verificationResult = await AuthService.verifyForgotPasswordMobileOTP(otp, otpRequestId);
+      }
+
+      console.log('📡 OTP verification result:', verificationResult);
+
+      // Check if verification was successful
+      // Backend returns: { status: true, message: "OTP verified successfully", data: { verified: true } }
+      if (verificationResult.status === true && verificationResult.data?.verified) {
+        console.log('✅ OTP verified successfully, proceeding to password reset');
+
+        // Store the verified OTP for password reset and mark as verified
+        setPasswordData(prev => ({ ...prev, otp }));
+        setIsOtpVerified(true);
+        setShowOTPDialog(false);
+        setShowPasswordDialog(true);
+        setSuccessMessage(verificationResult.message || 'OTP verified successfully! Please enter your new password.');
+        setShowSuccessAlert(true);
+      } else {
+        console.error('❌ OTP verification failed:', verificationResult.message || verificationResult.error);
+        setOtpError(verificationResult.message || verificationResult.error || 'Invalid or expired OTP');
+      }
     } catch (err) {
       console.error('❌ Error in OTP verification:', err);
-      setOtpError(err.msg || err.message || 'Failed to process OTP');
+      // Handle different error response formats
+      const errorMessage = err.message || err.msg || err.error || 'Failed to verify OTP. Please try again.';
+      setOtpError(errorMessage);
     } finally {
       setOtpLoading(false);
     }
@@ -184,6 +224,9 @@ const ForgotPassword = () => {
   // Handle OTP resend
   const handleResendOTP = async () => {
     try {
+      setOtpLoading(true);
+      setOtpError(null);
+
       let result;
 
       if (contactMethod === 'email') {
@@ -192,13 +235,22 @@ const ForgotPassword = () => {
         result = await AuthService.sendMobileForgotPasswordOTP(phoneNumber);
       }
 
-      if (result.status) {
-        setOtpRequestId(result.data.otp_request_id || result.data.requestId);
+      console.log('📡 Resend OTP result:', result);
+
+      if (result.status === true || result.success === true) {
+        const responseData = result.data || result;
+        const requestId = responseData.otp_request_id || responseData.requestId;
+        setOtpRequestId(requestId);
         setSuccessMessage(`New OTP sent to your ${contactMethod}.`);
         setShowSuccessAlert(true);
+      } else {
+        setOtpError(result.message || result.msg || 'Failed to resend OTP');
       }
     } catch (err) {
-      setOtpError(err.msg || 'Failed to resend OTP');
+      console.error('❌ Error in resend OTP:', err);
+      setOtpError(err.message || err.msg || err.error || 'Failed to resend OTP');
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -245,8 +297,8 @@ const ForgotPassword = () => {
 
     console.log('🔐 Password reset form submitted');
     console.log('📋 Form data:', {
-      email,
-      otp: passwordData.otp,
+      email: contactMethod === 'email' ? email : undefined,
+      phoneNumber: contactMethod === 'mobile' ? phoneNumber : undefined,
       otpRequestId,
       password: '***'
     });
@@ -256,24 +308,31 @@ const ForgotPassword = () => {
       return;
     }
 
+    // Safety check: Ensure OTP is verified before proceeding
+    if (!isOtpVerified) {
+      console.error('❌ OTP not verified, cannot reset password');
+      setOtpError('Please verify your OTP first');
+      return;
+    }
+
     try {
       setOtpLoading(true);
       setOtpError(null);
 
-      console.log('📞 Calling resetPasswordWithOTP...');
+      console.log('📞 Calling resetPasswordWithVerifiedOTP (OTP already verified)...');
       let result;
 
       if (contactMethod === 'email') {
-        result = await resetPasswordWithOTP(
+        // Use verified OTP endpoint for email
+        result = await AuthService.resetPasswordWithVerifiedOTP(
           email,
-          passwordData.otp,
           otpRequestId,
           passwordData.password
         );
       } else {
-        result = await AuthService.resetPasswordWithMobileOTP(
+        // Use verified OTP endpoint for mobile
+        result = await AuthService.resetPasswordWithVerifiedMobileOTP(
           phoneNumber,
-          passwordData.otp,
           otpRequestId,
           passwordData.password
         );
@@ -281,10 +340,12 @@ const ForgotPassword = () => {
 
       console.log('📡 Password reset result:', result);
 
-      if (result.status) {
+      // Check for success using the correct response format
+      // Backend returns: { status: true, message: "Password reset successfully", data: { success: true } }
+      if (result.status === true) {
         console.log('✅ Password reset successful, redirecting to login');
         setShowPasswordDialog(false);
-        setSuccessMessage('Password reset successful! You can now login with your new password.');
+        setSuccessMessage(result.message || 'Password reset successful! You can now login with your new password.');
         setShowSuccessAlert(true);
 
         // Redirect to login after 3 seconds
@@ -292,12 +353,14 @@ const ForgotPassword = () => {
           navigate('/login');
         }, 3000);
       } else {
-        console.error('❌ Password reset failed:', result.msg || result.message);
-        setOtpError(result.msg || result.message || 'Failed to reset password');
+        console.error('❌ Password reset failed:', result.message || result.error);
+        setOtpError(result.message || result.error || 'Failed to reset password');
       }
     } catch (err) {
       console.error('❌ Error in password reset:', err);
-      setOtpError(err.msg || 'Failed to reset password');
+      // Handle different error response formats
+      const errorMessage = err.message || err.msg || err.error || 'Failed to reset password';
+      setOtpError(errorMessage);
     } finally {
       setOtpLoading(false);
     }
@@ -345,6 +408,7 @@ const ForgotPassword = () => {
             if (newMethod !== null) {
               setContactMethod(newMethod);
               resetForm();
+              resetAllStates();
             }
           }}
           aria-label="contact method"

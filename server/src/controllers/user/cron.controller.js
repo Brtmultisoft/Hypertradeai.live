@@ -2069,26 +2069,26 @@ const processDailyTradingProfit = async (req, res) => {
 // These cron jobs are now scheduled at lines 1528-1538
 
 // Schedule active member rewards check (weekly)
-if (process.env.CRON_STATUS === '1') {
-  console.log('Scheduling active member rewards check (weekly at midnight UTC)');
-  cron.schedule('0 0 * * 0', _processActiveMemberReward, {
-    scheduled: true,
-    timezone: "UTC"
-  });
-} else {
-  console.log('Automatic active member rewards check is disabled (CRON_STATUS=0)');
-}
+// if (process.env.CRON_STATUS === '1') {
+//   console.log('Scheduling active member rewards check (weekly at midnight UTC)');
+//   cron.schedule('0 0 * * 0', _processActiveMemberReward, {
+//     scheduled: true,
+//     timezone: "UTC"
+//   });
+// } else {
+//   console.log('Automatic active member rewards check is disabled (CRON_STATUS=0)');
+// }
 
 // Schedule user rank updates (daily at 1:30 AM UTC - after Level ROI processing)
-if (process.env.CRON_STATUS === '1') {
-  console.log('Scheduling user rank updates (daily at 1:30 AM UTC)');
-  cron.schedule('30 1 * * *', () => _processUserRanks(), {
-    scheduled: true,
-    timezone: "UTC"
-  });
-} else {
-  console.log('Automatic user rank updates are disabled (CRON_STATUS=0)');
-}
+// if (process.env.CRON_STATUS === '1') {
+//   console.log('Scheduling user rank updates (daily at 1:30 AM UTC)');
+//   cron.schedule('30 1 * * *', () => _processUserRanks(), {
+//     scheduled: true,
+//     timezone: "UTC"
+//   });
+// } else {
+//   console.log('Automatic user rank updates are disabled (CRON_STATUS=0)');
+// }
 
 // API endpoint for processing team rewards
 const processTeamRewards = async (req, res) => {
