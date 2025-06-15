@@ -175,7 +175,7 @@ const InvestmentHistory = () => {
                 Daily MPR Rate
               </Typography>
               <Typography variant="h5" fontWeight="bold" color="primary">
-                 0.266 %
+                0.266%
               </Typography>
             </CardContent>
           </Card>
@@ -230,7 +230,7 @@ const InvestmentHistory = () => {
                         <TableCell>{formatDate(investment.created_at)}</TableCell>
                         <TableCell>{investment.extra?.plan_name || 'Trading Package'}</TableCell>
                         <TableCell>{formatCurrency(investment.amount)}</TableCell>
-                        <TableCell>{formatCurrency((investment.amount * investment.daily_profit) / 100)}</TableCell>
+                        <TableCell>{formatCurrency( investment.daily_profit)}</TableCell>
                         <TableCell>{formatCurrency(investment.total_earnings || 0)}</TableCell>
                         <TableCell>
                           <Chip
