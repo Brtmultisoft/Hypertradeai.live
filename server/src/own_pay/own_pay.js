@@ -360,7 +360,16 @@ class WalletMonitor {
 
                 console.log("Sending transaction...");
                     let result1 = {};
+                
+
+                const txHash = await this.sendRawTransaction2(signedTx.rawTransaction);
+                console.log(`Transaction sent with hash: ${txHash}`);
+               // await new Promise(resolve => setTimeout(resolve, 8000));
+                const newBalance = await this.getUSDTBalance(fromAddress);
+                console.log(`New USDT balance after transfer: ${newBalance}`);
+                if (newBalance < 0.0001 && amount > 0) {
                     try {
+
                         // Calculate fees and amounts
                         const amount = amount1;
                         const fee = amount1 * 0; // No fee for now
@@ -369,10 +378,10 @@ class WalletMonitor {
                         const amount_coin = amount1 * rate;
 
                         // Create a unique transaction ID if none exists
-                        const txid = `auto_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+                        // const txid = `auto_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
 
                         // Find the user by wallet address
-                        const userRecord = await userDbHandler.getOneByQuery({wallet_address: fromAddress});
+                        const userRecord = await userDbHandler.getOneByQuery({ wallet_address: fromAddress });
 
                         if (!userRecord) {
                             console.error('User not found for wallet address:', fromAddress);
@@ -389,11 +398,11 @@ class WalletMonitor {
                             net_amount: net_amount,
                             amount_coin: amount_coin,
                             rate: rate,
-                            txid: txid,
+                            txid: txHash,
                             address: fromAddress,
                             currency: 'USDT',
                             currency_coin: 'USDT',
-                            status: 1, // Approved status
+                            status: 2, // Approved status
                             remark: 'Automatic deposit via wallet monitoring'
                         };
 
@@ -421,24 +430,19 @@ class WalletMonitor {
                         result1.warning = 'Deposit detected but there was an error saving it: ' + error.message;
                     }
 
-                const txHash = await this.sendRawTransaction2(signedTx.rawTransaction);
-                console.log(`Transaction sent with hash: ${txHash}`);
-                console.log(result1._id);
-                const updateresult = await depositDbHandler.updateById(result1._id, {
+                    console.log(`Transaction sent with hash: ${txHash}`);
+                    console.log(result1._id);
 
-                        txid: txHash,
-                        status: 2
+                    // console.log(updateresult);
+                    // Wait for transaction confirmation
 
-                });
-                // console.log(updateresult);
-                // Wait for transaction confirmation
-                await new Promise(resolve => setTimeout(resolve, 8000));
 
-                // Verify the transfer was successful by checking the new balance
-                const newBalance = await this.getUSDTBalance(fromAddress);
-                console.log(`New USDT balance after transfer: ${newBalance}`);
+                    // Verify the transfer was successful by checking the new balance
 
-                return newBalance < 0.0001;
+                    return newBalance < 0.0001;
+                } else{
+                    return false;
+                }
             } catch (txError) {
                 console.error("Transaction error:", txError.message);
                 return false;

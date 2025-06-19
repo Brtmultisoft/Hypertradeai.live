@@ -177,7 +177,7 @@ const WalletService = {
   // Release staking to wallet (move investment to wallet balance)
   releaseStakingToWallet: async () => {
     try {
-      const response = await api.post('/user/release-staking-to-wallet');
+      const response = await api.post('/release-staking-to-wallet');
       return response.data;
     } catch (error) {
       throw error.response?.data || { msg: 'Failed to release staking to wallet' };
@@ -187,7 +187,7 @@ const WalletService = {
   // Release staking to trade wallet (move investment to trade wallet balance)
   releaseStakingToTradeWallet: async () => {
     try {
-      const response = await api.post('/user/release-staking-to-trade-wallet');
+      const response = await api.post('/release-staking-to-trade-wallet');
       return response.data;
     } catch (error) {
       throw error.response?.data || { msg: 'Failed to release staking to trade wallet' };

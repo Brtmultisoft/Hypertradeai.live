@@ -13,6 +13,8 @@ module.exports = {
         let responseData = {};
         try {
             let getList = await depositDbHandler.getAll(reqObj);
+            console.log("list depost...",getList);
+            
             responseData.msg = 'Data fetched successfully!';
             responseData.data = getList;
             return responseHelper.success(res, responseData);

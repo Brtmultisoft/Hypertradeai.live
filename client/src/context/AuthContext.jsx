@@ -46,7 +46,7 @@ const loadUser = useCallback(async (overrideToken = null) => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${effectiveToken}`;
 
     const res = await axios.get('/user/profile');
-    console.log('Profile response:', res.data);
+    console.log('Profile response....:', res.data.result);
 
     if (res.data && res.data.status && res.data.result) {
       setUser(res.data.result);
@@ -94,7 +94,7 @@ const login = async (credentials) => {
     // Check if the response has the expected structure
     if (res.data && res.data.status) {
       const responseData = res.data.result || res.data.data;
-      console.log('Response data extracted:', responseData);
+      console.log('Response data extracted:......', responseData);
 
       // Check if 2FA is required (for both TOTP and email OTP)
       if (responseData.requires_2fa_verification) {
@@ -249,6 +249,8 @@ const login = async (credentials) => {
 
     // Check if user data is already in localStorage
     const storedUserData = localStorage.getItem('user_data');
+    console.log("storedUserData",storedUserData);
+    
 
     if (storedToken && storedUserData && !hasTriedToLoadUser.current) {
       // We have both token and user data in localStorage
@@ -550,6 +552,8 @@ const login = async (credentials) => {
 
       if (res.data && res.data.status && res.data.data && res.data.data.token) {
         const userData = res.data.data;
+        console.log("user data.....",userData);
+        
         const { token: newToken } = userData;
 
         // Get current timestamp for token creation time

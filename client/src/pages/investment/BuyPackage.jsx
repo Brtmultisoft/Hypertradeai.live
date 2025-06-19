@@ -29,18 +29,21 @@ import useAuth from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 import { useTheme as useAppTheme } from '../../context/ThemeContext';
+import { useData } from '../../context/DataContext';
 
 const BuyPackage = () => {
   const theme = useTheme();
   const { mode } = useAppTheme();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const {userData}=useData()
   const [amount, setAmount] = useState('');
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [error, setError] = useState('');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [favorite, setFavorite] = useState(false);
   const [animateAmount, setAnimateAmount] = useState(false);
+console.log("users curr",userData);
 
   // Fetch investment plans
   const {
@@ -115,7 +118,7 @@ const BuyPackage = () => {
   const handlePercentageSelect = (percentage) => {
     if (!selectedPlan) return;
 
-    const availableBalance = user?.wallet_topup || 0;
+    const availableBalance = userData?.wallet_topup || 0;
     const minAmount = selectedPlan.amount_from;
     const maxAmount = Math.min(selectedPlan.amount_to, availableBalance);
 
@@ -834,7 +837,7 @@ const BuyPackage = () => {
                   }
                 }}
               >
-                {formatCurrency(user?.wallet_topup || 0)}
+                {formatCurrency(userData?.wallet_topup || 0)}
                 <RefreshIcon
                   sx={{
                     ml: 1,

@@ -229,7 +229,7 @@ const LevelRoiIncome = () => {
       <PageHeader title="Level ROI Income" />
 
       {/* Summary Card */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      {/* <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={4}>
           <Card
             elevation={0}
@@ -273,7 +273,7 @@ const LevelRoiIncome = () => {
             </CardContent>
           </Card>
         </Grid>
-      </Grid>
+      </Grid> */}
 
       {/* Search and Filter Toolbar */}
       <Paper

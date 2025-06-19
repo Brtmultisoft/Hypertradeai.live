@@ -82,6 +82,8 @@ export const DataProvider = ({ children }) => {
     setUserError(null);
     try {
       const response = await UserService.getUserProfile();
+      console.log("response....",response);
+      
       console.log('User profile fetched successfully');
       setUserData(response.data);
       setLastUpdate(Date.now());

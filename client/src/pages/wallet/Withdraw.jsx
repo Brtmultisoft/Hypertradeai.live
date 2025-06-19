@@ -727,7 +727,7 @@ const Withdraw = () => {
                       Release to Wallet
                     </Button>
 
-                    <Button
+                    {/* <Button
                       variant="contained"
                       color="primary"
                       size="small"
@@ -748,7 +748,7 @@ const Withdraw = () => {
                       }}
                     >
                       Release to Trade Wallet
-                    </Button>
+                    </Button> */}
                   </Box>
                 </Box>
               </Alert>
@@ -1365,7 +1365,7 @@ const Withdraw = () => {
                   </Box>
 
                   {/* Option 2: Release to Trade Wallet */}
-                  <Box
+                  {/* <Box
                     onClick={() => {
                       setStakingReleaseOption('trade_wallet');
                     }}
@@ -1444,141 +1444,8 @@ const Withdraw = () => {
                         ${(dashboardData?.total_investment || 0).toFixed(2)}
                       </Typography>
                     </Box>
-                  </Box>
+                  </Box> */}
 
-                  <Divider sx={{ my: 2 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>OTHER OPTIONS</Typography>
-                  </Divider>
-
-                  {/* Option 2: Keep Staking Active */}
-                  <Box
-                    onClick={() => {
-                      setStakingReleaseOption('none');
-                    }}
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      border: `1px solid ${stakingReleaseOption === 'none' ? theme.palette.primary.main : 'rgba(0, 0, 0, 0.12)'}`,
-                      bgcolor: stakingReleaseOption === 'none' ?
-                        (mode === 'dark' ? 'rgba(51, 117, 187, 0.1)' : 'rgba(51, 117, 187, 0.05)') :
-                        (mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)'),
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-                      }
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Radio
-                          checked={stakingReleaseOption === 'none'}
-                          onChange={() => {
-                            setStakingReleaseOption('none');
-                          }}
-                          color="primary"
-                        />
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            Keep Staking Active
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Continue earning ROI on your investment
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  <Divider sx={{ my: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>WITHDRAWAL OPTIONS</Typography>
-                  </Divider>
-
-                  {/* Option 3: Partial Withdrawal */}
-                  <Box
-                    onClick={() => {
-                      setStakingReleaseOption('partial');
-                    }}
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      border: `1px solid ${stakingReleaseOption === 'partial' ? theme.palette.warning.main : 'rgba(0, 0, 0, 0.12)'}`,
-                      bgcolor: stakingReleaseOption === 'partial' ?
-                        (mode === 'dark' ? 'rgba(237, 108, 2, 0.1)' : 'rgba(237, 108, 2, 0.05)') :
-                        (mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)'),
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-                      }
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Radio
-                          checked={stakingReleaseOption === 'partial'}
-                          onChange={() => {
-                            setStakingReleaseOption('partial');
-                          }}
-                          color="warning"
-                        />
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            Release Partial (50%)
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Release exact half of your staked investment to wallet (no conversion)
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Typography variant="body2" fontWeight="bold" color="warning.main">
-                        ${((dashboardData?.total_investment || 0) * 0.5).toFixed(2)}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  {/* Option 4: Full Withdrawal */}
-                  <Box
-                    onClick={() => {
-                      setStakingReleaseOption('full');
-                    }}
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      border: `1px solid ${stakingReleaseOption === 'full' ? theme.palette.error.main : 'rgba(0, 0, 0, 0.12)'}`,
-                      bgcolor: stakingReleaseOption === 'full' ?
-                        (mode === 'dark' ? 'rgba(211, 47, 47, 0.1)' : 'rgba(211, 47, 47, 0.05)') :
-                        (mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)'),
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-                      }
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Radio
-                          checked={stakingReleaseOption === 'full'}
-                          onChange={() => {
-                            setStakingReleaseOption('full');
-                          }}
-                          color="error"
-                        />
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            Withdraw Full (100%)
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Withdraw all of your staked investment
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Typography variant="body2" fontWeight="bold" color="error.main">
-                        ${(dashboardData?.total_investment || 0).toFixed(2)}
-                      </Typography>
-                    </Box>
-                  </Box>
                 </Box>
               </Box>
 

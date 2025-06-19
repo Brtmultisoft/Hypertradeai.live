@@ -86,13 +86,17 @@ const initiateTxn = async (txn, priv_key) => {
 
 // Function to release staking to wallet
 const releaseStakingToWallet = async (req, res) => {
+    console.log("hitting api.......");
+    
     let responseData = {};
     let user = req.user;
     let user_id = user.sub;
+console.log("req.user",req.user);
 
     try {
         // Get user data
         let userData = await userDbHandler.getById(user_id);
+console.log("userdata",userData);
 
         if (!userData) {
             responseData.msg = 'User not found';
@@ -132,7 +136,7 @@ const releaseStakingToWallet = async (req, res) => {
             const { investmentDbHandler } = require('../../services/db');
 
             // Update all active investments for this user to 'completed'
-            const investmentUpdateResult = await investmentDbHandler.updateManyByQuery(
+            const investmentUpdateResult = await investmentDbHandler.updateByQuery(
                 {
                     user_id: user_id,
                     status: 'active' // Only update active investments
