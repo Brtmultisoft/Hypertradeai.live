@@ -45,6 +45,10 @@ import UpdateProfitStatus from './pages/trading/UpdateProfitStatus';
 import NotFound from './pages/NotFound';
 import FundDeduct from './pages/wallet/FundDeduct';
 
+// Settings Pages
+import GeneralSettings from './pages/settings/GeneralSettings';
+import AdminSettings from './pages/settings/AdminSettings';
+
 function App() {
   const { isAuthenticated, loading } = useAuth();
 
@@ -152,6 +156,9 @@ function App() {
             {/* Trading Routes */}
             <Route path="/trade-activation-history" element={<TradeActivationHistory />} />
             <Route path="/update-profit-status" element={<UpdateProfitStatus />} />
+
+            {/* Admin Settings Route */}
+            <Route path="/admin-settings" element={<AdminSettings />} />
           </Route>
 
           {/* Default Route */}

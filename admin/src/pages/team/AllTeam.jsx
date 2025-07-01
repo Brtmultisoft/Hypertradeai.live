@@ -84,6 +84,21 @@ const AllTeam = () => {
   // Use debounced search term to prevent excessive API calls
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
+  // Add state for create user modal and form fields
+  const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
+  const [createUserLoading, setCreateUserLoading] = useState(false);
+  const [createUserError, setCreateUserError] = useState(null);
+  const [createUserFields, setCreateUserFields] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone_number: '',
+    refer_id: 'admin',
+    referrerEmail: '',
+  });
+  const [referrerLoading, setReferrerLoading] = useState(false);
+  const [sponsorIdReadOnly, setSponsorIdReadOnly] = useState(false);
+
   // Fetch users data with optimized API calls
   const fetchUsers = useCallback(async (skipLoading = false) => {
     if (!skipLoading) setLoading(true);
@@ -561,12 +576,128 @@ const AllTeam = () => {
     );
   };
 
+  // Open/close create user dialog
+  const openCreateUserDialog = () => {
+    setCreateUserFields({ name: '', email: '', password: '', phone_number: '', refer_id: 'admin', referrerEmail: '' });
+    setCreateUserError(null);
+    setSponsorIdReadOnly(false);
+    setShowCreateUserDialog(true);
+  };
+  const closeCreateUserDialog = () => {
+    setShowCreateUserDialog(false);
+    setCreateUserError(null);
+  };
+
+  // Handle form field changes
+  const handleCreateUserFieldChange = (e) => {
+    setCreateUserFields((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    if (e.target.name === 'referrerEmail') {
+      if (!e.target.value) setSponsorIdReadOnly(false);
+    }
+  };
+
+  // Handle referrer email blur to auto-fill sponsorID
+  const handleReferrerEmailBlur = async () => {
+    const email = createUserFields.referrerEmail.trim();
+    if (!email) {
+      setSponsorIdReadOnly(false);
+      setCreateUserFields((prev) => ({ ...prev, refer_id: 'admin' }));
+      return;
+    }
+    setReferrerLoading(true);
+    setCreateUserError(null);
+    try {
+      const token = getToken();
+      if (!token) {
+        setCreateUserError('Admin authentication token not found. Please log in again.');
+        setReferrerLoading(false);
+        return;
+      }
+      // Try to fetch user by email
+      let response;
+      if (UserService.getUserByEmail) {
+        response = await UserService.getUserByEmail(email, token);
+      } else {
+        response = await axios.get(`${API_URL}/admin/get-user-by-email/${encodeURIComponent(email)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        response = response.data;
+      }
+      if (response && response.status && (response.data || response.result)) {
+        const user = response.data || response.result;
+        setCreateUserFields((prev) => ({ ...prev, refer_id: user.sponsorID || 'admin' }));
+        setSponsorIdReadOnly(true);
+      } else {
+        setCreateUserFields((prev) => ({ ...prev, refer_id: 'admin' }));
+        setCreateUserError('Referrer email not found.');
+        setSponsorIdReadOnly(false);
+      }
+    } catch (err) {
+      setCreateUserFields((prev) => ({ ...prev, refer_id: 'admin' }));
+      setCreateUserError('Referrer email not found.');
+      setSponsorIdReadOnly(false);
+    } finally {
+      setReferrerLoading(false);
+    }
+  };
+
+  // Handle create user submit
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    setCreateUserLoading(true);
+    setCreateUserError(null);
+    try {
+      const token = getToken();
+      if (!token) {
+        setCreateUserError('Admin authentication token not found. Please log in again.');
+        setCreateUserLoading(false);
+        return;
+      }
+      // Use refer_id for backend, default to 'admin'
+      const payload = {
+        ...createUserFields,
+        refer_id: createUserFields.refer_id || 'admin',
+      };
+      // Remove sponsorID and referrerEmail from payload
+      delete payload.sponsorID;
+      delete payload.referrerEmail;
+      // Use UserService or direct API call
+      let response;
+      if (UserService.createUser) {
+        response = await UserService.createUser({ ...payload, token });
+      } else {
+        response = await axios.post(`${API_URL}/admin/create-user`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        response = response.data;
+      }
+      if (response && (response.status || response.success)) {
+        setSuccessMessage('User created successfully!');
+        closeCreateUserDialog();
+        fetchUsers();
+      } else {
+        setCreateUserError(response?.msg || response?.message || 'Failed to create user');
+      }
+    } catch (err) {
+      setCreateUserError(err.response?.data?.msg || err.message || 'An error occurred while creating user');
+    } finally {
+      setCreateUserLoading(false);
+    }
+  };
+
   return (
     <Box sx={{ width: '100%' }}>
       <PageHeader
         title="All Team Members"
         subtitle="Manage all users and their referral relationships"
       />
+
+      {/* Create User Button */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button variant="contained" color="primary" onClick={openCreateUserDialog}>
+          Create User
+        </Button>
+      </Box>
 
       {/* Filters and Search */}
       <Paper
@@ -1045,12 +1176,7 @@ const AllTeam = () => {
       </Dialog>
 
       {/* Unblock User Dialog */}
-      <
-
-
-
-
-        Dialog
+      <Dialog
         open={showUnblockDialog}
         onClose={closeUnblockDialog}
         aria-labelledby="unblock-dialog-title"
@@ -1430,6 +1556,93 @@ const AllTeam = () => {
             color="primary"
           >
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog
+        open={showCreateUserDialog}
+        onClose={closeCreateUserDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '8px' } }}
+      >
+        <DialogTitle>Create New User</DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleCreateUser} sx={{ mt: 1 }}>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Name"
+              name="name"
+              value={createUserFields.name}
+              onChange={handleCreateUserFieldChange}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Email"
+              name="email"
+              type="email"
+              value={createUserFields.email}
+              onChange={handleCreateUserFieldChange}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Password"
+              name="password"
+              type="password"
+              value={createUserFields.password}
+              onChange={handleCreateUserFieldChange}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Phone Number"
+              name="phone_number"
+              value={createUserFields.phone_number}
+              onChange={handleCreateUserFieldChange}
+            />
+            <TextField
+              margin="normal"
+              fullWidth
+              label="Referrer Email (optional)"
+              name="referrerEmail"
+              value={createUserFields.referrerEmail}
+              onChange={handleCreateUserFieldChange}
+              onBlur={handleReferrerEmailBlur}
+              helperText={referrerLoading ? 'Looking up referrer...' : 'Enter email to auto-fill Sponsor ID'}
+              disabled={referrerLoading}
+            />
+            <TextField
+              margin="normal"
+              fullWidth
+              label="Referral ID (defaults to admin)"
+              name="refer_id"
+              value={createUserFields.refer_id}
+              onChange={handleCreateUserFieldChange}
+              InputProps={{ readOnly: sponsorIdReadOnly }}
+            />
+            {createUserError && (
+              <Alert severity="error" sx={{ mt: 2 }}>{createUserError}</Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCreateUserDialog} disabled={createUserLoading}>Cancel</Button>
+          <Button
+            onClick={handleCreateUser}
+            variant="contained"
+            color="primary"
+            disabled={createUserLoading || !createUserFields.name || !createUserFields.email || !createUserFields.password || !createUserFields.phone_number}
+          >
+            {createUserLoading ? <CircularProgress size={20} /> : 'Create User'}
           </Button>
         </DialogActions>
       </Dialog>

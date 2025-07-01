@@ -38,6 +38,7 @@ import {
   Visibility as VisibilityIcon,
   TrendingUp as TrendingUpIcon,
   AccessTime as AccessTimeIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import useAuth from '../../hooks/useAuth';
 
@@ -1090,6 +1091,42 @@ const Sidebar = ({ open, onClose }) => {
             </ListItemButton>
           </List>
         </Collapse>
+
+        {/* Admin Settings */}
+        <ListItem disablePadding>
+          <Tooltip title="Admin Settings" placement="right" disableHoverListener={!miniVariant}>
+            <ListItemButton
+              component={Link}
+              to="/admin-settings"
+              selected={isActive('/admin-settings')}
+              onClick={handleItemClick}
+              sx={{
+                borderRadius: 1,
+                mb: 0.5,
+                justifyContent: miniVariant ? 'center' : 'flex-start',
+                minHeight: 48,
+                px: miniVariant ? 1 : 2.5,
+                '&.Mui-selected': {
+                  backgroundColor: `${theme.palette.primary.main}20`,
+                  '&:hover': {
+                    backgroundColor: `${theme.palette.primary.main}30`,
+                  },
+                },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  mr: miniVariant ? 0 : 2,
+                  justifyContent: 'center',
+                }}
+              >
+                <SettingsIcon color={isActive('/admin-settings') ? 'primary' : 'inherit'} />
+              </ListItemIcon>
+              {!miniVariant && <ListItemText primary="Admin Settings" />}
+            </ListItemButton>
+          </Tooltip>
+        </ListItem>
       </List>
     </Box>
   );
