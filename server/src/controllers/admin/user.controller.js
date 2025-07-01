@@ -63,6 +63,27 @@ let _createHashPassword = async (password) => {
     return hashedPassword;
 }
 
+// Generate a unique sponsor ID (HS + 5 digits)
+const generateSponsorId = async() => {
+    const prefix = 'HS';
+    let isUnique = false;
+    let sponsorId = '';
+
+    while (!isUnique) {
+        // Generate a random 5-digit number
+        const randomNum = Math.floor(10000 + Math.random() * 90000);
+        sponsorId = `${prefix}${randomNum}`;
+
+        // Check if this sponsor ID already exists
+        const existingUser = await userDbHandler.getOneByQuery({ sponsorID: sponsorId });
+        if (!existingUser) {
+            isUnique = true;
+        }
+    }
+
+    return sponsorId;
+};
+
 /**************************
  * END OF PRIVATE FUNCTIONS
  **************************/
@@ -592,6 +613,60 @@ module.exports = {
         } catch (error) {
             log.error('Failed to unblock user with error:', error);
             responseData.msg = 'Failed to unblock user';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    adminCreateUser: async (req, res) => {
+        let reqObj = req.body;
+        let responseData = {};
+        try {
+            let hashedPassword = await _createHashPassword(reqObj.password);
+
+            // Default refer_id to null
+            let refer_id = null;
+            let refUser = null;
+
+            // If refer_id is present in payload, treat it as sponsorID
+            if (reqObj.refer_id) {
+                refUser = await userDbHandler.getOneByQuery({ sponsorID: reqObj.refer_id });
+                if (refUser && refUser._id) {
+                    refer_id = refUser._id;
+                }
+            }
+
+            // Final safety: Only allow ObjectId or null
+            if (!(refer_id === null || (typeof refer_id === "object" && refer_id !== null && refer_id.toString().length === 24))) {
+                refer_id = null;
+            }
+
+            const sponsorID = await generateSponsorId();
+            let userData = {
+                ...reqObj,
+                password: hashedPassword,
+                created_at: new Date(),
+                sponsorID,
+                refer_id
+            };
+            // Remove refer_id from reqObj before saving
+            // delete userData.refer_id;
+
+            let newUser = await userDbHandler.create(userData);
+            let updatedUser = await userDbHandler.getById(newUser._id);
+
+            // If referralCode was provided and refUser exists, add new user's _id to referrer's referrals array
+            if (reqObj.referralCode && refUser) {
+                await userDbHandler.updateById(refUser._id, {
+                    $push: { referrals: newUser._id }
+                });
+            }
+
+            responseData.msg = 'Admin user created successfully!';
+            responseData.data = updatedUser;
+            return responseHelper.success(res, responseData);
+        } catch (error) {
+            log.error('Failed to create admin user:', error);
+            responseData.msg = 'Failed to create admin user';
             return responseHelper.error(res, responseData);
         }
     }

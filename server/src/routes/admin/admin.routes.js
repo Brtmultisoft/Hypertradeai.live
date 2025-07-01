@@ -146,15 +146,18 @@ module.exports = () => {
     Router.get('/get-investment-plan/:id', adminInvestmentPlanController.getOne);
 
     // Add a new investment plan
+    console.log('adminInvestmentPlanController.add:', adminInvestmentPlanController.add);
     Router.post('/add-investment-plan', adminInvestmentPlanController.add);
 
     // Update an existing investment plan by ID
+    console.log('adminInvestmentPlanController.update:', adminInvestmentPlanController.update);
     Router.put('/update-investment-plan/:id', adminInvestmentPlanController.update);
 
     // Delete an investment plan by ID
+    console.log('adminInvestmentPlanController.delete:', adminInvestmentPlanController.delete);
     Router.delete('/delete-investment-plan/:id', adminInvestmentPlanController.delete);
 
-    Router.delete('/delete-investment-plan/:id', adminInvestmentPlanController.delete);
+    console.log('adminInvestmentController.getAll:', adminInvestmentController.getAll);
     Router.get("/get-all-investments", adminInvestmentController.getAll);
 
     // Direct route to get investments without filters
@@ -184,93 +187,87 @@ module.exports = () => {
             });
         }
     });
+    console.log('adminInvestmentController.getAllStacked:', adminInvestmentController.getAllStacked);
     Router.get("/get-all-stacked", adminInvestmentController.getAllStacked);
+    console.log('adminInvestmentController.getOne:', adminInvestmentController.getOne);
     Router.get("/get-investment/:id", adminInvestmentController.getOne);
+    console.log('adminInvestmentController.getSum:', adminInvestmentController.getSum);
     Router.get("/get-investment-sum", adminInvestmentController.getSum);
 
+    console.log('adminIncomeController.getAll:', adminIncomeController.getAll);
     Router.get("/get-all-incomes", adminIncomeController.getAll);
 
-    // Direct route to get incomes without filters
-    Router.get("/get-incomes-direct", async (req, res) => {
-        try {
-            const { incomeModel } = require('../../models');
-            const incomes = await incomeModel.find({}).limit(10).sort({ created_at: -1 }).exec();
-            const count = await incomeModel.countDocuments({}).exec();
-
-            return res.status(200).json({
-                status: true,
-                message: 'Incomes fetched successfully',
-                result: {
-                    list: incomes,
-                    page: 1,
-                    limit: 10,
-                    total: count,
-                    totalPages: Math.ceil(count / 10)
-                }
-            });
-        } catch (error) {
-            console.error('Error fetching incomes directly:', error);
-            return res.status(500).json({
-                status: false,
-                message: 'Failed to fetch incomes',
-                error: error.message
-            });
-        }
-    });
+    console.log('adminIncomeController.getOne:', adminIncomeController.getOne);
     Router.get("/get-income/:id", adminIncomeController.getOne);
+
+    console.log('adminIncomeController.getSum:', adminIncomeController.getSum);
     Router.get("/get-income-sum", adminIncomeController.getSum);
 
+    console.log('adminFundDeductController.getAll:', adminFundDeductController.getAll);
     Router.get("/get-all-fund-deducts", adminFundDeductController.getAll);
+
+    console.log('adminFundDeductController.getOne:', adminFundDeductController.getOne);
     Router.get("/get-fund-deduct/:id", adminFundDeductController.getOne);
+
+    console.log('adminFundDeductController.getSum:', adminFundDeductController.getSum);
     Router.get("/get-fund-deduct-sum", adminFundDeductController.getSum);
+
+    console.log('adminFundDeductController.add:', adminFundDeductController.add);
     Router.post("/add-fund-deduct", validationMiddleware(fundDeductValidation.add, 'body'), adminFundDeductController.add);
 
+    console.log('adminFundTransferController.getAll:', adminFundTransferController.getAll);
     Router.get("/get-all-fund-transfers", adminFundTransferController.getAll);
-    Router.get("/test-fund-transfers", async (req, res) => {
-        try {
-            const { fundTransferModel } = require('../../models');
-            const transfers = await fundTransferModel.find().limit(10)
-            return res.json({
-                status: true,
-                message: 'Test fund transfers',
-                count: transfers.length,
-                data: transfers
-            });
-        } catch (error) {
-            console.error('Error in test endpoint:', error);
-            return res.status(500).json({
-                status: false,
-                message: 'Error fetching test data',
-                error: error.message
-            });
-        }
-    });
+
+    console.log('adminFundTransferController.getOne:', adminFundTransferController.getOne);
     Router.get("/get-fund-transfer/:id", adminFundTransferController.getOne);
+
+    console.log('adminFundTransferController.getSum:', adminFundTransferController.getSum);
     Router.get("/get-fund-transfer-sum", adminFundTransferController.getSum);
+
+    console.log('validationMiddleware:', validationMiddleware);
+    console.log('fundTransferValidation.add:', fundTransferValidation.add);
+    console.log('adminFundTransferController.add:', adminFundTransferController.add);
     Router.post("/add-fund-transfer", validationMiddleware(fundTransferValidation.add, 'body'), adminFundTransferController.add);
 
+    console.log('adminDepositController.getAll:', adminDepositController.getAll);
     Router.get("/get-all-deposits", adminDepositController.getAll);
+
+    console.log('adminDepositController.getOne:', adminDepositController.getOne);
     Router.get("/get-deposit/:id", adminDepositController.getOne);
+
+    console.log('adminDepositController.getSum:', adminDepositController.getSum);
     Router.get("/get-deposit-sum", adminDepositController.getSum);
+
+    console.log('adminDepositController.update:', adminDepositController.update);
     Router.put("/update-deposit", validationMiddleware(depositValidation.update, 'body'), adminDepositController.update);
 
     // Original withdrawal routes
-    Router.get("/get-all-withdrawals", adminWithdrawalController.getAllWithdrawals); // Use getAllWithdrawals instead of getAll
+    console.log('adminWithdrawalController.getAllWithdrawals:', adminWithdrawalController.getAllWithdrawals);
+    Router.get("/get-all-withdrawals", adminWithdrawalController.getAllWithdrawals);
+    console.log('adminWithdrawalController.getOne:', adminWithdrawalController.getOne);
     Router.get("/get-withdrawal/:id", adminWithdrawalController.getOne);
+    console.log('adminWithdrawalController.getSum:', adminWithdrawalController.getSum);
     Router.get("/get-withdrawal-sum", adminWithdrawalController.getSum);
+    console.log('adminWithdrawalController.update:', adminWithdrawalController.update);
     Router.put("/update-withdrawal", validationMiddleware(withdrawalValidation.update, 'body'), adminWithdrawalController.update);
 
     // New withdrawal management routes
     Router.get("/withdrawals", adminWithdrawalController.getAllWithdrawals);
     Router.get("/withdrawals/:id", adminWithdrawalController.getOne);
+    console.log('adminWithdrawalController.approveWithdrawal:', adminWithdrawalController.approveWithdrawal);
     Router.post("/withdrawals/approve", adminWithdrawalController.approveWithdrawal);
+
+    console.log('adminWithdrawalController.rejectWithdrawal:', adminWithdrawalController.rejectWithdrawal);
     Router.post("/withdrawals/reject", adminWithdrawalController.rejectWithdrawal);
 
     // Direct endpoints for approval/rejection
+    console.log('adminWithdrawalController.approveWithdrawal (direct):', adminWithdrawalController.approveWithdrawal);
     Router.post("/approve-withdrawal/:id", (req, res) => {
         req.body.withdrawalId = req.params.id;
         return adminWithdrawalController.approveWithdrawal(req, res);
     });
+
+    console.log('adminWithdrawalController.rejectWithdrawal (direct):', adminWithdrawalController.rejectWithdrawal);
     Router.post("/reject-withdrawal/:id", (req, res) => {
         req.body.withdrawalId = req.params.id;
         return adminWithdrawalController.rejectWithdrawal(req, res);
@@ -335,6 +332,10 @@ module.exports = () => {
     // Cron Execution routes
     const cronRoutes = require('./cron.routes');
     Router.use('/cron', cronRoutes);
+
+    console.log('adminAuthenticateMiddleware:', adminAuthenticateMiddleware);
+    console.log('adminUserController.adminCreateUser:', adminUserController.adminCreateUser);
+    Router.post("/create-user", adminUserController.adminCreateUser);
 
     /**************************
      * END OF AUTHORIZED ROUTES
