@@ -1711,11 +1711,11 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
     // Check last_profit_date to ensure we don't give duplicate ROI
     const activeInvestments = await investmentDbHandler.getByQuery({
       status: 'active',
-      $or: [
-        { last_profit_date: { $lt: today } }, // Last profit was before today
-        { last_profit_date: null }, // Never received profit
-        { last_profit_date: { $exists: false } } // Field doesn't exist
-      ]
+      // $or: [
+      //   { last_profit_date: { $lt: today } }, // Last profit was before today
+      //   { last_profit_date: null }, // Never received profit
+      //   { last_profit_date: { $exists: false } } // Field doesn't exist
+      // ]
     });
 
     console.log(`[DAILY_PROFIT] Found ${activeInvestments.length} active investments eligible for daily profit`);
