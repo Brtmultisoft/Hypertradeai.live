@@ -528,7 +528,7 @@ const TransferFund = () => {
                             Referred By
                           </Typography>
                           <Typography variant="body1" fontWeight="medium">
-                            {userFound.referred_by || 'Admin'}
+                            {userFound.referred_by || userFound.refer_id || 'not found'}
                           </Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>

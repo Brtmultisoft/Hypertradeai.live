@@ -621,7 +621,16 @@ module.exports = {
         let reqObj = req.body;
         let responseData = {};
         try {
-            let hashedPassword = await _createHashPassword(reqObj.password);
+            log.info(`Password before hashing: ${reqObj.password}`);
+            function isBcryptHash(str) {
+                return typeof str === 'string' && str.startsWith('$2b$');
+            }
+
+            let passwordToSave = reqObj.password;
+            if (!isBcryptHash(passwordToSave)) {
+                passwordToSave = await _createHashPassword(passwordToSave);
+            }
+            log.info(`Password to save: ${passwordToSave}`);
 
             // Default refer_id to null
             let refer_id = null;
@@ -643,7 +652,7 @@ module.exports = {
             const sponsorID = await generateSponsorId();
             let userData = {
                 ...reqObj,
-                password: hashedPassword,
+                password: passwordToSave,
                 created_at: new Date(),
                 sponsorID,
                 refer_id

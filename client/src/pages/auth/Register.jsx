@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -77,6 +77,10 @@ const Register = () => {
   const [verificationEmail, setVerificationEmail] = useState('');
   const [verificationPhone, setVerificationPhone] = useState('');
 
+  // Referral checking states
+  const [referralChecking, setReferralChecking] = useState(false);
+  const referralDebounceRef = useRef();
+
   // Get referral code from URL if present and default referrer from env
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -103,54 +107,97 @@ const Register = () => {
         setReferralError(result.error);
         setReferralInfo(null);
       }
+      return result; // Ensure the result is returned for debounced effect
     } catch (err) {
       console.error('Error validating referral ID:', err);
       setReferralError('Error validating referral ID');
       setReferralInfo(null);
+      return { isValid: false, error: 'Error validating referral ID' }; // Return error object
     }
   };
 
-  // Form validation rules
-  const validationRules = {
-    name: {
-      required: true,
-      requiredMessage: 'Full name is required',
-      minLength: 3,
-      minLengthMessage: 'Name must be at least 3 characters',
-    },
-    username: {
-      required: true,
-      requiredMessage: 'Username is required',
-      minLength: 3,
-      minLengthMessage: 'Username must be at least 3 characters',
-      pattern: /^[a-zA-Z0-9_]+$/,
-      patternMessage: 'Username can only contain letters, numbers, and underscores',
-    },
-    email: {
-      required: true,
-      requiredMessage: 'Email is required',
-      validate: (value) => (!isValidEmail(value) ? 'Please enter a valid email address' : null),
-    },
-    phone: {
-      required: true,
-      requiredMessage: 'Phone number is required',
-      validate: (value) => (!isValidPhone(value) ? 'Please enter a valid phone number' : null),
-    },
-    password: {
-      required: true,
-      requiredMessage: 'Password is required',
-      validate: (value) => {
-        const result = validatePassword(value);
-        return !result.isValid ? result.message : null;
+  // State for OTP settings
+  const [otpSettings, setOtpSettings] = useState({
+    email_otp_enabled: false, // Default email OTP to off
+    mobile_otp_enabled: false, // Default mobile OTP to off
+    loading: false
+  });
+
+  // Dynamic form validation rules based on OTP settings
+  const getValidationRules = () => {
+    const isOTPDisabled = !otpSettings.email_otp_enabled && !otpSettings.mobile_otp_enabled;
+
+    return {
+      name: {
+        required: true,
+        requiredMessage: 'Full name is required',
+        minLength: 3,
+        minLengthMessage: 'Name must be at least 3 characters',
       },
-    },
-    confirmPassword: {
-      required: true,
-      requiredMessage: 'Please confirm your password',
-    },
+      username: {
+        required: true,
+        requiredMessage: 'Username is required',
+        minLength: 3,
+        minLengthMessage: 'Username must be at least 3 characters',
+        pattern: /^[a-zA-Z0-9_]+$/,
+        patternMessage: 'Username can only contain letters, numbers, and underscores',
+      },
+      email: {
+        required: true,
+        requiredMessage: 'Email is required',
+        validate: (value) => (!isValidEmail(value) ? 'Please enter a valid email address' : null),
+      },
+      phone: {
+        required: true,
+        requiredMessage: 'Phone number is required',
+        validate: (value) => (!isValidPhone(value) ? 'Please enter a valid phone number' : null),
+      },
+      password: {
+        required: true, // Password always required
+        requiredMessage: 'Password is required',
+        validate: (value) => {
+          const result = validatePassword(value);
+          return !result.isValid ? result.message : null;
+        },
+      },
+    };
   };
 
-
+  // Debounced real-time referral validation
+  useEffect(() => {
+    if (!referralCode) {
+      setReferralError('');
+      setReferralInfo(null);
+      setReferralChecking(false);
+      return;
+    }
+    setReferralChecking(true);
+    if (referralDebounceRef.current) clearTimeout(referralDebounceRef.current);
+    const codeToCheck = referralCode; // capture current value
+    referralDebounceRef.current = setTimeout(async () => {
+      try {
+        const result = await validateReferralId(codeToCheck);
+        // Only update if the value hasn't changed since the call started
+        if (referralCode === codeToCheck) {
+          if (result?.isValid) {
+            setReferralInfo(result.data);
+            setReferralError('');
+          } else {
+            setReferralError(result?.error || 'Invalid referral ID');
+            setReferralInfo(null);
+          }
+        }
+      } catch (err) {
+        if (referralCode === codeToCheck) {
+          setReferralError('Error validating referral ID');
+          setReferralInfo(null);
+        }
+      } finally {
+        if (referralCode === codeToCheck) setReferralChecking(false);
+      }
+    }, 500);
+    return () => clearTimeout(referralDebounceRef.current);
+  }, [referralCode]);
 
   // Dual verification functions
   const handleDualVerificationRegistration = async (userData, email, phone) => {
@@ -168,6 +215,27 @@ const Register = () => {
       console.log('Dual verification OTPs response:', response);
 
       if (response.status) {
+        // Check if OTP is disabled
+        if (response.data && response.data.otp_disabled) {
+          console.log('OTP is disabled, proceeding with direct registration');
+          await handleDirectRegistration(userData, email, phone);
+          return;
+        }
+
+        // Check if only email OTP (mobile disabled)
+        if (response.data && response.data.email_only) {
+          console.log('Only email OTP enabled, switching to email-only flow');
+          await handleOTPRegistration(userData);
+          return;
+        }
+
+        // Check if only mobile OTP (email disabled)
+        if (response.data && response.data.mobile_only) {
+          console.log('Only mobile OTP enabled, switching to mobile-only flow');
+          await handleMobileOTPRegistration(userData, phone);
+          return;
+        }
+
         setEmailRequestId(response.data.emailRequestId);
         setMobileRequestId(response.data.mobileRequestId);
         setVerificationEmail(email);
@@ -182,9 +250,52 @@ const Register = () => {
       }
     } catch (err) {
       console.error('Error sending dual verification OTPs:', err);
+
+      // Check if error indicates OTP is disabled
+      if (err.data && err.data.otp_disabled) {
+        console.log('OTP is disabled (from error), proceeding with direct registration');
+        await handleDirectRegistration(userData, email, phone);
+        return;
+      }
+
       setDualOtpError(err.msg || err.message || 'Failed to send verification codes');
     } finally {
       setDualOtpLoading(false);
+    }
+  };
+
+  // Direct registration when OTP is disabled
+  const handleDirectRegistration = async (userData, email, phone) => {
+    try {
+      console.log('Performing direct registration without OTP verification');
+
+      // Use the standard register function
+      const response = await AuthService.register(userData);
+
+      console.log('Direct registration response:', response);
+
+      if (response.status) {
+        // Store registration data for success dialog
+        setRegistrationData({
+          name: userData.name,
+          username: userData.username || response.data.username,
+          email: userData.email,
+          password: userData.password, // User provided password
+          sponsorID: response.data.sponsorID,
+        });
+
+        // Show success dialog
+        setOpenSuccessDialog(true);
+        setSuccessMessage('Registration successful! OTP verification was skipped as it is currently disabled.');
+        setShowSuccessAlert(true);
+        resetForm();
+      } else {
+        console.error('Direct registration failed:', response);
+        setDualOtpError(response.msg || 'Registration failed');
+      }
+    } catch (err) {
+      console.error('Error in direct registration:', err);
+      setDualOtpError(err.msg || err.message || 'Registration failed');
     }
   };
 
@@ -195,15 +306,38 @@ const Register = () => {
       setOtpError(null);
 
       console.log('Sending registration OTP for:', userData.email);
+      console.log('Full userData:', userData);
+
+      // Validate email exists
+      if (!userData.email) {
+        console.error('Email is missing from userData:', userData);
+        setOtpError('Email is required for OTP registration');
+        return;
+      }
+
+      // Add phone_number to userData for email-only registration
+      const userDataWithPhone = {
+        ...userData,
+        phone_number: values.phone // Add phone from form values
+      };
+
+      console.log('UserData with phone:', userDataWithPhone);
 
       const response = await AuthService.sendRegistrationOTP(userData.email);
 
       console.log('Registration OTP response:', response);
 
       if (response.status) {
+        // Check if OTP is disabled
+        if (response.data && response.data.otp_disabled) {
+          console.log('Email OTP is disabled, proceeding with direct registration');
+          await handleDirectRegistration(userDataWithPhone, userData.email, values.phone);
+          return;
+        }
+
         setOtpRequestId(response.data.requestId);
         setOtpEmail(userData.email);
-        setPendingUserData(userData);
+        setPendingUserData(userDataWithPhone); // Store userData with phone
         setShowOTPDialog(true);
         setSuccessMessage('OTP sent to your email successfully!');
         setShowSuccessAlert(true);
@@ -213,7 +347,65 @@ const Register = () => {
       }
     } catch (err) {
       console.error('Error sending registration OTP:', err);
+
+      // Check if error indicates OTP is disabled
+      if (err.data && err.data.otp_disabled) {
+        console.log('Email OTP is disabled (from error), proceeding with direct registration');
+        const userDataWithPhone = {
+          ...userData,
+          phone_number: values.phone
+        };
+        await handleDirectRegistration(userDataWithPhone, userData.email, values.phone);
+        return;
+      }
+
       setOtpError(err.msg || err.message || 'Failed to send OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // Mobile OTP registration function (for mobile-only)
+  const handleMobileOTPRegistration = async (userData, phoneNumber) => {
+    try {
+      setOtpLoading(true);
+      setOtpError(null);
+
+      console.log('Sending mobile registration OTP for:', phoneNumber);
+
+      const response = await AuthService.sendMobileRegistrationOTP(phoneNumber);
+
+      console.log('Mobile registration OTP response:', response);
+
+      if (response.status) {
+        // Check if OTP is disabled
+        if (response.data && response.data.otp_disabled) {
+          console.log('Mobile OTP is disabled, proceeding with direct registration');
+          await handleDirectRegistration(userData, userData.email, phoneNumber);
+          return;
+        }
+
+        setOtpRequestId(response.data.requestId);
+        setOtpEmail(phoneNumber); // Use phone as identifier
+        setPendingUserData(userData);
+        setShowOTPDialog(true);
+        setSuccessMessage('OTP sent to your mobile successfully!');
+        setShowSuccessAlert(true);
+      } else {
+        console.error('Failed to send mobile OTP:', response);
+        setOtpError(response.msg || 'Failed to send mobile OTP');
+      }
+    } catch (err) {
+      console.error('Error sending mobile registration OTP:', err);
+
+      // Check if error indicates OTP is disabled
+      if (err.data && err.data.otp_disabled) {
+        console.log('Mobile OTP is disabled (from error), proceeding with direct registration');
+        await handleDirectRegistration(userData, userData.email, phoneNumber);
+        return;
+      }
+
+      setOtpError(err.msg || err.message || 'Failed to send mobile OTP');
     } finally {
       setOtpLoading(false);
     }
@@ -286,18 +478,42 @@ const Register = () => {
       setOtpError(null);
 
       console.log('Verifying registration OTP:', {
-        email: otpEmail,
+        identifier: otpEmail, // Could be email or phone
         otp: otp,
         requestId: otpRequestId,
         hasUserData: !!pendingUserData
       });
 
-      const response = await AuthService.verifyRegistrationOTP(
-        otpEmail,
-        otp,
-        otpRequestId,
-        pendingUserData
-      );
+      let response;
+
+      // Check if otpEmail is actually a phone number (mobile OTP)
+      if (otpEmail && otpEmail.startsWith('+')) {
+        // Mobile OTP verification
+        response = await AuthService.verifyMobileRegistrationOTP(
+          otpEmail, // phone number
+          otp,
+          otpRequestId
+        );
+
+        // If mobile OTP verified, create user directly
+        if (response.status) {
+          const userCreationResponse = await AuthService.register(pendingUserData);
+
+          if (userCreationResponse.status) {
+            response.data = userCreationResponse.data;
+          } else {
+            throw userCreationResponse;
+          }
+        }
+      } else {
+        // Email OTP verification
+        response = await AuthService.verifyRegistrationOTP(
+          otpEmail,
+          otp,
+          otpRequestId,
+          pendingUserData
+        );
+      }
 
       console.log('Registration OTP verification response:', response);
 
@@ -306,7 +522,7 @@ const Register = () => {
         setRegistrationData({
           name: pendingUserData.name,
           username: pendingUserData.username || response.data.username,
-          email: otpEmail, // Use OTP email instead of pendingUserData
+          email: pendingUserData.email, // Use actual email from userData
           password: pendingUserData.password,
           sponsorID: response.data.sponsorID, // Use sponsorID from response
         });
@@ -337,27 +553,35 @@ const Register = () => {
   const handleCopyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
+    setSuccessMessage('Copied to clipboard!');
+    setShowSuccessAlert(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   // Handle success dialog close
   const handleCloseSuccessDialog = () => {
     setOpenSuccessDialog(false);
-    navigate('/login');
+    // Navigate to login with prefilled data
+    navigate('/login', {
+      state: {
+        prefillEmail: registrationData?.email,
+        prefillPassword: registrationData?.password,
+        fromRegistration: true
+      }
+    });
   };
 
   // Custom handleChange function to validate confirmPassword when password changes
   const customHandleChange = (e) => {
-    const { name } = e.target;
+    const { name, value } = e.target;
+
+    // If referralCode is being changed, clear referralError immediately
+    if (name === 'referralCode') {
+      setReferralError('');
+    }
 
     // Call the original handleChange function
     handleChange(e);
-
-    // If password field is changed and confirmPassword has a value, validate confirmPassword
-    if (name === 'password' && values.confirmPassword) {
-      // Mark confirmPassword as touched to show validation error
-      setFieldTouched('confirmPassword', true);
-    }
   };
 
   // Initialize form
@@ -371,6 +595,7 @@ const Register = () => {
     handleSubmit,
     resetForm,
     setFieldTouched,
+    setFieldValue,
   } = useForm(
     {
       name: '',
@@ -378,10 +603,19 @@ const Register = () => {
       email: '',
       phone: '',
       password: '',
-      confirmPassword: '',
     },
-    validationRules,
+    getValidationRules(), // Use dynamic validation rules
     async (formValues) => {
+      if (referralChecking) {
+        setShowSuccessAlert(true);
+        setSuccessMessage('Please wait for referral validation to complete.');
+        return;
+      }
+      if (referralError) {
+        setShowSuccessAlert(true);
+        setSuccessMessage('Invalid referral ID. Please use a valid referral ID.');
+        return;
+      }
       try {
         // Check referral ID validity first
         if (referralError) {
@@ -404,25 +638,59 @@ const Register = () => {
           }
         }
 
-        // Proceed with OTP registration
-        const { confirmPassword, phone, email, ...userData } = formValues;
+        // Check if both OTPs are disabled
+        const isOTPDisabled = !otpSettings.email_otp_enabled && !otpSettings.mobile_otp_enabled;
+
+        // Check if only email OTP is enabled (mobile disabled)
+        const isEmailOnlyOTP = otpSettings.email_otp_enabled && !otpSettings.mobile_otp_enabled;
+
+        // Check if only mobile OTP is enabled (email disabled)
+        const isMobileOnlyOTP = !otpSettings.email_otp_enabled && otpSettings.mobile_otp_enabled;
+
+        // Proceed with registration
+        const { phone, email, ...userData } = formValues;
+
         const finalUserData = {
           ...userData,
-          confirm_password: confirmPassword, // Backend expects confirm_password
+          email: email, // Add email back to userData
+          phone_number: phone, // Add phone_number for consistency
+          password: userData.password, // User must provide password
           referralId: referralCode || undefined, // Backend expects referralId, undefined if empty
-          // Note: email and phone_number are passed separately, not in userData
         };
 
         console.log('Final user data being sent:', finalUserData);
+        console.log('OTP disabled status:', isOTPDisabled);
 
-        // Use dual verification (email + mobile) for registration
-        await handleDualVerificationRegistration(finalUserData, email, phone);
+        if (isOTPDisabled) {
+          // Direct registration without OTP
+          await handleDirectRegistration(finalUserData, email, phone);
+        } else if (isEmailOnlyOTP) {
+          // Use email-only OTP registration
+          console.log('Calling handleOTPRegistration with:', finalUserData);
+          await handleOTPRegistration(finalUserData);
+        } else if (isMobileOnlyOTP) {
+          // Use mobile-only OTP registration
+          await handleMobileOTPRegistration(finalUserData, phone);
+        } else {
+          // Use dual verification (email + mobile) for registration
+          await handleDualVerificationRegistration(finalUserData, email, phone);
+        }
       } catch (err) {
         console.error('Registration error:', err);
         setError(err.message || 'An unexpected error occurred. Please try again.');
       }
     }
   );
+
+  // Generate random password when OTP is disabled
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
 
   // Toggle password visibility
   const handleTogglePasswordVisibility = () => {
@@ -468,6 +736,20 @@ const Register = () => {
           </Typography>
 
           <Paper elevation={1} sx={{ p: 2, mb: 2, bgcolor: 'background.default' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" fontWeight="bold">Email:</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography variant="body2">{registrationData?.email}</Typography>
+                <IconButton
+                  size="small"
+                  onClick={() => handleCopyToClipboard(registrationData?.email)}
+                  sx={{ ml: 1 }}
+                >
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" fontWeight="bold">Username:</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -685,60 +967,31 @@ const Register = () => {
           />
 
           <TextField
-            label="Confirm Password"
-            name="confirmPassword"
-            type={showConfirmPassword ? 'text' : 'password'}
-            value={values.confirmPassword}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            error={touched.confirmPassword && Boolean(errors.confirmPassword)}
-            helperText={touched.confirmPassword && errors.confirmPassword}
-            fullWidth
-            margin="normal"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <LockIcon />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label="toggle confirm password visibility"
-                    onClick={handleToggleConfirmPasswordVisibility}
-                    edge="end"
-                  >
-                    {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <TextField
             label="Referral ID"
+            name="referralCode"
             value={referralCode}
-            onChange={(e) => {
-              setReferralCode(e.target.value);
-              // Clear any previous error when user types
-              if (referralError) setReferralError('');
+            onChange={customHandleChange}
+            onBlur={() => validateReferralId(referralCode)}
+            error={!!referralError}
+            helperText={
+              referralError
+                ? referralError
+                : referralInfo && (referralInfo.name || referralInfo.username)
+                  ? `Referrer: ${referralInfo.name || referralInfo.username}`
+                  : referralChecking
+                    ? 'Checking referral ID...'
+                    : 'Enter a valid referral ID'
+            }
+            InputProps={{
+              endAdornment: referralChecking ? (
+                <InputAdornment position="end">
+                  <CircularProgress size={18} />
+                </InputAdornment>
+              ) : null,
             }}
-            onBlur={() => {
-              // Validate referral ID when field loses focus
-              if (referralCode) validateReferralId(referralCode);
-            }}
-            error={Boolean(referralError)}
-            helperText={referralError || 'Enter a valid referral ID'}
             fullWidth
             margin="normal"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <BadgeIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ mb: 2 }}
+            required
           />
 
           {/* Navigation Buttons */}
@@ -764,18 +1017,12 @@ const Register = () => {
               type="submit"
               variant="contained"
               color="primary"
-              disabled={loading || isSubmitting || otpLoading || dualOtpLoading}
-              fullWidth={isMobile}
-              sx={{ width: isMobile ? '100%' : 'auto' }}
+              fullWidth
+              size="large"
+              sx={{ mt: 2, mb: 1 }}
+              disabled={isSubmitting || referralChecking}
             >
-              {loading || isSubmitting || otpLoading || dualOtpLoading ? (
-                <>
-                  <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
-                  Sending Verification Codes...
-                </>
-              ) : (
-                'Send Verification Codes'
-              )}
+              {isSubmitting ? <CircularProgress size={24} /> : 'Register'}
             </Button>
           </Box>
 
@@ -804,9 +1051,11 @@ const Register = () => {
         error={dualOtpError}
       />
 
-      {/* OTP Verification Dialog (Fallback for email-only) */}
+      {/* OTP Verification Dialog (For email-only or mobile-only) */}
       <Dialog open={showOTPDialog} onClose={() => setShowOTPDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Verify Email OTP</DialogTitle>
+        <DialogTitle>
+          {otpEmail && otpEmail.startsWith('+') ? 'Verify Mobile OTP' : 'Verify Email OTP'}
+        </DialogTitle>
         <DialogContent>
           <OTPInput
             title="Enter Registration Code"
