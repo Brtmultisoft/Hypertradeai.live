@@ -164,25 +164,75 @@ module.exports = () => {
     Router.get("/get-investments-direct", async (req, res) => {
         try {
             const { investmentModel } = require('../../models');
-            const investments = await investmentModel.find({}).limit(10).sort({ created_at: -1 }).exec();
-            const count = await investmentModel.countDocuments({}).exec();
-
+            
+            // Get query parameters with defaults
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 50; // Default to 50
+            
+            // Using aggregation pipeline to join with users collection
+            const pipeline = [
+                {
+                    $match: {} // Empty match to get all documents
+                },
+                {
+                    $sort: { created_at: -1 } // Sort by creation date
+                },
+                {
+                    $skip: (page - 1) * limit // Pagination offset
+                },
+                {
+                    $limit: limit // Use the limit parameter (default 50)
+                },
+                {
+                    $lookup: {
+                        from: "users", // Verify this matches your actual users collection name
+                        localField: "user_id",
+                        foreignField: "_id",
+                        as: "userDetails"
+                    }
+                },
+                {
+                    $unwind: {
+                        path: "$userDetails",
+                        preserveNullAndEmptyArrays: true // Keep investments even if user not found
+                    }
+                },
+                {
+                    $addFields: {
+                        username: { $ifNull: ["$userDetails.username", ""] },
+                        email: { $ifNull: ["$userDetails.email", ""] },
+                        user_name: { $ifNull: ["$userDetails.name", ""] }
+                    }
+                },
+                {
+                    $project: {
+                        userDetails: 0 // Remove the joined document to keep response clean
+                    }
+                }
+            ];
+    
+            // Execute parallel operations
+            const [investments, count] = await Promise.all([
+                investmentModel.aggregate(pipeline).exec(),
+                investmentModel.countDocuments({}).exec()
+            ]);
+    
             return res.status(200).json({
                 status: true,
-                message: 'Investments fetched successfully',
+                message: 'Investments fetched successfully with user details',
                 result: {
                     list: investments,
-                    page: 1,
-                    limit: 10,
+                    page: page,
+                    limit: limit,
                     total: count,
-                    totalPages: Math.ceil(count / 10)
+                    totalPages: Math.ceil(count / limit)
                 }
             });
         } catch (error) {
-            console.error('Error fetching investments directly:', error);
+            console.error('Error fetching investments with user details:', error);
             return res.status(500).json({
                 status: false,
-                message: 'Failed to fetch investments',
+                message: 'Failed to fetch investments with user details',
                 error: error.message
             });
         }

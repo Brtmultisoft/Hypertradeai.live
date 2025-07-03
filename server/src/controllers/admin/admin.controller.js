@@ -122,6 +122,81 @@ module.exports = {
         }
     },
 
+    // get_all_users_data: async (req, res) => {
+
+    //     let admin = req.admin;
+    //     let admin_id = admin.sub;
+
+    //     log.info('Recieved request for Getting all users data:', admin_id);
+    //     let responseData = {};
+    //     try {
+    //         const startOfDay = new Date();
+    //         startOfDay.setHours(0, 0, 0, 0); // Start of the day (00:00:00.000)
+
+    //         const endOfDay = new Date();
+    //         endOfDay.setHours(23, 59, 59, 999); // End of the day (23:59:59.999)
+
+    //         const result2 = await investmentModel.aggregate([
+    //           {
+    //             $match: {
+    //               created_at: { $gte: startOfDay, $lte: endOfDay  }, // Filter investments created today
+    //               type: 0
+    //             }
+    //           },
+    //           {
+    //             $group: {
+    //               _id: null, // Group all documents into a single group
+    //               totalAmount: { $sum: "$amount" }, // Sum the `amount` field
+    //               totalCount: { $sum: 1 }
+    //             }
+    //           }
+    //         ]).catch(e => { throw e });
+
+    //         const totalAmount = result2.length > 0 ? result2[0].totalAmount : 0;
+    //         const totalCount = result2.length > 0 ? result2[0].totalCount : 0;
+    //         const result = await userModel.aggregate([
+    //             {
+    //                 $group: {
+    //                     _id: null, // Group all documents together
+    //                     wallet: { $sum: "$wallet" },
+    //                     wallet_topup: { $sum: "$wallet_topup" },
+    //                     dailyIncome: { $sum: "$extra.dailyIncome" },
+    //                     directIncome: { $sum: "$extra.directIncome" },
+    //                     vipIncome: { $sum: "$extra.vipIncome" },
+    //                     matchingIncome: { $sum: "$extra.matchingIncome" },
+    //                     deposits: { $sum: "$extra.deposits" },
+    //                     withdrawals: { $sum: "$extra.withdrawals" },
+    //                     tokens: { $sum: "$extra.tokens" },
+    //                     tasksIncome: { $sum: "$extra.tasksIncome" },
+    //                     levelIncome: { $sum: "$extra.levelIncome" },
+    //                     tasksIncome_withdraw: { $sum: "$extra.tasksIncome_withdraw" },
+    //                     levelIncome_withdraw: { $sum: "$extra.levelIncome_withdraw" },
+    //                     totalIncome: { $sum: "$extra.totalIncome" },
+    //                     gas_wallet: { $sum: "$extra.gas_wallet" },
+    //                     totalInvestment: { $sum: "$total_investment" },
+    //                     provisionIncome: { $sum: "$extra.provisionIncome" },
+    //                     matrixIncome: { $sum: "$extra.matrixIncome" },
+    //                     userCount : { $sum: 1 },
+    //                 }
+    //             }
+    //         ]).catch(e => { throw e })
+
+
+
+    //         // Extract the total amount from the result
+
+
+    //         responseData.data = result.length > 0 ? result[0] : []
+    //         responseData.data.totalAmount = totalAmount
+    //         responseData.data.totalCount = totalCount
+    //         return responseHelper.success(res, responseData)
+    //     } catch (error) {
+    //         log.error('failed to get all users data with error::', error);
+    //         responseData.msg = 'Failed to get Data';
+    //         return responseHelper.error(res, responseData);
+    //     }
+
+    // },
     get_all_users_data: async (req, res) => {
 
         let admin = req.admin;
@@ -130,45 +205,39 @@ module.exports = {
         log.info('Recieved request for Getting all users data:', admin_id);
         let responseData = {};
         try {
-            const startOfDay = new Date();
-            startOfDay.setHours(0, 0, 0, 0); // Start of the day (00:00:00.000)
+            // Fetch all-time totals directly from the income collection
+            const [
+                directIncomeAgg,
+                dailyIncomeAgg,
+                levelIncomeAgg
+            ] = await Promise.all([
+                incomeModel.aggregate([
+                    { $match: { type: 'referral_bonus', status: 'credited' } },
+                    { $group: { _id: null, total: { $sum: '$amount' } } }
+                ]),
+                incomeModel.aggregate([
+                    { $match: { type: 'daily_profit', status: 'credited' } },
+                    { $group: { _id: null, total: { $sum: '$amount' } } }
+                ]),
+                incomeModel.aggregate([
+                    { $match: { type: { $in: ['team_commission', 'level_roi_income'] }, status: 'credited' } },
+                    { $group: { _id: null, total: { $sum: '$amount' } } }
+                ])
+            ]);
 
-            const endOfDay = new Date();
-            endOfDay.setHours(23, 59, 59, 999); // End of the day (23:59:59.999)
-
-            const result2 = await investmentModel.aggregate([
-              {
-                $match: {
-                  created_at: { $gte: startOfDay, $lte: endOfDay  }, // Filter investments created today
-                  type: 0
-                }
-              },
-              {
-                $group: {
-                  _id: null, // Group all documents into a single group
-                  totalAmount: { $sum: "$amount" }, // Sum the `amount` field
-                  totalCount: { $sum: 1 }
-                }
-              }
-            ]).catch(e => { throw e });
-
-            const totalAmount = result2.length > 0 ? result2[0].totalAmount : 0;
-            const totalCount = result2.length > 0 ? result2[0].totalCount : 0;
+            // Fetch other stats as before
             const result = await userModel.aggregate([
                 {
                     $group: {
                         _id: null, // Group all documents together
                         wallet: { $sum: "$wallet" },
                         wallet_topup: { $sum: "$wallet_topup" },
-                        dailyIncome: { $sum: "$extra.dailyIncome" },
-                        directIncome: { $sum: "$extra.directIncome" },
                         vipIncome: { $sum: "$extra.vipIncome" },
                         matchingIncome: { $sum: "$extra.matchingIncome" },
                         deposits: { $sum: "$extra.deposits" },
                         withdrawals: { $sum: "$extra.withdrawals" },
                         tokens: { $sum: "$extra.tokens" },
                         tasksIncome: { $sum: "$extra.tasksIncome" },
-                        levelIncome: { $sum: "$extra.levelIncome" },
                         tasksIncome_withdraw: { $sum: "$extra.tasksIncome_withdraw" },
                         levelIncome_withdraw: { $sum: "$extra.levelIncome_withdraw" },
                         totalIncome: { $sum: "$extra.totalIncome" },
@@ -181,14 +250,12 @@ module.exports = {
                 }
             ]).catch(e => { throw e })
 
+            // Prepare the response
+            responseData.data = result.length > 0 ? result[0] : {};
+            responseData.data.directIncome = directIncomeAgg[0]?.total || 0;
+            responseData.data.dailyIncome = dailyIncomeAgg[0]?.total || 0;
+            responseData.data.levelIncome = levelIncomeAgg[0]?.total || 0;
 
-
-            // Extract the total amount from the result
-
-
-            responseData.data = result.length > 0 ? result[0] : []
-            responseData.data.totalAmount = totalAmount
-            responseData.data.totalCount = totalCount
             return responseHelper.success(res, responseData)
         } catch (error) {
             log.error('failed to get all users data with error::', error);
@@ -197,7 +264,6 @@ module.exports = {
         }
 
     },
-
 
     reset_db: async (req, res) => {
 

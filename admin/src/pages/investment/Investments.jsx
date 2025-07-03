@@ -37,6 +37,7 @@ import useAuth from '../../hooks/useAuth';
 import axios from 'axios';
 import PageHeader from '../../components/PageHeader';
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, API_URL } from '../../config';
+import useDebounce from '../../hooks/useDebounce';
 
 const Investments = () => {
   const theme = useTheme();
@@ -51,6 +52,7 @@ const Investments = () => {
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterStatus, setFilterStatus] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 400);
 
   // Fetch investments data
   const fetchInvestments = async () => {
@@ -68,7 +70,7 @@ const Investments = () => {
           params: {
             page: page + 1,
             limit: rowsPerPage,
-            search: searchTerm,
+            search: debouncedSearchTerm,
             sort_field: sortField,
             sort_direction: sortDirection,
             status: filterStatus,
@@ -146,15 +148,15 @@ const Investments = () => {
   // Fetch data on component mount and when dependencies change
   useEffect(() => {
     fetchInvestments();
-  }, [page, rowsPerPage, sortField, sortDirection, filterStatus]);
+    // eslint-disable-next-line
+  }, [page, rowsPerPage, sortField, sortDirection, filterStatus, debouncedSearchTerm]);
 
   // Handle search
   const handleSearch = () => {
     setPage(0);
-    fetchInvestments();
+    // fetchInvestments(); // No need to call directly, useEffect will handle
   };
 
- 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
   };
@@ -383,18 +385,6 @@ const Investments = () => {
                       alignItems: 'center',
                       cursor: 'pointer',
                     }}
-                    onClick={() => handleSort('total_roi_received')}
-                  >
-                    Total ROI Received {renderSortIcon('total_roi_received')}
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      cursor: 'pointer',
-                    }}
                     onClick={() => handleSort('status')}
                   >
                     Status {renderSortIcon('status')}
@@ -436,20 +426,19 @@ const Investments = () => {
                   <TableRow key={investment._id} hover>
                     <TableCell>{index+1}</TableCell>
                     <TableCell>
-                      {investment.user_details ? (
-                        `${investment.user_details.name} (${investment.user_details.email})`
-                      ) : investment.user && investment.email ? (
-                        `${investment.user} (${investment.email})`
-                      ) : investment.user ? (
-                        `${investment.user} (${investment.username || 'No username'})`
-                      ) : (
-                        investment.user_id
-                      )}
+                      {investment.user_name && investment.email
+                        ? `${investment.user_name} (${investment.email})`
+                        : investment.user_name
+                        ? investment.user_name
+                        : investment.email
+                        ? investment.email
+                        : investment.username
+                        ? investment.username
+                        : investment.user_id}
                     </TableCell>
                     <TableCell>{formatCurrency(investment.amount || 0)}</TableCell>
                     {/* <TableCell>{investment.roi_percentage || investment.daily_profit || 8}%</TableCell> */}
                     <TableCell>{formatCurrency(investment.daily_roi || (investment.amount * (investment.daily_profit || 8) / 100) || 0)}</TableCell>
-                    <TableCell>{formatCurrency(investment.total_roi_received || investment.total_earnings || 0)}</TableCell>
                     <TableCell>
                       <Chip
                         label={investment.status || 'active'}
