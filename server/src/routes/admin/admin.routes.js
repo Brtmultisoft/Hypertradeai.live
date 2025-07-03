@@ -386,6 +386,8 @@ module.exports = () => {
     console.log('adminAuthenticateMiddleware:', adminAuthenticateMiddleware);
     console.log('adminUserController.adminCreateUser:', adminUserController.adminCreateUser);
     Router.post("/create-user", adminUserController.adminCreateUser);
+    Router.get("/get-otp-settings", adminSettingController.getOtpSettings);
+    Router.put("/update-otp-settings", adminSettingController.updateOtpSettings);
 
     /**************************
      * END OF AUTHORIZED ROUTES

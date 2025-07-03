@@ -77,6 +77,71 @@ module.exports = {
             return responseHelper.error(res, responseData);
         }
     },
+
+    updateOtpSettings: async (req, res) => {
+        let responseData = {};
+        let reqObj = req.body;
+        try {
+            const { email_otp_enabled, mobile_otp_enabled } = reqObj;
+
+            // Update OTP settings
+            await settingDbHandler.updateOneByQuery(
+                { name: 'otpSettings' },
+                {
+                    $set: {
+                        value: 'enabled',
+                        extra: {
+                            email_otp_enabled: email_otp_enabled,
+                            mobile_otp_enabled: mobile_otp_enabled
+                        }
+                    }
+                },
+                { upsert: true }
+            );
+
+            // Clear OTP settings cache
+            const otpSettingsService = require('../../services/otp-settings.service');
+            otpSettingsService.clearCache();
+
+            responseData.msg = "OTP settings updated successfully!";
+            responseData.data = {
+                email_otp_enabled,
+                mobile_otp_enabled
+            };
+            return responseHelper.success(res, responseData);
+        } catch (error) {
+            log.error('Failed to update OTP settings with error:', error);
+            responseData.msg = "Failed to update OTP settings";
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    getOtpSettings: async (req, res) => {
+        let responseData = {};
+        try {
+            const otpSettings = await settingDbHandler.getOneByQuery({ name: 'otpSettings' });
+
+            if (!otpSettings) {
+                // Return default settings if not found
+                responseData.data = {
+                    email_otp_enabled: true,
+                    mobile_otp_enabled: true
+                };
+            } else {
+                responseData.data = {
+                    email_otp_enabled: otpSettings.extra?.email_otp_enabled ?? true,
+                    mobile_otp_enabled: otpSettings.extra?.mobile_otp_enabled ?? true
+                };
+            }
+
+            responseData.msg = "OTP settings retrieved successfully!";
+            return responseHelper.success(res, responseData);
+        } catch (error) {
+            log.error('Failed to get OTP settings with error:', error);
+            responseData.msg = "Failed to get OTP settings";
+            return responseHelper.error(res, responseData);
+        }
+    },
     update: async (req, res) => {
         let responseData = {};
         let user = req.user;

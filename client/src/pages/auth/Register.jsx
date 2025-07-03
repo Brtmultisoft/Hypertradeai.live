@@ -41,8 +41,10 @@ import AuthService from '../../services/auth.service';
 import OTPInput from '../../components/auth/OTPInput';
 import DualOTPVerificationModal from '../../components/auth/DualOTPVerificationModal';
 import { isValidEmail, isValidPhone, validatePassword } from '../../utils/validators';
+// import useTawkTo from '../../hooks/useTawkTo';
 
 const Register = () => {
+  // useTawkTo();
   const theme = useTheme();
   const navigate = useNavigate();
   const { loading, error, checkReferralId } = useAuth();
@@ -118,10 +120,44 @@ const Register = () => {
 
   // State for OTP settings
   const [otpSettings, setOtpSettings] = useState({
-    email_otp_enabled: false, // Default email OTP to off
-    mobile_otp_enabled: false, // Default mobile OTP to off
-    loading: false
+    email_otp_enabled: true,
+    mobile_otp_enabled: true,
+    loading: true
   });
+
+  // Check OTP settings on component mount
+  useEffect(() => {
+    const checkOTPSettings = async () => {
+      try {
+        const response = await AuthService.checkOTPSettings();
+        console.log('OTP settings response:', response);
+        if (response.status && response.data) {
+          setOtpSettings({
+            email_otp_enabled: response.data.email_otp_enabled,
+            mobile_otp_enabled: response.data.mobile_otp_enabled,
+            loading: false
+          });
+        } else {
+          // Default to enabled if can't fetch settings
+          setOtpSettings({
+            email_otp_enabled: true,
+            mobile_otp_enabled: true,
+            loading: false
+          });
+        }
+        console.log('OTP settings:', otpSettings);
+      } catch (error) {
+        console.log('Could not fetch OTP settings, defaulting to enabled');
+        setOtpSettings({
+          email_otp_enabled: true,
+          mobile_otp_enabled: true,
+          loading: false
+        });
+      }
+    };
+
+    checkOTPSettings();
+  }, []);
 
   // Dynamic form validation rules based on OTP settings
   const getValidationRules = () => {
@@ -269,8 +305,7 @@ const Register = () => {
     try {
       console.log('Performing direct registration without OTP verification');
 
-      // Use the standard register function
-      const response = await AuthService.register(userData);
+      const response = await AuthService.registerWithoutOTP(email, phone, userData);
 
       console.log('Direct registration response:', response);
 
@@ -279,7 +314,7 @@ const Register = () => {
         setRegistrationData({
           name: userData.name,
           username: userData.username || response.data.username,
-          email: userData.email,
+          email: email,
           password: userData.password, // User provided password
           sponsorID: response.data.sponsorID,
         });
@@ -497,7 +532,11 @@ const Register = () => {
 
         // If mobile OTP verified, create user directly
         if (response.status) {
-          const userCreationResponse = await AuthService.register(pendingUserData);
+          const userCreationResponse = await AuthService.registerWithoutOTP(
+            pendingUserData.email,
+            otpEmail, // phone number
+            pendingUserData
+          );
 
           if (userCreationResponse.status) {
             response.data = userCreationResponse.data;
@@ -620,7 +659,7 @@ const Register = () => {
         // Check referral ID validity first
         if (referralError) {
           setShowSuccessAlert(true);
-          setSuccessMessage('Invalid referral ID. Please use a valid referral ID.');
+          setSuccessMessage(' referral ID. Please use a valid referral ID.');
           return;
         }
 

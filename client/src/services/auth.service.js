@@ -185,6 +185,16 @@ const AuthService = {
     }
   },
 
+  // Enable 2FA
+  enable2FA: async () => {
+    try {
+      const response = await api.post('/user/enable-2fa');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to enable 2FA' };
+    }
+  },
+
   // Disable 2FA
   disable2FA: async (password) => {
     try {
@@ -362,6 +372,88 @@ const AuthService = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { msg: 'Failed to reset password' };
+    }
+  },
+
+  // Direct registration without OTP (when OTP is disabled)
+  registerWithoutOTP: async (email, phone_number, userData) => {
+    try {
+      const response = await api.post('/user/dual-verification/register-without-otp', {
+        email,
+        phone_number,
+        userData
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Registration failed' };
+    }
+  },
+
+  // Check if OTP is enabled for registration
+  checkOTPSettings: async () => {
+    try {
+      // This would be a public endpoint to check OTP settings
+      const response = await api.get('/user/otp-settings');
+      console.log('OTP settings response:......', response);
+      return response.data;
+    } catch (error) {
+      console.log('OTP settings error:......', error);
+      // If endpoint doesn't exist, assume OTP is enabled
+      return {
+        status: true,
+        data: {
+          email_otp_enabled: true,
+          mobile_otp_enabled: true
+        }
+      };
+    }
+  },
+
+  // Enhanced registration that handles OTP disabled scenarios
+  registerSmart: async (userData) => {
+    try {
+      // First try to send OTP
+      const response = await AuthService.sendDualRegistrationOTPs(userData.email, userData.phone);
+
+      if (response.status) {
+        // OTP sent successfully, return for normal OTP flow
+        return {
+          requiresOTP: true,
+          otpData: response.data,
+          userData
+        };
+      } else if (response.data && response.data.otp_disabled) {
+        // OTP is disabled, proceed with direct registration
+        return {
+          requiresOTP: false,
+          registrationResult: await AuthService.registerWithoutOTP(userData)
+        };
+      } else {
+        // Other error
+        throw response;
+      }
+    } catch (error) {
+      // Check if error indicates OTP is disabled
+      if (error.data && error.data.otp_disabled) {
+        return {
+          requiresOTP: false,
+          registrationResult: await AuthService.registerWithoutOTP(userData)
+        };
+      }
+      throw error;
+    }
+  },
+
+  // Enhanced login that handles OTP disabled scenarios
+  loginSmart: async (credentials) => {
+    try {
+      // Try normal login first
+      const response = await AuthService.login(credentials);
+      return response;
+    } catch (error) {
+      // If login fails due to OTP being disabled, the backend should handle it
+      // and return appropriate response
+      throw error;
     }
   },
 };

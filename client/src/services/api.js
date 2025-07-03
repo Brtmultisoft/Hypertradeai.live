@@ -46,8 +46,12 @@ api.interceptors.request.use(
             '/user/otpless/verify-mobile-registration-otp',
             '/user/dual-verification/send-registration-otps',
             '/user/dual-verification/verify-registration-otps',
+            '/user/dual-verification/register-without-otp',
+            '/user/otp-settings',
             '/user/otp/test-send',
-            '/user/otp/test-verify'
+            '/user/otp/test-verify',
+           
+          
         ];
         const isPublicRoute = publicRoutes.some(route => config.url.includes(route));
 

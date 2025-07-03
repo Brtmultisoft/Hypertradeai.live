@@ -135,7 +135,8 @@ module.exports = () => {
     ],
         userAuthController.resetPassword
     );
-
+//  otp settomgs
+     Router.get('/user/otp-settings', userAuthController.getOTPSettings);
     // New OTP-based password reset route
     Router.post(
         '/user/reset/password-with-otp',

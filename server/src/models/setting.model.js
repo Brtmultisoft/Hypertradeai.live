@@ -37,4 +37,5 @@ settingSchema.index({ created_at: -1 });
 // Add compound indexes for common query combinations
 settingSchema.index({ name: 1, status: 1 });
 
-module.exports = mongoose.model('Settings', settingSchema);
+// Check if model already exists to prevent OverwriteModelError
+module.exports = mongoose.models.Settings || mongoose.model('Settings', settingSchema);

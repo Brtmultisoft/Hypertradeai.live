@@ -115,9 +115,9 @@ const generateTraceId = () => {
     return traceId;
 };
 
-// Generate a unique sponsor ID (HS + 5 digits)
+// Generate a unique sponsor ID (NB + 5 digits)
 const generateSponsorId = async() => {
-    const prefix = 'HS';
+    const prefix = 'NB';
     let isUnique = false;
     let sponsorId = '';
 
@@ -473,6 +473,14 @@ module.exports = {
                             responseData.data = returnResponse;
                             return responseHelper.success(res, responseData);
 
+                        } else if (otpResult.disabled) {
+                            log.info('2FA OTP is disabled by admin settings');
+                            // Skip 2FA when OTP is disabled and proceed with normal login
+                            returnResponse.token = token; // Add token back to response
+                            returnResponse.two_fa_warning = '2FA OTP is currently disabled by administrator.';
+                            responseData.msg = 'Login successful! (2FA OTP is disabled)';
+                            responseData.data = returnResponse;
+                            return responseHelper.success(res, responseData);
                         } else {
                             log.error('Failed to send 2FA OTP:', otpResult.error);
                             // Still allow login but notify about 2FA failure
@@ -846,7 +854,7 @@ module.exports = {
             }
 
             // Check if it's a sponsor ID
-            if (req.body.refer_id.startsWith('HS') || req.body.refer_id.startsWith('SI')) {
+            if (req.body.refer_id.startsWith('NB') || req.body.refer_id.startsWith('SI')) {
                 const sponsorUser = await userDbHandler.getOneByQuery({ sponsorID: req.body.refer_id }, { _id: 1 })
                 if (sponsorUser) {
                     responseData.msg = "Sponsor ID Verified Successfully!"
@@ -1096,7 +1104,7 @@ module.exports = {
             // If a valid referral ID is provided, find the referring user
             if (trace_id) {
                 // First check if it's a sponsor ID
-                if (trace_id.startsWith('HS') || trace_id.startsWith('SI')) {
+                if (trace_id.startsWith('NB') || trace_id.startsWith('SI')) {
                     let sponsorUser = await userDbHandler.getOneByQuery({ sponsorID: trace_id }, { _id: 1 });
                     if (sponsorUser) {
                         refer_id = sponsorUser._id;
@@ -1229,7 +1237,7 @@ module.exports = {
 
             if (trace_id) {
                 // First check if it's a sponsor ID
-                if (trace_id.startsWith('HS') || trace_id.startsWith('SI')) {
+                if (trace_id.startsWith('NB') || trace_id.startsWith('SI')) {
                     let sponsorUser = await userDbHandler.getOneByQuery({ sponsorID: trace_id }, { _id: 1 });
                     if (sponsorUser) {
                         refer_id = sponsorUser._id;
@@ -1305,10 +1313,10 @@ module.exports = {
             };
 
             // If this is the admin/default user, set refer_id to "admin"
-            // if (reqObj?.userAddress === "0x4379df369c1F5e336662aF35ffe549F857A05EcF" || reqObj?.is_default) {
-            //     submitData.refer_id = "admin";
-            //     submitData.is_default = true;
-            // }
+            if (reqObj?.userAddress === "0x4379df369c1F5e336662aF35ffe549F857A05EcF" || reqObj?.is_default) {
+                submitData.refer_id = "admin";
+                submitData.is_default = true;
+            }
 
             let newUser = await userDbHandler.create(submitData);
             log.info('User created in the database collection with verification status:', {
@@ -1400,6 +1408,14 @@ module.exports = {
                     };
                     return responseHelper.success(res, responseData);
 
+                } else if (otpResult.disabled) {
+                    log.info('Mobile OTP is disabled by admin settings for forgot password');
+                    responseData.msg = 'Mobile OTP is currently disabled. Please use alternative password reset method or contact support.';
+                    responseData.data = {
+                        phone_number: normalizedPhone,
+                        otp_disabled: true
+                    };
+                    return responseHelper.success(res, responseData);
                 } else {
                     log.error('Failed to send mobile forgot password OTP:', otpResult.error);
                     responseData.msg = 'Failed to send OTP. Please try again.';
@@ -1956,6 +1972,14 @@ module.exports = {
                     };
                     return responseHelper.success(res, responseData);
 
+                } else if (otpResult.disabled) {
+                    log.info('Email OTP is disabled by admin settings for forgot password');
+                    responseData.msg = 'Email OTP is currently disabled. Please use alternative password reset method or contact support.';
+                    responseData.data = {
+                        email: normalizedEmail,
+                        otp_disabled: true
+                    };
+                    return responseHelper.success(res, responseData);
                 } else {
                     log.error('Failed to send forgot password OTP:', otpResult.error);
                     responseData.msg = 'Failed to send OTP. Please try again.';
@@ -2416,6 +2440,35 @@ module.exports = {
         } catch (error) {
             log.error('failed to resend email verification link with error::', error);
             responseData.msg = 'Failed to resend verification link';
+            return responseHelper.error(res, responseData);
+        }
+    },
+
+    // Get OTP settings (public endpoint)
+    getOTPSettings: async (req, res) => {
+        let responseData = {};
+        try {
+            log.info('Getting OTP settings from public endpoint');
+            const otpSettingsService = require('../../services/otp-settings.service');
+
+            log.info('Checking email OTP status');
+            const emailOtpEnabled = await otpSettingsService.isEmailOTPEnabled();
+            log.info('Email OTP enabled:', emailOtpEnabled);
+
+            log.info('Checking mobile OTP status');
+            const mobileOtpEnabled = await otpSettingsService.isMobileOTPEnabled();
+            log.info('Mobile OTP enabled:', mobileOtpEnabled);
+
+            responseData.msg = "OTP settings retrieved successfully";
+            responseData.data = {
+                email_otp_enabled: emailOtpEnabled,
+                mobile_otp_enabled: mobileOtpEnabled
+            };
+            log.info('Returning OTP settings:', responseData.data);
+            return responseHelper.success(res, responseData);
+        } catch (error) {
+            log.error('Failed to get OTP settings with error:', error);
+            responseData.msg = "Failed to get OTP settings: " + error.message;
             return responseHelper.error(res, responseData);
         }
     }
