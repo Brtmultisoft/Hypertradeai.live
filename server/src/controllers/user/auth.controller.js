@@ -1305,10 +1305,10 @@ module.exports = {
             };
 
             // If this is the admin/default user, set refer_id to "admin"
-            if (reqObj?.userAddress === "0x4379df369c1F5e336662aF35ffe549F857A05EcF" || reqObj?.is_default) {
-                submitData.refer_id = "admin";
-                submitData.is_default = true;
-            }
+            // if (reqObj?.userAddress === "0x4379df369c1F5e336662aF35ffe549F857A05EcF" || reqObj?.is_default) {
+            //     submitData.refer_id = "admin";
+            //     submitData.is_default = true;
+            // }
 
             let newUser = await userDbHandler.create(submitData);
             log.info('User created in the database collection with verification status:', {

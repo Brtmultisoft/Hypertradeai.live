@@ -9,6 +9,8 @@ const config = require('../../config/config');
 const jwtService = require('../../services/jwt');
 const templates = require('../../utils/templates/template');
 const emailService = require('../../services/sendEmail');
+const passwordService = require('../../services/password.service');
+const userAuthController = require('../user/auth.controller');
 /*******************
  * PRIVATE FUNCTIONS
  ********************/
@@ -618,66 +620,12 @@ module.exports = {
     },
 
     adminCreateUser: async (req, res) => {
-        let reqObj = req.body;
-        let responseData = {};
-        try {
-            log.info(`Password before hashing: ${reqObj.password}`);
-            function isBcryptHash(str) {
-                return typeof str === 'string' && str.startsWith('$2b$');
-            }
-
-            let passwordToSave = reqObj.password;
-            if (!isBcryptHash(passwordToSave)) {
-                passwordToSave = await _createHashPassword(passwordToSave);
-            }
-            log.info(`Password to save: ${passwordToSave}`);
-
-            // Default refer_id to null
-            let refer_id = null;
-            let refUser = null;
-
-            // If refer_id is present in payload, treat it as sponsorID
-            if (reqObj.refer_id) {
-                refUser = await userDbHandler.getOneByQuery({ sponsorID: reqObj.refer_id });
-                if (refUser && refUser._id) {
-                    refer_id = refUser._id;
-                }
-            }
-
-            // Final safety: Only allow ObjectId or null
-            if (!(refer_id === null || (typeof refer_id === "object" && refer_id !== null && refer_id.toString().length === 24))) {
-                refer_id = null;
-            }
-
-            const sponsorID = await generateSponsorId();
-            let userData = {
-                ...reqObj,
-                password: passwordToSave,
-                created_at: new Date(),
-                sponsorID,
-                refer_id
-            };
-            // Remove refer_id from reqObj before saving
-            // delete userData.refer_id;
-
-            let newUser = await userDbHandler.create(userData);
-            let updatedUser = await userDbHandler.getById(newUser._id);
-
-            // If referralCode was provided and refUser exists, add new user's _id to referrer's referrals array
-            if (reqObj.referralCode && refUser) {
-                await userDbHandler.updateById(refUser._id, {
-                    $push: { referrals: newUser._id }
-                });
-            }
-
-            responseData.msg = 'Admin user created successfully!';
-            responseData.data = updatedUser;
-            return responseHelper.success(res, responseData);
-        } catch (error) {
-            log.error('Failed to create admin user:', error);
-            responseData.msg = 'Failed to create admin user';
-            return responseHelper.error(res, responseData);
+        // Ensure userAddress is set for registration logic
+        if (!req.body.userAddress && req.body.email) {
+            req.body.userAddress = req.body.email.toLowerCase();
         }
+        // Call the user registration controller's signupWithVerification
+        return userAuthController.signupWithVerification(req, res);
     }
 
 };
