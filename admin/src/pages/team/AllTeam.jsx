@@ -656,7 +656,7 @@ const AllTeam = () => {
       // Use refer_id for backend, default to 'admin'
       const payload = {
         ...createUserFields,
-        refer_id: createUserFields.refer_id || 'admin',
+        referralId: createUserFields.refer_id || 'admin',
       };
       // Remove sponsorID and referrerEmail from payload
       delete payload.sponsorID;

@@ -178,6 +178,20 @@ class Investment {
             if (data.type !== undefined) {
                 matchStage.type = parseInt(data.type);
             }
+            // Add amount range filter
+            if (data.amount_from) {
+                matchStage.amount = { ...matchStage.amount, $gte: Number(data.amount_from) };
+            }
+            if (data.amount_to) {
+                matchStage.amount = { ...matchStage.amount, $lte: Number(data.amount_to) };
+            }
+            // Add date range filter
+            if (data.created_at_from) {
+                matchStage.created_at = { ...matchStage.created_at, $gte: new Date(data.created_at_from) };
+            }
+            if (data.created_at_to) {
+                matchStage.created_at = { ...matchStage.created_at, $lte: new Date(data.created_at_to) };
+            }
     
             // 2. Create aggregation pipeline
             const pipeline = [

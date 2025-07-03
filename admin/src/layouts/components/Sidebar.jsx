@@ -62,6 +62,7 @@ const Sidebar = ({ open, onClose }) => {
   const [walletOpen, setWalletOpen] = useState(true);
   const [announcementsOpen, setAnnouncementsOpen] = useState(false);
   const [tradingOpen, setTradingOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // State for touch feedback on mobile
   const [touchedItem, setTouchedItem] = useState(null);
@@ -1093,7 +1094,7 @@ const Sidebar = ({ open, onClose }) => {
         </Collapse>
 
         {/* Admin Settings */}
-        <ListItem disablePadding>
+        {/* <ListItem disablePadding>
           <Tooltip title="Admin Settings" placement="right" disableHoverListener={!miniVariant}>
             <ListItemButton
               component={Link}
@@ -1126,7 +1127,214 @@ const Sidebar = ({ open, onClose }) => {
               {!miniVariant && <ListItemText primary="Admin Settings" />}
             </ListItemButton>
           </Tooltip>
+        </ListItem> */}
+          <ListItem disablePadding>
+          <Tooltip title="Settings" placement="right" disableHoverListener={!miniVariant || isMobile}>
+            <ListItemButton
+              onClick={() => {
+                setSettingsOpen(!settingsOpen);
+                // On mobile, close other sections when opening a new one
+                if (isMobile && !settingsOpen) {
+                  setTeamOpen(false);
+                  setInvestmentOpen(false);
+                  setIncomeOpen(false);
+                  setWalletOpen(false);
+                  setAnnouncementsOpen(false);
+                  setTradingOpen(false);
+                  setRewardsOpen(false);
+                }
+              }}
+              onTouchStart={() => handleTouchStart('settings')}
+              onTouchEnd={handleTouchEnd}
+              sx={{
+                borderRadius: 1,
+                mb: 0.5,
+                justifyContent: miniVariant ? 'center' : 'flex-start',
+                minHeight: 48,
+                px: miniVariant ? 1 : 2.5,
+                // Mobile-specific styling for parent menu items
+                ...(isMobile && {
+                  backgroundColor: settingsOpen
+                    ? alpha(theme.palette.primary.main, 0.08)
+                    : touchedItem === 'settings'
+                      ? alpha(theme.palette.primary.main, 0.05)
+                      : 'transparent',
+                  borderLeft: settingsOpen ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+                  transition: 'all 0.2s ease',
+                }),
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  mr: miniVariant ? 0 : 2,
+                  justifyContent: 'center',
+                  // Larger icons on mobile for better touch targets
+                  ...(isMobile && {
+                    '& .MuiSvgIcon-root': {
+                      fontSize: '1.3rem',
+                    }
+                  })
+                }}
+              >
+                <SettingsIcon color={settingsOpen ? 'primary' : 'inherit'} />
+              </ListItemIcon>
+              {!miniVariant && (
+                <>
+                  <ListItemText
+                    primary="Settings"
+                    primaryTypographyProps={{
+                      fontWeight: settingsOpen && isMobile ? 600 : 400,
+                      color: settingsOpen && isMobile ? theme.palette.primary.main : 'inherit'
+                    }}
+                  />
+                  {settingsOpen ? <ExpandLess color={isMobile ? "primary" : "inherit"} /> : <ExpandMore />}
+                </>
+              )}
+            </ListItemButton>
+          </Tooltip>
         </ListItem>
+        <Collapse in={settingsOpen && !miniVariant} timeout="auto" unmountOnExit>
+          <List
+            component="div"
+            disablePadding
+            sx={{
+              // Mobile-specific styling for nested lists
+              ...(isMobile && {
+                backgroundColor: alpha(theme.palette.primary.main, 0.03),
+                borderRadius: 1,
+                my: 0.5,
+                mx: 1,
+              })
+            }}
+          >
+            <Tooltip title="Admin Settings" placement="right" disableHoverListener={!miniVariant || isMobile}>
+              <ListItemButton
+                component={Link}
+                to="/settings"
+                selected={isActive('/settings')}
+                onClick={() => handleItemClick('admin-settings')}
+                onTouchStart={() => handleTouchStart('admin-settings')}
+                onTouchEnd={handleTouchEnd}
+                sx={{
+                  pl: miniVariant ? 1 : isMobile ? 3 : 4,
+                  borderRadius: 1,
+                  mb: 0.5,
+                  justifyContent: miniVariant ? 'center' : 'flex-start',
+                  minHeight: isMobile ? 48 : 40,
+                  // Mobile-specific styling
+                  ...(isMobile && {
+                    borderLeft: `3px solid ${isActive('/settings') ? theme.palette.primary.main : 'transparent'}`,
+                    transition: 'all 0.2s ease',
+                    backgroundColor: touchedItem === 'admin-settings' ? alpha(theme.palette.primary.main, 0.15) : 'transparent',
+                  }),
+                  '&.Mui-selected': {
+                    backgroundColor: `${theme.palette.primary.main}20`,
+                    '&:hover': {
+                      backgroundColor: `${theme.palette.primary.main}30`,
+                    },
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    mr: miniVariant ? 0 : 2,
+                    justifyContent: 'center',
+                  }}
+                >
+                  <SettingsIcon
+                    color={isActive('/settings') ? 'primary' : 'inherit'}
+                    fontSize="small"
+                  />
+                </ListItemIcon>
+                {!miniVariant && <ListItemText primary="Admin Settings" />}
+              </ListItemButton>
+            </Tooltip>
+
+            <Tooltip title="ROI Settings" placement="right" disableHoverListener={!miniVariant || isMobile}>
+              <ListItemButton
+                component={Link}
+                to="/settings/roi"
+                selected={isActive('/settings/roi')}
+                onClick={() => handleItemClick('roi-settings')}
+                onTouchStart={() => handleTouchStart('roi-settings')}
+                onTouchEnd={handleTouchEnd}
+                sx={{
+                  pl: miniVariant ? 1 : isMobile ? 3 : 4,
+                  borderRadius: 1,
+                  mb: 0.5,
+                  justifyContent: miniVariant ? 'center' : 'flex-start',
+                  minHeight: isMobile ? 48 : 40,
+                  // Mobile-specific styling
+                  ...(isMobile && {
+                    borderLeft: `3px solid ${isActive('/settings/roi') ? theme.palette.primary.main : 'transparent'}`,
+                    transition: 'all 0.2s ease',
+                    backgroundColor: touchedItem === 'roi-settings' ? alpha(theme.palette.primary.main, 0.15) : 'transparent',
+                  }),
+                  '&.Mui-selected': {
+                    backgroundColor: `${theme.palette.primary.main}20`,
+                    '&:hover': {
+                      backgroundColor: `${theme.palette.primary.main}30`,
+                    },
+                  },
+                }}
+              >
+                {/* <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    mr: miniVariant ? 0 : 2,
+                    justifyContent: 'center',
+                  }}
+                >
+                  <TrendingUpIcon
+                    color={isActive('/settings/roi') ? 'primary' : 'inherit'}
+                    fontSize="small"
+                  />
+                </ListItemIcon> */}
+                {/* {!miniVariant && <ListItemText primary="ROI Settings" />} */}
+              </ListItemButton>
+            </Tooltip>
+          </List>
+        </Collapse>
+
+        {/* Show mini menu items when in mini variant */}
+        {miniVariant && settingsOpen && (
+          <Box sx={{ mt: 1 }}>
+            <Tooltip title="Admin Settings" placement="right">
+              <ListItemButton
+                component={Link}
+                to="/settings"
+                selected={isActive('/settings')}
+                onClick={handleItemClick}
+                sx={{
+                  borderRadius: 1,
+                  mb: 0.5,
+                  justifyContent: 'center',
+                  minHeight: 40,
+                  '&.Mui-selected': {
+                    backgroundColor: `${theme.palette.primary.main}20`,
+                    '&:hover': {
+                      backgroundColor: `${theme.palette.primary.main}30`,
+                    },
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    justifyContent: 'center',
+                  }}
+                >
+                  <SettingsIcon
+                    color={isActive('/settings') ? 'primary' : 'inherit'}
+                    fontSize="small"
+                  />
+                </ListItemIcon>
+              </ListItemButton>
+            </Tooltip>
+          </Box>
+        )}
       </List>
     </Box>
   );

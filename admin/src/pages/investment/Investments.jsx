@@ -52,6 +52,10 @@ const Investments = () => {
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterStatus, setFilterStatus] = useState('');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 400);
 
   // Fetch investments data
@@ -60,39 +64,27 @@ const Investments = () => {
     setError(null);
     try {
       const token = getToken();
+      const params = {
+        page: page + 1,
+        limit: rowsPerPage,
+        search: debouncedSearchTerm,
+        sort_field: sortField,
+        sort_direction: sortDirection,
+        status: filterStatus,
+      };
+      if (minAmount) params.amount_from = minAmount;
+      if (maxAmount) params.amount_to = maxAmount;
+      if (dateFrom) params.created_at_from = dateFrom;
+      if (dateTo) params.created_at_to = dateTo;
 
-      // Try the regular endpoint first
-      try {
-        const response = await axios.get(`${API_URL}/admin/get-all-investments`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          params: {
-            page: page + 1,
-            limit: rowsPerPage,
-            search: debouncedSearchTerm,
-            sort_field: sortField,
-            sort_direction: sortDirection,
-            status: filterStatus,
-          },
-        });
-
-        // Process the response
-        await processResponse(response);
-      } catch (err) {
-        console.error('Error with regular endpoint:', err);
-
-        // If the regular endpoint fails, try the direct endpoint
-        console.log('Trying direct endpoint...');
-        const directResponse = await axios.get(`${API_URL}/admin/get-investments-direct`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          }
-        });
-
-        // Process the direct response
-        await processResponse(directResponse);
-      }
+      // Always use the direct endpoint
+      const response = await axios.get(`${API_URL}/admin/get-investments-direct`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        params,
+      });
+      await processResponse(response);
     } catch (err) {
       setError(err.response?.data?.message || 'An error occurred while fetching data');
       console.error('Error fetching investments:', err);
@@ -195,6 +187,13 @@ const Investments = () => {
     setPage(0);
   };
 
+  // Handle min/max amount change
+  const handleMinAmountChange = (e) => setMinAmount(e.target.value);
+  const handleMaxAmountChange = (e) => setMaxAmount(e.target.value);
+  // Handle date change
+  const handleDateFromChange = (e) => setDateFrom(e.target.value);
+  const handleDateToChange = (e) => setDateTo(e.target.value);
+
   // Render sort icon
   const renderSortIcon = (field) => {
     if (sortField !== field) return null;
@@ -237,7 +236,7 @@ const Investments = () => {
         }}
       >
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={4}>
             <TextField
               fullWidth
               variant="outlined"
@@ -261,8 +260,54 @@ const Investments = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth variant="outlined">
+          <Grid item xs={6} md={2}>
+            <TextField
+              fullWidth
+              label="Min Amount"
+              type="number"
+              value={minAmount}
+              onChange={handleMinAmountChange}
+              variant="outlined"
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={6} md={2}>
+            <TextField
+              fullWidth
+              label="Max Amount"
+              type="number"
+              value={maxAmount}
+              onChange={handleMaxAmountChange}
+              variant="outlined"
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={6} md={2}>
+            <TextField
+              fullWidth
+              label="Date From"
+              type="date"
+              value={dateFrom}
+              onChange={handleDateFromChange}
+              variant="outlined"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={6} md={2}>
+            <TextField
+              fullWidth
+              label="Date To"
+              type="date"
+              value={dateTo}
+              onChange={handleDateToChange}
+              variant="outlined"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <FormControl fullWidth variant="outlined" size="small">
               <InputLabel id="status-filter-label">Filter by Status</InputLabel>
               <Select
                 labelId="status-filter-label"
@@ -278,7 +323,7 @@ const Investments = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Grid item xs={12} md={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               variant="contained"
               color="primary"
@@ -286,6 +331,10 @@ const Investments = () => {
               onClick={() => {
                 setSearchTerm('');
                 setFilterStatus('');
+                setMinAmount('');
+                setMaxAmount('');
+                setDateFrom('');
+                setDateTo('');
                 setPage(0);
                 setSortField('created_at');
                 setSortDirection('desc');
@@ -424,7 +473,7 @@ const Investments = () => {
               ) : (
                 investments.map((investment, index) => (
                   <TableRow key={investment._id} hover>
-                    <TableCell>{index+1}</TableCell>
+                    <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                     <TableCell>
                       {investment.user_name && investment.email
                         ? `${investment.user_name} (${investment.email})`

@@ -48,6 +48,8 @@ import FundDeduct from './pages/wallet/FundDeduct';
 // Settings Pages
 import GeneralSettings from './pages/settings/GeneralSettings';
 import AdminSettings from './pages/settings/AdminSettings';
+// Settings Pages
+
 
 function App() {
   const { isAuthenticated, loading } = useAuth();
@@ -157,8 +159,9 @@ function App() {
             <Route path="/trade-activation-history" element={<TradeActivationHistory />} />
             <Route path="/update-profit-status" element={<UpdateProfitStatus />} />
 
-            {/* Admin Settings Route */}
-            <Route path="/admin-settings" element={<AdminSettings />} />
+            <Route path="/settings" element={<AdminSettings />} />
+            <Route path="/settings/admin" element={<AdminSettings />} />
+            {/* <Route path="/settings/roi" element={<ROISettings />} /> */}
           </Route>
 
           {/* Default Route */}

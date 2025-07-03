@@ -5,7 +5,7 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:2015';
 export const APP_NAME = 'HyperTrade Admin';
 
 // Default pagination
-export const DEFAULT_PAGE_SIZE = 10;
+export const DEFAULT_PAGE_SIZE = 50;
 export const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
 // Date format options
