@@ -450,7 +450,8 @@ class OTPlessService {
      * @returns {Promise<Object>} - Response with requestId
      */
     async sendRegistrationOTP(email) {
-        return this.sendOTP(email, 4, 300); // 5 minutes expiry for registration
+        // Use the new email-otp.service.js registration method
+        return await emailOTPService.sendRegistrationOTP(email, 4, 300);
     }
 
     /**
@@ -469,7 +470,7 @@ class OTPlessService {
      */
     async sendLoginOTP(email) {
         log.info('Sending login OTP for 2FA to:', email);
-        return await this.sendOTP(email, 6, 300); // 6-digit OTP, 5 minutes expiry
+        return await emailOTPService.sendLoginOTP(email, 6, 300);
     }
 
     /**
@@ -490,7 +491,7 @@ class OTPlessService {
      */
     async sendForgotPasswordOTP(email) {
         log.info('Sending forgot password OTP to:', email);
-        return await this.sendOTP(email, 4, 600); // 4-digit OTP, 10 minutes expiry
+        return await emailOTPService.sendForgotPasswordOTP(email, 4, 600);
     }
 
     /**
@@ -511,7 +512,7 @@ class OTPlessService {
      */
     async send2FAOTP(email) {
         log.info('Sending 2FA OTP to:', email);
-        return await this.sendOTP(email, 6, 180); // 6-digit OTP, 3 minutes expiry for 2FA
+        return await emailOTPService.send2FAOTP(email, 6, 180);
     }
 
     /**

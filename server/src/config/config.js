@@ -65,6 +65,7 @@ module.exports = {
         fromEmail: process.env['FROM_EMAIL'],
         fromName: process.env['BRAND_NAME'],
         supportEmail: process.env['SUPPORT_EMAIL'],
+        zeptomailApiKey: process.env['ZEPTOMAIL_API_KEY'],
         smtp: {
             host: process.env['SMTP_HOST'],
             port: process.env['SMTP_PORT'],

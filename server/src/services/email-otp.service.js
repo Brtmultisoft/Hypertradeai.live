@@ -2,6 +2,7 @@
 const logger = require('./logger');
 const log = new logger('EmailOTPService').getChildLogger();
 const emailService = require('./sendEmail');
+const config = require('../config/config');
 
 /**
  * Fallback Email OTP Service for testing when OTPless API is not working
@@ -34,6 +35,147 @@ class EmailOTPService {
      */
     generateRequestId() {
         return 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    /**
+     * Generate HTML template for registration OTP
+     */
+    registrationTemplate(otp, expiry, brandName) {
+        return `
+        <div style="background:linear-gradient(135deg,#181818 0%,#232526 100%);min-height:100vh;padding:0;margin:0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:40px auto 0 auto;background:#181818;border-radius:18px;box-shadow:0 8px 32px rgba(0,0,0,0.32);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
+            <tr>
+              <td style="padding:0;text-align:center;background:#181818;">
+                <div style="padding:32px 0;">
+                  <h1 style="color:#FFD700;font-size:2.1em;margin:0;letter-spacing:1px;font-weight:800;">${brandName}</h1>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:36px 32px 24px 32px;">
+                <h2 style="color:#FFD700;font-size:1.3em;margin:0 0 12px 0;font-weight:700;">Complete Your Registration</h2>
+                <p style="color:#ccc;font-size:1.08em;margin:0 0 24px 0;">Thank you for signing up! Use the code below to verify your email and activate your account.</p>
+                <div style="margin:32px 0 24px 0;text-align:center;">
+                  <span style="display:inline-block;background:linear-gradient(90deg,#FFD700 0%,#B8860B 100%);color:#181818;font-size:2.5em;font-weight:bold;letter-spacing:12px;padding:18px 36px;border-radius:12px;box-shadow:0 2px 8px rgba(255,215,0,0.10);font-family:'Courier New',monospace;">${otp}</span>
+                </div>
+                <p style="color:#888;font-size:1em;margin:0 0 16px 0;text-align:center;">This code will expire in <b>${Math.floor(expiry/60)} minutes</b>.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 32px 32px;text-align:center;color:#aaa;font-size:0.98em;background:#232526;">
+                <p style="margin:0 0 8px 0;">If you did not request this, you can safely ignore this email.</p>
+                <p style="margin:0;">Need help? <a href="mailto:support@${brandName.toLowerCase().replace(/\s/g,'')}.com" style="color:#FFD700;text-decoration:none;">Contact Support</a></p>
+                <p style="margin:18px 0 0 0;font-size:0.95em;color:#555;">&copy; ${new Date().getFullYear()} ${brandName}. All rights reserved.</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        `;
+    }
+    /**
+     * Generate HTML template for login OTP
+     */
+    loginTemplate(otp, expiry, brandName) {
+        return `
+        <div style="background:linear-gradient(135deg,#181818 0%,#232526 100%);min-height:100vh;padding:0;margin:0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:40px auto 0 auto;background:#181818;border-radius:18px;box-shadow:0 8px 32px rgba(0,0,0,0.32);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
+            <tr>
+              <td style="padding:0;text-align:center;background:#181818;">
+                <div style="padding:32px 0;">
+                  <h1 style="color:#FFD700;font-size:2.1em;margin:0;letter-spacing:1px;font-weight:800;">${brandName}</h1>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:36px 32px 24px 32px;">
+                <h2 style="color:#FFD700;font-size:1.3em;margin:0 0 12px 0;font-weight:700;">Login Verification</h2>
+                <p style="color:#ccc;font-size:1.08em;margin:0 0 24px 0;">Use the code below to complete your login securely.</p>
+                <div style="margin:32px 0 24px 0;text-align:center;">
+                  <span style="display:inline-block;background:linear-gradient(90deg,#FFD700 0%,#B8860B 100%);color:#181818;font-size:2.5em;font-weight:bold;letter-spacing:12px;padding:18px 36px;border-radius:12px;box-shadow:0 2px 8px rgba(255,215,0,0.10);font-family:'Courier New',monospace;">${otp}</span>
+                </div>
+                <p style="color:#888;font-size:1em;margin:0 0 16px 0;text-align:center;">This code will expire in <b>${Math.floor(expiry/60)} minutes</b>.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 32px 32px;text-align:center;color:#aaa;font-size:0.98em;background:#232526;">
+                <p style="margin:0 0 8px 0;">If you did not request this, you can safely ignore this email.</p>
+                <p style="margin:0;">Need help? <a href="mailto:support@${brandName.toLowerCase().replace(/\s/g,'')}.com" style="color:#FFD700;text-decoration:none;">Contact Support</a></p>
+                <p style="margin:18px 0 0 0;font-size:0.95em;color:#555;">&copy; ${new Date().getFullYear()} ${brandName}. All rights reserved.</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        `;
+    }
+    /**
+     * Generate HTML template for forgot password OTP
+     */
+    forgotPasswordTemplate(otp, expiry, brandName) {
+        return `
+        <div style="background:linear-gradient(135deg,#181818 0%,#232526 100%);min-height:100vh;padding:0;margin:0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:40px auto 0 auto;background:#181818;border-radius:18px;box-shadow:0 8px 32px rgba(0,0,0,0.32);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
+            <tr>
+              <td style="padding:0;text-align:center;background:#181818;">
+                <div style="padding:32px 0;">
+                  <h1 style="color:#FFD700;font-size:2.1em;margin:0;letter-spacing:1px;font-weight:800;">${brandName}</h1>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:36px 32px 24px 32px;">
+                <h2 style="color:#FFD700;font-size:1.3em;margin:0 0 12px 0;font-weight:700;">Password Reset Verification</h2>
+                <p style="color:#ccc;font-size:1.08em;margin:0 0 24px 0;">Use the code below to reset your password securely.</p>
+                <div style="margin:32px 0 24px 0;text-align:center;">
+                  <span style="display:inline-block;background:linear-gradient(90deg,#FFD700 0%,#B8860B 100%);color:#181818;font-size:2.5em;font-weight:bold;letter-spacing:12px;padding:18px 36px;border-radius:12px;box-shadow:0 2px 8px rgba(255,215,0,0.10);font-family:'Courier New',monospace;">${otp}</span>
+                </div>
+                <p style="color:#888;font-size:1em;margin:0 0 16px 0;text-align:center;">This code will expire in <b>${Math.floor(expiry/60)} minutes</b>.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 32px 32px;text-align:center;color:#aaa;font-size:0.98em;background:#232526;">
+                <p style="margin:0 0 8px 0;">If you did not request this, you can safely ignore this email.</p>
+                <p style="margin:0;">Need help? <a href="mailto:support@${brandName.toLowerCase().replace(/\s/g,'')}.com" style="color:#FFD700;text-decoration:none;">Contact Support</a></p>
+                <p style="margin:18px 0 0 0;font-size:0.95em;color:#555;">&copy; ${new Date().getFullYear()} ${brandName}. All rights reserved.</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        `;
+    }
+    /**
+     * Generate HTML template for 2FA OTP
+     */
+    twoFATemplate(otp, expiry, brandName) {
+        return `
+        <div style="background:linear-gradient(135deg,#181818 0%,#232526 100%);min-height:100vh;padding:0;margin:0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:40px auto 0 auto;background:#181818;border-radius:18px;box-shadow:0 8px 32px rgba(0,0,0,0.32);overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;">
+            <tr>
+              <td style="padding:0;text-align:center;background:#181818;">
+                <div style="padding:32px 0;">
+                  <h1 style="color:#FFD700;font-size:2.1em;margin:0;letter-spacing:1px;font-weight:800;">${brandName}</h1>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:36px 32px 24px 32px;">
+                <h2 style="color:#FFD700;font-size:1.3em;margin:0 0 12px 0;font-weight:700;">Two-Factor Authentication</h2>
+                <p style="color:#ccc;font-size:1.08em;margin:0 0 24px 0;">Use the code below to complete your 2FA verification.</p>
+                <div style="margin:32px 0 24px 0;text-align:center;">
+                  <span style="display:inline-block;background:linear-gradient(90deg,#FFD700 0%,#B8860B 100%);color:#181818;font-size:2.5em;font-weight:bold;letter-spacing:12px;padding:18px 36px;border-radius:12px;box-shadow:0 2px 8px rgba(255,215,0,0.10);font-family:'Courier New',monospace;">${otp}</span>
+                </div>
+                <p style="color:#888;font-size:1em;margin:0 0 16px 0;text-align:center;">This code will expire in <b>${Math.floor(expiry/60)} minutes</b>.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 32px 32px;text-align:center;color:#aaa;font-size:0.98em;background:#232526;">
+                <p style="margin:0 0 8px 0;">If you did not request this, you can safely ignore this email.</p>
+                <p style="margin:0;">Need help? <a href="mailto:support@${brandName.toLowerCase().replace(/\s/g,'')}.com" style="color:#FFD700;text-decoration:none;">Contact Support</a></p>
+                <p style="margin:18px 0 0 0;font-size:0.95em;color:#555;">&copy; ${new Date().getFullYear()} ${brandName}. All rights reserved.</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        `;
     }
 
     /**
@@ -73,53 +215,8 @@ class EmailOTPService {
             log.info('Generated OTP:', { requestId, email: normalizedEmail, otp: otp });
             
             // Send email with simple template
-            const config = require('../config/config');
             const emailSubject = `Your ${config.brandName} Verification Code`;
-            const emailBody = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-                    <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                        <div style="text-align: center; margin-bottom: 30px;">
-                            <h2 style="color: #333; margin: 0;">${config.brandName}</h2>
-                            <p style="color: #666; margin: 5px 0 0 0;">Secure Authentication</p>
-                        </div>
-
-                        <h3 style="color: #333; margin-bottom: 20px;">Your Verification Code</h3>
-
-                        <p style="color: #666; line-height: 1.6; margin-bottom: 25px;">
-                            Hello,<br><br>
-                            You have requested a verification code for your ${config.brandName} account.
-                            Please use the following code to complete your registration:
-                        </p>
-
-                        <div style="background-color: #f8f9fa; border: 2px dashed #007bff; border-radius: 8px; padding: 20px; text-align: center; margin: 25px 0;">
-                            <h1 style="color: #007bff; font-size: 32px; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace;">
-                                ${otp}
-                            </h1>
-                        </div>
-
-                        <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
-                            <p style="margin: 0; color: #856404; font-size: 14px;">
-                                <strong>⚠️ Important:</strong> This code will expire in ${Math.floor(expiry / 60)} minutes.
-                                Do not share this code with anyone.
-                            </p>
-                        </div>
-
-                        <p style="color: #666; line-height: 1.6; margin: 20px 0;">
-                            If you didn't request this code, please ignore this email or contact our support team
-                            if you have concerns about your account security.
-                        </p>
-
-                        <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px; text-align: center;">
-                            <p style="color: #999; font-size: 12px; margin: 0;">
-                                This is an automated message from ${config.brandName}. Please do not reply to this email.
-                            </p>
-                            <p style="color: #999; font-size: 12px; margin: 5px 0 0 0;">
-                                © ${new Date().getFullYear()} ${config.brandName}. All rights reserved.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `;
+            const emailBody = this.registrationTemplate(otp, expiry, config.brandName);
 
             log.info('Preparing to send email:', {
                 email: normalizedEmail,
@@ -287,8 +384,27 @@ class EmailOTPService {
      * @param {string} email - Email address
      * @returns {Promise<Object>} - Response with requestId
      */
-    async sendRegistrationOTP(email) {
-        return this.sendOTP(email, 4, 300); // 5 minutes expiry for registration
+    async sendRegistrationOTP(email, otpLength = 4, expiry = 300) {
+        // Registration OTP
+        const normalizedEmail = email.toLowerCase().trim();
+        const otp = this.generateOTP(otpLength);
+        const requestId = this.generateRequestId();
+        this.otpStore.set(requestId, {
+            otp,
+            email: normalizedEmail,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + (expiry * 1000),
+            verified: false
+        });
+        const emailSubject = `Your ${config.brandName} Registration OTP`;
+        const emailBody = this.registrationTemplate(otp, expiry, config.brandName);
+        const emailData = {
+            recipientsAddress: normalizedEmail,
+            subject: emailSubject,
+            body: emailBody
+        };
+        await emailService.sendEmail(emailData);
+        return { success: true, requestId, message: 'Registration OTP sent' };
     }
 
     /**
@@ -296,8 +412,27 @@ class EmailOTPService {
      * @param {string} email - Email address
      * @returns {Promise<Object>} - Response with requestId
      */
-    async sendLoginOTP(email) {
-        return this.sendOTP(email, 4, 120); // 2 minutes expiry for login
+    async sendLoginOTP(email, otpLength = 6, expiry = 300) {
+        // Login OTP
+        const normalizedEmail = email.toLowerCase().trim();
+        const otp = this.generateOTP(otpLength);
+        const requestId = this.generateRequestId();
+        this.otpStore.set(requestId, {
+            otp,
+            email: normalizedEmail,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + (expiry * 1000),
+            verified: false
+        });
+        const emailSubject = `Your ${config.brandName} Login OTP`;
+        const emailBody = this.loginTemplate(otp, expiry, config.brandName);
+        const emailData = {
+            recipientsAddress: normalizedEmail,
+            subject: emailSubject,
+            body: emailBody
+        };
+        await emailService.sendEmail(emailData);
+        return { success: true, requestId, message: 'Login OTP sent' };
     }
 
     /**
@@ -305,8 +440,27 @@ class EmailOTPService {
      * @param {string} email - Email address
      * @returns {Promise<Object>} - Response with requestId
      */
-    async send2FAOTP(email) {
-        return this.sendOTP(email, 6, 180); // 3 minutes expiry for 2FA
+    async send2FAOTP(email, otpLength = 6, expiry = 180) {
+        // 2FA OTP
+        const normalizedEmail = email.toLowerCase().trim();
+        const otp = this.generateOTP(otpLength);
+        const requestId = this.generateRequestId();
+        this.otpStore.set(requestId, {
+            otp,
+            email: normalizedEmail,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + (expiry * 1000),
+            verified: false
+        });
+        const emailSubject = `Your ${config.brandName} 2FA OTP`;
+        const emailBody = this.twoFATemplate(otp, expiry, config.brandName);
+        const emailData = {
+            recipientsAddress: normalizedEmail,
+            subject: emailSubject,
+            body: emailBody
+        };
+        await emailService.sendEmail(emailData);
+        return { success: true, requestId, message: '2FA OTP sent' };
     }
 
     /**

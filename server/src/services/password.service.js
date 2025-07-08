@@ -6,6 +6,16 @@ const config = require('../config/config');
 const logger = require('./logger');
 const log = new logger('PasswordService').getChildLogger();
 
+// Debug: Log the pepper value at server start
+if (config.bcrypt && config.bcrypt.pepper) {
+  log.info('PASSWORD_PEPPER loaded for password hashing/comparison:', config.bcrypt.pepper);
+  if (config.bcrypt.pepper === 'default-pepper-value-change-in-production') {
+    log.warn('WARNING: Using default PASSWORD_PEPPER! Set a strong PASSWORD_PEPPER in your .env for security and login compatibility.');
+  }
+} else {
+  log.error('No PASSWORD_PEPPER found in config. Password login will fail for existing users.');
+}
+
 /**
  * Service for handling password operations with enhanced security
  */

@@ -1,80 +1,44 @@
 'use strict';
-const nodeMailer = require('nodemailer');
+const axios = require('axios');
 const config = require('../../config/config');
 
-const transporter = nodeMailer.createTransport({
-	host: config.emailServiceInfo.smtp.host,
-	port: config.emailServiceInfo.smtp.port,
-	secure: false,
-	auth: {
-		user: config.emailServiceInfo.smtp.userName,
-		pass: config.emailServiceInfo.smtp.password
-	}
-});
+const ZOHO_API_URL = "https://api.zeptomail.in/v1.1/email";
+const ZOHO_API_KEY = process.env.ZEPTOMAIL_API_KEY || config.emailServiceInfo.zeptomailApiKey;
+const FROM_EMAIL = config.emailServiceInfo.fromEmail || process.env.ZEPTOMAIL_FROM_EMAIL || "no-reply@yourdomain.com";
+const FROM_NAME = config.emailServiceInfo.fromName || process.env.ZEPTOMAIL_FROM_NAME || "Support";
 
 module.exports = {
 	sendEmail: async (emailBody) => {
 		try {
-			console.log('=== EMAIL SERVICE DEBUG ===');
-			console.log('Email service configuration:', {
-				serviceActive: config.emailServiceInfo.serviceActive,
-				fromEmail: config.emailServiceInfo.fromEmail,
-				fromName: config.emailServiceInfo.fromName,
-				smtpHost: config.emailServiceInfo.smtp.host,
-				smtpPort: config.emailServiceInfo.smtp.port,
-				smtpUser: config.emailServiceInfo.smtp.userName,
-				smtpPasswordSet: !!config.emailServiceInfo.smtp.password
-			});
+			console.log('=== ZOHO EMAIL SERVICE DEBUG ===');
+			console.log('From:', FROM_EMAIL, 'To:', emailBody.recipientsAddress, 'Subject:', emailBody.subject);
 
-			// send mail with defined transport object
-			let emailInfo = {
-				from: `"${config.emailServiceInfo.fromName}" <${config.emailServiceInfo.fromEmail}>`,
-				to: emailBody.recipientsAddress, // list of receivers
-				subject: emailBody.subject, // Subject line
-				html: emailBody.body
+			const payload = {
+				from: { address: FROM_EMAIL, name: FROM_NAME },
+				to: [{ email_address: { address: emailBody.recipientsAddress } }],
+				subject: emailBody.subject,
+				htmlbody: emailBody.body,
 			};
 
-			console.log('Email info to send:', {
-				from: emailInfo.from,
-				to: emailInfo.to,
-				subject: emailInfo.subject,
-				bodyLength: emailInfo.html ? emailInfo.html.length : 0
-			});
-
-			if (config.emailServiceInfo.serviceActive == 'smtp') {
-				console.log('Attempting to send email via SMTP...');
-
-				// Test transporter connection first
-				try {
-					await transporter.verify();
-					console.log('SMTP connection verified successfully');
-				} catch (verifyError) {
-					console.error('SMTP connection verification failed:', verifyError);
-					throw new Error(`SMTP connection failed: ${verifyError.message}`);
+			const response = await axios.post(ZOHO_API_URL, payload, {
+				headers: {
+					"accept": "application/json",
+					"authorization": ZOHO_API_KEY,
+					"cache-control": "no-cache",
+					"content-type": "application/json",
 				}
-
-				let info = await transporter.sendMail(emailInfo);
-				console.log("Message sent successfully: %s", info.messageId);
-				console.log("Email response:", info.response);
-				console.log('=== EMAIL SERVICE SUCCESS ===');
-				return { success: true, messageId: info.messageId, response: info.response };
-			} else {
-				console.log('Email service is not active (serviceActive != smtp)');
-				return { success: false, error: 'Email service not active' };
-			}
-		}
-		catch (error) {
-			console.error('=== EMAIL SERVICE ERROR ===');
-			console.error('Error details:', {
-				message: error.message,
-				code: error.code,
-				command: error.command,
-				response: error.response,
-				responseCode: error.responseCode,
-				stack: error.stack
 			});
-			console.error('=== END EMAIL ERROR ===');
-			throw error; // Re-throw the error instead of returning it
+
+			console.log('Zoho email sent. Response:', response.data);
+			return { success: true, data: response.data };
+		} catch (error) {
+			console.error('=== ZOHO EMAIL SERVICE ERROR ===');
+			if (error.response) {
+				console.error('Error response:', error.response.data);
+			} else {
+				console.error('Error:', error.message);
+			}
+			throw error;
 		}
 	}
 };

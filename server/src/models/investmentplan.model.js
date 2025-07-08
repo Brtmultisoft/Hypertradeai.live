@@ -17,7 +17,7 @@ const investmentplanSchema = new Schema({
     },
     amount_to: {
         type: Number,
-        default: 10000 // Maximum investment amount
+        default: 999999999 // Unlimited investment amount
     },
     percentage: {
         type: Number,
@@ -39,7 +39,13 @@ const investmentplanSchema = new Schema({
             1000: 50,
             3000: 100,
             5000: 200,
-            10000: 500
+            10000: 500,
+            25000: 1250,
+            50000: 2500,
+            100000: 5000,
+            250000: 12500,
+            500000: 25000,
+            1000000: 50000
         }
     },
     referral_bonus: {
@@ -50,7 +56,13 @@ const investmentplanSchema = new Schema({
             1000: 90,
             3000: 250,
             5000: 500,
-            10000: 700
+            10000: 700,
+            25000: 1500,
+            50000: 3000,
+            100000: 6000,
+            250000: 15000,
+            500000: 30000,
+            1000000: 60000
         }
     },
     team_commission: {

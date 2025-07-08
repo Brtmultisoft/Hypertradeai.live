@@ -210,9 +210,6 @@ const otplessController = {
 
             const sponsorID = await generateSponsorId();
 
-            // Hash the password manually since updateById doesn't trigger pre-save hooks
-            const hashedPassword = await passwordService.hashPassword(userData.password);
-
             // Create user with OTPless verification and proper referral data (matching existing structure)
             const newUserData = {
                 refer_id: refer_id,
@@ -221,7 +218,7 @@ const otplessController = {
                 trace_id: trace_id,
                 sponsorID: sponsorID, // Add the generated sponsor ID
                 email: normalizedEmail, // Store email
-                password: hashedPassword, // Password is now properly hashed
+                password: userData.password, // Pass plain password, let pre-save hook hash it
                 name: userData.name, // Store name
                 phone_number: userData.phone_number || userData.phone, // Store phone number
                 country: userData.country, // Store country

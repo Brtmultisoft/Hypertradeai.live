@@ -26,8 +26,7 @@ const investmentSchema = new Schema({
     amount: {
         type: Number,
         required: true,
-        min: 50,
-        max: 10000
+        min: 50
     },
     daily_profit: {
         type: Number,

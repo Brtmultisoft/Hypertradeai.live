@@ -24,8 +24,10 @@ import {
 } from '@mui/icons-material';
 import useAuth from '../../hooks/useAuth';
 import useForm from '../../hooks/useForm';
+// import useTawkTo from '../../hooks/useTawkTo';
 
 import OTPInput from '../../components/auth/OTPInput';
+import AuthService from '../../services/auth.service';
 import axios from 'axios';
 
 // ✅ Custom hook moved OUTSIDE component to comply with React rules
@@ -64,8 +66,9 @@ export const clearFrontendSession = () => {
 };
 
 const Login = () => {
+  // useTawkTo();
   const navigate = useNavigate();
-  const location = useLocation(); // Needed for logging
+  const location = useLocation(); // Needed for logging and prefill data
   const { login: authLogin, complete2FALogin, loading, error, isAuthenticated } = useAuth();
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -82,6 +85,57 @@ const Login = () => {
   const [userId, setUserId] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState(null);
+
+  // OTP Settings state
+  const [otpSettings, setOtpSettings] = useState({
+    email_otp_enabled: true,
+    mobile_otp_enabled: true,
+    loading: true
+  });
+
+  // Fetch OTP settings on component mount
+  useEffect(() => {
+    const fetchOTPSettings = async () => {
+      try {
+        const response = await AuthService.checkOTPSettings();
+        if (response.status) {
+          setOtpSettings({
+            email_otp_enabled: response.data.email_otp_enabled || response.result?.email_otp_enabled || true,
+            mobile_otp_enabled: response.data.mobile_otp_enabled || response.result?.mobile_otp_enabled || true,
+            loading: false
+          });
+        } else {
+          // Default to enabled if API fails
+          setOtpSettings({
+            email_otp_enabled: true,
+            mobile_otp_enabled: true,
+            loading: false
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch OTP settings:', error);
+        // Default to enabled if API fails
+        setOtpSettings({
+          email_otp_enabled: true,
+          mobile_otp_enabled: true,
+          loading: false
+        });
+      }
+    };
+
+    fetchOTPSettings();
+  }, []);
+
+  // Handle prefilled data from registration
+  useEffect(() => {
+    if (location.state?.fromRegistration) {
+      setSuccessMessage('Registration successful! Your login credentials have been prefilled. You can now login.');
+      setShowSuccessAlert(true);
+
+      // Clear the state to prevent showing message on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Add global error handler to catch any unhandled errors
   useEffect(() => {
@@ -131,6 +185,19 @@ const Login = () => {
       if (response.success) {
         // Check if 2FA is required by checking the response data
         if (response.userData && response.userData.requires_2fa_verification) {
+          // Check if 2FA OTP is disabled
+          if (response.userData.two_fa_warning && response.userData.two_fa_warning.includes('disabled')) {
+            console.log('🔐 2FA OTP is disabled, proceeding with normal login');
+            setSuccessMessage('Login successful! (2FA OTP is currently disabled)');
+            setShowSuccessAlert(true);
+
+            // Redirect to dashboard after a short delay
+            setTimeout(() => {
+              navigate('/dashboard');
+            }, 1000);
+            return;
+          }
+
           // 2FA is enabled
           console.log('🔐 2FA required, full response data:', response.userData);
           console.log('🔐 2FA required, setting up 2FA dialog:', {
@@ -461,10 +528,11 @@ const Login = () => {
     handleChange,
     handleBlur,
     handleSubmit,
+    setFieldValue,
   } = useForm(
     {
-      email: '',
-      password: '',
+      email: location.state?.prefillEmail || '',
+      password: location.state?.prefillPassword || '',
     },
     validationRules,
     async (formValues) => {
