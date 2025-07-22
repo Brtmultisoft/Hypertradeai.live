@@ -1019,7 +1019,7 @@ const Register = () => {
                   ? `Referrer: ${referralInfo.name || referralInfo.username}`
                   : referralChecking
                     ? 'Checking referral ID...'
-                    : 'Enter a valid referral ID'
+                    : null
             }
             InputProps={{
               endAdornment: referralChecking ? (
