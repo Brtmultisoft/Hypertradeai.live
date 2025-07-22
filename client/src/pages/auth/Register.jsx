@@ -106,15 +106,15 @@ const Register = () => {
         setReferralInfo(result.data);
         setReferralError('');
       } else {
-        setReferralError(result.error);
-        setReferralInfo(null);
+        // setReferralError(result.error);
+        // setReferralInfo(null);
       }
       return result; // Ensure the result is returned for debounced effect
     } catch (err) {
       console.error('Error validating referral ID:', err);
-      setReferralError('Error validating referral ID');
-      setReferralInfo(null);
-      return { isValid: false, error: 'Error validating referral ID' }; // Return error object
+      // setReferralError('Error validating referral ID');
+      // setReferralInfo(null);
+      // return { isValid: false, error: 'Error validating referral ID' }; // Return error object
     }
   };
 
