@@ -297,24 +297,9 @@ module.exports = {
         log.info('Recieved request for Admin User update:', reqObj);
         let responseData = {};
         try {
-            let query = { _id: { $ne: reqObj.id } };
-            if (config.loginByType == 'email') {
-                query.username = reqObj?.email.toLowerCase();
-            }
-            else if (config.loginByType == 'address') {
-                query.username = reqObj?.address.toLowerCase();
-            }
-            else {
-                query.username = reqObj?.username;
-            }
-            let checkUsername = await userDbHandler.getByQuery(query);
+            // Check for email and phone number uniqueness only (no username validation for admin updates)
             let checkEmail = await userDbHandler.getByQuery({ _id: { $ne: reqObj.id }, email: reqObj?.email });
             let checkPhoneNumber = await userDbHandler.getByQuery({ _id: { $ne: reqObj.id }, phone_number: reqObj?.phone_number });
-
-            if (checkUsername.length) {
-                responseData.msg = `${config.loginByName} Already Exist !`;
-                return responseHelper.error(res, responseData);
-            }
             if (reqObj?.email && checkEmail.length >= config.emailCheck) {
                 responseData.msg = 'Email Already Exist !';
                 return responseHelper.error(res, responseData);

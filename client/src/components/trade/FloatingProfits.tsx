@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import './animations.css';
 
 interface FloatingProfit {
@@ -11,6 +11,7 @@ interface FloatingProfit {
 }
 
 const FloatingProfits: React.FC = () => {
+  const theme = useTheme();
   const [profits, setProfits] = useState<FloatingProfit[]>([]);
 
   useEffect(() => {
@@ -63,12 +64,16 @@ const FloatingProfits: React.FC = () => {
             fontFamily: "'Roboto Mono', monospace",
             fontSize: '16px',
             fontWeight: 600,
-            background: 'rgba(0, 0, 0, 0.8)',
+            background: theme.palette.mode === 'dark'
+              ? 'rgba(0, 0, 0, 0.8)'
+              : 'rgba(255, 255, 255, 0.9)',
             padding: '8px 15px',
             borderRadius: '30px',
             animation: 'floatUp 6s forwards cubic-bezier(0.25, 0.1, 0.25, 1)',
             backdropFilter: 'blur(4px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: theme.palette.mode === 'dark'
+              ? '1px solid rgba(255, 255, 255, 0.1)'
+              : '1px solid rgba(0, 0, 0, 0.1)',
             transform: 'scale(0.8)',
             color: profit.isProfit ? '#0ecb81' : '#f6465d',
             boxShadow: profit.isProfit

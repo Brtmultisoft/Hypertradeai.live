@@ -334,6 +334,189 @@ const dualVerificationController = {
             responseData.error = error.message;
             return responseHelper.error(res, responseData);
         }
+    },
+
+    /**
+     * Register user directly without OTP verification (when OTP is disabled)
+     */
+    registerWithoutOTP: async (req, res) => {
+        let reqObj = req.body;
+        log.info('Received request for direct registration without OTP:', {
+            email: reqObj.email,
+            phone_number: reqObj.phone_number,
+            hasUserData: !!reqObj.userData
+        });
+        let responseData = {};
+
+        try {
+            const { email, phone_number, userData } = reqObj;
+
+            // Validate required fields
+            if (!userData) {
+                responseData.msg = 'userData is required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Get email and phone from top level or userData
+            const finalEmail = email || userData.email;
+            const finalPhone = phone_number || userData.phone_number;
+
+            if (!finalEmail || !finalPhone) {
+                responseData.msg = 'Email and phone number are required';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Normalize email and phone
+            const normalizedEmail = finalEmail.toLowerCase().trim();
+            const normalizedPhone = finalPhone.trim();
+
+            log.info('Processing direct registration:', {
+                email: normalizedEmail,
+                phone: normalizedPhone,
+                username: userData.username,
+                name: userData.name
+            });
+
+            // Check if user already exists
+            const existingUserByEmail = await userDbHandler.getByQuery({ email: normalizedEmail });
+            const existingUserByPhone = await userDbHandler.getByQuery({ phone_number: normalizedPhone });
+
+            if ((existingUserByEmail && existingUserByEmail.length > 0) ||
+                (existingUserByPhone && existingUserByPhone.length > 0)) {
+                responseData.msg = 'Email or phone number already registered';
+                return responseHelper.error(res, responseData);
+            }
+
+            // Check if username already exists
+            if (userData.username) {
+                const existingUserByUsername = await userDbHandler.getByQuery({ username: userData.username });
+                if (existingUserByUsername && existingUserByUsername.length > 0) {
+                    responseData.msg = 'Username already taken';
+                    return responseHelper.error(res, responseData);
+                }
+            }
+
+            // Handle referral system (matching existing auth controller logic)
+            let trace_id = userData.referrer || userData.referralId;
+
+            // If no referral ID provided, set default to admin
+            if (!trace_id || trace_id.trim() === '') {
+                trace_id = 'admin';
+                log.info('No referral ID provided, setting default to admin');
+            }
+
+            let refer_id = null;
+            let placement_id = null;
+
+            // Check if it's a sponsor ID (any format)
+            let sponsorUser = await userDbHandler.getOneByQuery({ sponsorID: trace_id }, { _id: 1 });
+            if (sponsorUser) {
+                refer_id = sponsorUser._id;
+            }
+
+            // If not a sponsor ID, check username
+            if (!refer_id) {
+                let referUser = await userDbHandler.getOneByQuery({ username: trace_id }, { _id: 1 });
+                if (referUser) {
+                    refer_id = referUser._id;
+                }
+            }
+
+            // If still not found, check if it's 'admin'
+            if (!refer_id && trace_id === 'admin') {
+                const adminUser = await userDbHandler.getOneByQuery({ is_default: true }, { _id: 1 });
+                if (adminUser) {
+                    refer_id = adminUser._id;
+                }
+            }
+
+            // Set placement_id same as refer_id for now
+            placement_id = refer_id;
+
+            // Generate sponsor ID with HS prefix (no validation)
+            const generateSponsorId = () => {
+                const randomNum = Math.floor(Math.random() * 900000) + 100000;
+                return `HS${randomNum}`;
+            };
+
+            const sponsorID = generateSponsorId();
+
+            // Create user without OTP verification
+            const newUserData = {
+                refer_id: refer_id,
+                placement_id: placement_id,
+                username: userData.username || normalizedEmail,
+                trace_id: trace_id,
+                sponsorID: sponsorID,
+                email: normalizedEmail,
+                phone_number: normalizedPhone,
+                password: userData.password,
+                name: userData.name,
+                country: userData.country,
+                email_verified: false, // Not verified since no OTP
+                phone_verified: false, // Not verified since no OTP
+                mobile_otp_verified: false,
+                otpless_enabled: false,
+                otpless_verified: false,
+                two_fa_method: 'otpless' // Use default enum value
+            };
+
+            log.info('Creating new user without OTP verification:', {
+                email: newUserData.email,
+                phone: newUserData.phone_number,
+                username: newUserData.username,
+                sponsorID: newUserData.sponsorID,
+                trace_id: newUserData.trace_id
+            });
+
+            const newUser = await userDbHandler.create(newUserData);
+            log.info('User created successfully without OTP verification:', newUser._id);
+
+            // Create welcome notification
+            try {
+                const notificationController = require('./notification.controller');
+                await notificationController.createWelcomeNotification(newUser._id, newUserData);
+                log.info('Welcome notification created for user:', newUser._id);
+            } catch (notificationError) {
+                log.error('Failed to create welcome notification:', notificationError);
+                // Don't fail registration if notification creation fails
+            }
+
+            // Generate JWT token for the new user
+            const jwtPayload = {
+                sub: newUser._id,
+                email: newUser.email,
+                username: newUser.username,
+                sponsorID: newUser.sponsorID
+            };
+
+            // Create a new instance for jwt service
+            const tokenService = new jwtService();
+            const token = tokenService.createJwtAuthenticationToken(jwtPayload);
+
+            responseData.msg = 'Registration successful!';
+            responseData.data = {
+                user: {
+                    _id: newUser._id,
+                    email: newUser.email,
+                    username: newUser.username,
+                    name: newUser.name,
+                    phone_number: newUser.phone_number,
+                    sponsorID: newUser.sponsorID,
+                    email_verified: newUser.email_verified,
+                    phone_verified: newUser.phone_verified
+                },
+                token: token
+            };
+
+            log.info('Direct registration completed successfully for user:', newUser._id);
+            return responseHelper.success(res, responseData);
+
+        } catch (err) {
+            log.error('Error in direct registration without OTP:', err);
+            responseData.msg = err.message || 'Registration failed';
+            return responseHelper.error(res, responseData);
+        }
     }
 };
 

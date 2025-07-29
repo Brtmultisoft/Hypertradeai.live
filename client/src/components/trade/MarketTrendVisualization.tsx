@@ -1,5 +1,5 @@
 import React from 'react';
-import { Paper, Box, Typography, Stack, Chip } from '@mui/material';
+import { Paper, Box, Typography, Stack, Chip, useTheme } from '@mui/material';
 import { ArrowUp } from 'lucide-react';
 import { TradingPair } from '../../types/types';
 
@@ -14,6 +14,9 @@ const MarketTrendVisualization: React.FC<MarketTrendVisualizationProps> = ({
   totalProfit,
   currentPair
 }) => {
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === 'dark';
+
   return (
     <Paper
       sx={{
@@ -22,8 +25,12 @@ const MarketTrendVisualization: React.FC<MarketTrendVisualizationProps> = ({
         overflow: 'hidden',
         borderRadius: '16px',
         border: 'none',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-        background: 'linear-gradient(rgba(255, 0, 0, 0.05), rgba(255, 0, 0, 0.1)), radial-gradient(circle at 30% 30%, rgba(255, 0, 0, 0.2), transparent 70%), radial-gradient(circle at 70% 70%, rgba(255, 0, 0, 0.2), transparent 70%)',
+        boxShadow: isDarkMode
+          ? '0 8px 24px rgba(0, 0, 0, 0.3)'
+          : '0 8px 24px rgba(0, 0, 0, 0.1)',
+        background: isDarkMode
+          ? 'linear-gradient(rgba(255, 0, 0, 0.05), rgba(255, 0, 0, 0.1)), radial-gradient(circle at 30% 30%, rgba(255, 0, 0, 0.2), transparent 70%), radial-gradient(circle at 70% 70%, rgba(255, 0, 0, 0.2), transparent 70%)'
+          : 'linear-gradient(rgba(14, 203, 129, 0.05), rgba(14, 203, 129, 0.1)), radial-gradient(circle at 30% 30%, rgba(14, 203, 129, 0.15), transparent 70%), radial-gradient(circle at 70% 70%, rgba(14, 203, 129, 0.15), transparent 70%)',
         opacity: tradingActive ? 0.8 : 0.3,
         transition: 'opacity 0.3s ease',
         width: '100%',
@@ -42,11 +49,17 @@ const MarketTrendVisualization: React.FC<MarketTrendVisualizationProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(0, 0, 0, 0.7)',
+            background: isDarkMode
+              ? 'rgba(0, 0, 0, 0.7)'
+              : 'rgba(255, 255, 255, 0.8)',
             zIndex: 100,
           }}
         >
-          <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+          <Typography variant="body1" sx={{
+            color: isDarkMode
+              ? 'rgba(255, 255, 255, 0.7)'
+              : 'rgba(0, 0, 0, 0.7)'
+          }}>
             Trading Inactive
           </Typography>
         </Box>
@@ -57,8 +70,10 @@ const MarketTrendVisualization: React.FC<MarketTrendVisualizationProps> = ({
           icon={<Box component="span" sx={{ width: 16, height: 16, bgcolor: '#f0b90b', borderRadius: '50%', mr: 1 }} />}
           label={currentPair.name}
           sx={{
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            color: '#fff',
+            backgroundColor: isDarkMode
+              ? 'rgba(0, 0, 0, 0.5)'
+              : 'rgba(255, 255, 255, 0.9)',
+            color: isDarkMode ? '#fff' : theme.palette.text.primary,
             fontWeight: 500,
             fontSize: '0.875rem',
           }}
@@ -67,7 +82,9 @@ const MarketTrendVisualization: React.FC<MarketTrendVisualizationProps> = ({
         <Chip
           label="+12.45%"
           sx={{
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: isDarkMode
+              ? 'rgba(0, 0, 0, 0.5)'
+              : 'rgba(255, 255, 255, 0.9)',
             color: '#0ecb81',
             fontWeight: 500,
             fontSize: '0.875rem',
@@ -113,7 +130,7 @@ const MarketTrendVisualization: React.FC<MarketTrendVisualizationProps> = ({
           animation: 'arrowPulse 2s infinite',
         }}
       >
-        <ArrowUp size={40} color="white" opacity={0.8} />
+        <ArrowUp size={40} color={isDarkMode ? "white" : theme.palette.text.primary} opacity={0.8} />
       </Box>
     </Paper>
   );

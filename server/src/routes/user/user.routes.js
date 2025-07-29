@@ -235,6 +235,12 @@ module.exports = () => {
         dualVerificationController.verifyRegistrationOTPs
     );
 
+    Router.post(
+        '/user/dual-verification/register-without-otp',
+        validationMiddleware(dualVerificationValidation.registerWithoutOTP, 'body'),
+        dualVerificationController.registerWithoutOTP
+    );
+
     /**
      * Individual Mobile OTP Routes - PUBLIC ROUTES
      */

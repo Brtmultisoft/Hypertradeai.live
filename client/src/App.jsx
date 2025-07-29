@@ -34,6 +34,7 @@ import TransferFund from './pages/wallet/TransferFund';
 import TransferHistory from './pages/wallet/TransferHistory';
 import Deposit from './pages/wallet/Deposit';
 import Withdraw from './pages/wallet/Withdraw';
+import WithdrawalHistory from './pages/wallet/WithdrawalHistory';
 import LiveTrading from './pages/live_trading/LiveTrading';
 import TransactionHistory from './pages/wallet/TransactionHistory';
 import Settings from './pages/settings/Settings';
@@ -105,6 +106,7 @@ function App() {
               <Route path="/transfer-history" element={<TransferHistory />} />
               <Route path="/deposit" element={<Deposit />} />
               <Route path="/withdraw" element={<Withdraw />} />
+              <Route path="/withdrawal-history" element={<WithdrawalHistory />} />
               <Route path="/transaction-history" element={<TransactionHistory />} />
 
               {/* Live Trading Routes */}

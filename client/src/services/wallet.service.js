@@ -94,6 +94,16 @@ const WalletService = {
     }
   },
 
+  // Get withdrawal sum
+  getWithdrawalSum: async (params = {}) => {
+    try {
+      const response = await api.get('/get-withdrawal-sum', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { msg: 'Failed to get withdrawal sum' };
+    }
+  },
+
   // Get all fund transfers
   getAllFundTransfers: async (params = {}) => {
     try {

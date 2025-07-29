@@ -339,6 +339,9 @@ const Header = ({ onToggleSidebar }) => {
               </Button> */}
                   {/* Theme Toggle removed from mobile view */}
 
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
               {/* Notifications */}
               <Tooltip title="Notifications">
                 <IconButton

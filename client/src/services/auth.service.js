@@ -426,7 +426,7 @@ const AuthService = {
         // OTP is disabled, proceed with direct registration
         return {
           requiresOTP: false,
-          registrationResult: await AuthService.registerWithoutOTP(userData)
+          registrationResult: await AuthService.registerWithoutOTP(userData.email, userData.phone_number, userData)
         };
       } else {
         // Other error
@@ -437,7 +437,7 @@ const AuthService = {
       if (error.data && error.data.otp_disabled) {
         return {
           requiresOTP: false,
-          registrationResult: await AuthService.registerWithoutOTP(userData)
+          registrationResult: await AuthService.registerWithoutOTP(userData.email, userData.phone_number, userData)
         };
       }
       throw error;

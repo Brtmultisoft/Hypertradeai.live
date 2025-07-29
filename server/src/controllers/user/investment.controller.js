@@ -348,10 +348,11 @@ module.exports = {
                         console.log('Final determination - Has referrer invested:', hasReferrerInvested ? 'Yes' : 'No');
 
                         if (hasReferrerInvested) {
-                            // Check if referral bonus already exists to prevent duplicates
+                            // Check if referral bonus already exists for this specific investment to prevent duplicates
                             const existingReferralBonus = await incomeDbHandler.getByQuery({
                                 user_id: ObjectId(referrer._id),
                                 user_id_from: ObjectId(user_id),
+                                investment_id: ObjectId(investment._id),
                                 type: 'referral_bonus'
                             });
 
@@ -406,7 +407,7 @@ module.exports = {
                                     console.log('Referrer wallet updated with bonus:', referrerUpdate && referrerUpdate.modifiedCount > 0 ? 'Success' : 'Failed');
                                 }
                             } else {
-                                console.log('Referral bonus already exists for this user-referrer combination, skipping');
+                                console.log('Referral bonus already exists for this specific investment, skipping');
                             }
                         } else {
                             console.log('Referrer has not invested. Skipping referral bonus.');
@@ -682,10 +683,11 @@ module.exports = {
                             const referralBonus = plan.referral_bonus[applicableThreshold];
                             console.log(`Applicable threshold: $${applicableThreshold}, Bonus: $${referralBonus}`);
 
-                            // Check if referral bonus already exists to prevent duplicates
+                            // Check if referral bonus already exists for this specific investment to prevent duplicates
                             const existingReferralBonus = await incomeDbHandler.getByQuery({
                                 user_id: ObjectId(referrer._id),
                                 user_id_from: ObjectId(user_id),
+                                investment_id: ObjectId(investment._id),
                                 type: 'referral_bonus'
                             });
 
@@ -739,7 +741,7 @@ module.exports = {
                                     console.log('Referrer wallet updated with bonus:', walletUpdateResult ? 'Success' : 'Failed');
                                 }
                             } else {
-                                console.log('Referral bonus already exists for this user-referrer combination, skipping');
+                                console.log('Referral bonus already exists for this specific investment, skipping');
                             }
                         } else {
                             console.log('Investment amount does not meet minimum threshold for referral bonus');

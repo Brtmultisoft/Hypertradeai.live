@@ -30,6 +30,7 @@ import {
   DialogActions,
   Typography,
   Backdrop,
+  Snackbar,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -41,6 +42,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   AccountBalanceWallet as WalletIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import useAuth from '../../hooks/useAuth';
@@ -55,6 +57,7 @@ const WithdrawalHistory = () => {
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_PAGE_SIZE);
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,6 +81,13 @@ const WithdrawalHistory = () => {
   const [processingAmount, setProcessingAmount] = useState(null);
   const [processingFee, setProcessingFee] = useState(null);
   const [processingNetAmount, setProcessingNetAmount] = useState(null);
+
+  // View modal state
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewWithdrawal, setViewWithdrawal] = useState(null);
+
+  // Copy functionality
+  const [copySuccess, setCopySuccess] = useState('');
 
   // Fetch withdrawal history data
   const fetchWithdrawalHistory = async () => {
@@ -167,6 +177,31 @@ const WithdrawalHistory = () => {
     }
   };
 
+  // Handle view withdrawal details
+  const handleViewWithdrawal = (withdrawal) => {
+    setViewWithdrawal(withdrawal);
+    setViewModalOpen(true);
+  };
+
+  // Handle close view modal
+  const handleCloseViewModal = () => {
+    setViewModalOpen(false);
+    setViewWithdrawal(null);
+  };
+
+  // Handle copy to clipboard
+  const handleCopyToClipboard = async (text, type = 'text') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(`${type} copied!`);
+      setTimeout(() => setCopySuccess(''), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      setCopySuccess('Failed to copy');
+      setTimeout(() => setCopySuccess(''), 2000);
+    }
+  };
+
   // Handle page change
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -231,6 +266,8 @@ const WithdrawalHistory = () => {
     setSelectedWithdrawal(null);
     setDialogAction('');
     setActionReason('');
+    setError(null);
+    setSuccessMessage('');
   };
 
   // Handle reason change
@@ -249,30 +286,14 @@ const WithdrawalHistory = () => {
 
       // If approving, use the process withdrawal endpoint directly
       if (dialogAction === 'approve') {
-        // Debug information
-        console.log('Selected withdrawal:', selectedWithdrawal);
-        console.log('API URL:', API_URL);
-        console.log('Wallet address:', selectedWithdrawal.address || selectedWithdrawal.wallet_address);
-
-        // Make sure we have a wallet address
-        const walletAddress = selectedWithdrawal.address || selectedWithdrawal.wallet_address;
-
-        if (!walletAddress) {
-          setError('Wallet address is missing. Cannot process withdrawal.');
-          setActionLoading(false);
-          return;
-        }
-
-        const requestData = {
-          withdrawalId: selectedWithdrawal._id,
-          amount: selectedWithdrawal.amount.toString(),
-          walletAddress: walletAddress
-        };
-
-        console.log('Request data:', requestData);
+        // Simple approval - just update status and user wallet
+        console.log('Approving withdrawal:', selectedWithdrawal._id);
 
         try {
-          const response = await axios.post(`${API_URL}/admin/withdrawals/process`, requestData, {
+          const response = await axios.post(`${API_URL}/admin/withdrawals/approve`, {
+            withdrawalId: selectedWithdrawal._id,
+            txid: actionReason || 'manual-approval'
+          }, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -281,29 +302,27 @@ const WithdrawalHistory = () => {
           console.log('Response:', response);
 
           if (response.data && response.data.status) {
-            // Get transaction hash and amount details from response
-            const txHash = response.data.transactionHash;
-            const totalAmount = response.data.amount || selectedWithdrawal.amount;
-            const fee = response.data.fee || (totalAmount * 0.1);
-            const netAmount = response.data.netAmount || (totalAmount - fee);
+            // Get transaction hash from simple approval response
+            const txHash = response.data.txid || 'manual-approval';
 
-            // Set state for processing dialog
-            setTransactionHash(txHash);
-            setProcessingAmount(totalAmount);
-            setProcessingFee(fee);
-            setProcessingNetAmount(netAmount);
+            // Show success message
+            setSuccessMessage(
+              `Withdrawal approved successfully!\n` +
+              `Amount: ${selectedWithdrawal.amount} USDT\n` +
+              `Transaction ID: ${txHash}\n` +
+              `Status: Approved`
+            );
 
-            // Close approval dialog
-            handleCloseDialog();
-
-            // Open processing status dialog
-            setProcessingDialogOpen(true);
+            // Close dialog
+            setOpenDialog(false);
+            setSelectedWithdrawal(null);
+            setActionReason('');
 
             // Refresh data in background
             fetchWithdrawalHistory();
           } else {
             console.error('API returned error:', response.data);
-            setError(response.data?.message || 'Failed to approve and process withdrawal');
+            setError(response.data?.message || 'Failed to approve withdrawal');
           }
         } catch (apiError) {
           console.error('API call error details:', apiError);
@@ -511,6 +530,12 @@ const WithdrawalHistory = () => {
         </Alert>
       )}
 
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 3 }}>
+          {successMessage}
+        </Alert>
+      )}
+
       {/* Withdrawal History Table */}
       <Paper
         elevation={0}
@@ -609,13 +634,14 @@ const WithdrawalHistory = () => {
                     Date {renderSortIcon('created_at')}
                   </Box>
                 </TableCell>
-                {/* <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell> */}
+                <TableCell sx={{ fontWeight: 'bold' }}>Reason/Notes</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 3 }}>
                     <CircularProgress size={40} />
                     <Box sx={{ mt: 1 }}>
                       Loading withdrawal history...
@@ -624,7 +650,7 @@ const WithdrawalHistory = () => {
                 </TableRow>
               ) : withdrawals.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 3 }}>
                     <Box>No withdrawals found</Box>
                   </TableCell>
                 </TableRow>
@@ -646,17 +672,33 @@ const WithdrawalHistory = () => {
                     <TableCell>{formatCurrency(withdrawal.amount || 0)}</TableCell>
                     <TableCell>{withdrawal.payment_method || withdrawal.currency || 'USDT'}</TableCell>
                     <TableCell>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          maxWidth: 150,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {withdrawal.address || withdrawal.wallet_address || 'N/A'}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            maxWidth: 120,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            fontFamily: 'monospace',
+                            fontSize: '0.85rem'
+                          }}
+                          title={withdrawal.address || 'N/A'}
+                        >
+                          {withdrawal.address || 'N/A'}
+                        </Typography>
+                        {withdrawal.address && (
+                          <Tooltip title={copySuccess || "Copy Address"}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleCopyToClipboard(withdrawal.address, 'Address')}
+                              sx={{ p: 0.5 }}
+                            >
+                              <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -667,13 +709,31 @@ const WithdrawalHistory = () => {
                     </TableCell>
                     <TableCell>{formatDate(withdrawal.created_at)}</TableCell>
                     <TableCell>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          maxWidth: 200,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={withdrawal.remark || withdrawal.extra?.rejectionReason || withdrawal.reason || withdrawal.admin_notes || 'No reason provided'}
+                      >
+                        {withdrawal.remark || withdrawal.extra?.rejectionReason || withdrawal.reason || withdrawal.admin_notes || (
+                          withdrawal.status === 1 || withdrawal.status === '1' ? 'Approved and processed' :
+                          withdrawal.status === 2 || withdrawal.status === '2' ? 'Rejected by admin' :
+                          'Pending approval'
+                        )}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
                       <Box sx={{ display: 'flex' }}>
                         <Tooltip title="View Details">
                           <IconButton
                             size="small"
                             color="primary"
                             sx={{ mr: 1 }}
-                            // onClick={() => handleViewWithdrawal(withdrawal._id)}
+                            onClick={() => handleViewWithdrawal(withdrawal)}
                           >
                             <VisibilityIcon fontSize="small" />
                           </IconButton>
@@ -681,7 +741,7 @@ const WithdrawalHistory = () => {
 
                         {(withdrawal.status === 0 || withdrawal.status === '0') && (
                           <>
-                            <Tooltip title="Approve & Process Withdrawal">
+                            <Tooltip title="Approve Withdrawal">
                               <IconButton
                                 size="small"
                                 color="success"
@@ -705,7 +765,22 @@ const WithdrawalHistory = () => {
                           </>
                         )}
 
-                        {/* Process button removed as approval now automatically processes the withdrawal */}
+                        {/* Show transaction hash for approved withdrawals */}
+                        {(withdrawal.status === 1 || withdrawal.status === '1') && withdrawal.txid && (
+                          <Tooltip title={`Transaction Hash: ${withdrawal.txid}`}>
+                            <IconButton
+                              size="small"
+                              color="info"
+                              sx={{ mr: 1 }}
+                              onClick={() => {
+                                navigator.clipboard.writeText(withdrawal.txid);
+                                // You can add a snackbar notification here
+                              }}
+                            >
+                              <WalletIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -733,14 +808,14 @@ const WithdrawalHistory = () => {
         fullWidth
       >
         <DialogTitle>
-          {dialogAction === 'approve' ? 'Approve & Process Withdrawal' : 'Reject Withdrawal'}
+          {dialogAction === 'approve' ? 'Approve Withdrawal' : 'Reject Withdrawal'}
         </DialogTitle>
         <DialogContent>
           {selectedWithdrawal && (
             <>
               <DialogContentText>
                 {dialogAction === 'approve'
-                  ? 'Are you sure you want to approve and process this withdrawal request? This will immediately send funds to the user\'s wallet address via blockchain transaction.'
+                  ? 'Are you sure you want to approve this withdrawal request? This will update the withdrawal status to approved and reduce the user\'s pending withdrawal balance.'
                   : 'Are you sure you want to reject this withdrawal request? Funds will be returned to the user\'s wallet.'}
               </DialogContentText>
 
@@ -787,6 +862,7 @@ const WithdrawalHistory = () => {
                 onChange={handleReasonChange}
                 variant="outlined"
                 sx={{ mt: 2 }}
+                placeholder={dialogAction === 'approve' ? 'Optional approval notes...' : 'Required rejection reason...'}
               />
             </>
           )}
@@ -802,7 +878,7 @@ const WithdrawalHistory = () => {
             disabled={actionLoading}
             startIcon={actionLoading ? <CircularProgress size={20} /> : null}
           >
-            {dialogAction === 'approve' ? 'Approve & Process' : 'Reject'}
+            {dialogAction === 'approve' ? 'Approve' : 'Reject'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -835,6 +911,231 @@ const WithdrawalHistory = () => {
           }}
         />
       </Dialog>
+
+      {/* View Withdrawal Details Modal */}
+      <Dialog
+        open={viewModalOpen}
+        onClose={handleCloseViewModal}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          pb: 1,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <WalletIcon color="primary" />
+          <Typography variant="h6" component="span">
+            Withdrawal Details
+          </Typography>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 3 }}>
+          {viewWithdrawal && (
+            <Grid container spacing={3}>
+              {/* User Information */}
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 2, bgcolor: theme.palette.background.default }}>
+                  <Typography variant="subtitle1" gutterBottom color="primary" fontWeight="bold">
+                    User Information
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Typography variant="body2">
+                      <strong>User ID:</strong> {viewWithdrawal.user_id || 'N/A'}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Username:</strong> {viewWithdrawal.user_details?.name || viewWithdrawal.user || viewWithdrawal.username || 'N/A'}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Email:</strong> {viewWithdrawal.user_details?.email || viewWithdrawal.email || 'N/A'}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              {/* Withdrawal Information */}
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 2, bgcolor: theme.palette.background.default }}>
+                  <Typography variant="subtitle1" gutterBottom color="primary" fontWeight="bold">
+                    Withdrawal Information
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Typography variant="body2">
+                      <strong>Amount:</strong> {formatCurrency(viewWithdrawal.amount)} {viewWithdrawal.currency || 'USDT'}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Fee:</strong> {formatCurrency(viewWithdrawal.fee || viewWithdrawal.extra?.adminFee || 0)} {viewWithdrawal.currency || 'USDT'}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Net Amount:</strong> {formatCurrency(viewWithdrawal.net_amount || ((viewWithdrawal.amount || 0) - (viewWithdrawal.fee || 0)))} {viewWithdrawal.currency || 'USDT'}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Status:</strong>
+                      <Chip
+                        label={
+                          viewWithdrawal.status === 0 || viewWithdrawal.status === '0' ? 'Pending' :
+                          viewWithdrawal.status === 1 || viewWithdrawal.status === '1' ? 'Approved' :
+                          viewWithdrawal.status === 2 || viewWithdrawal.status === '2' ? 'Rejected' : 'Unknown'
+                        }
+                        color={
+                          viewWithdrawal.status === 0 || viewWithdrawal.status === '0' ? 'warning' :
+                          viewWithdrawal.status === 1 || viewWithdrawal.status === '1' ? 'success' :
+                          viewWithdrawal.status === 2 || viewWithdrawal.status === '2' ? 'error' : 'default'
+                        }
+                        size="small"
+                        sx={{ ml: 1 }}
+                      />
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              {/* Wallet Information */}
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 2, bgcolor: theme.palette.background.default }}>
+                  <Typography variant="subtitle1" gutterBottom color="primary" fontWeight="bold">
+                    Wallet Information
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2">
+                        <strong>Wallet Address:</strong>
+                      </Typography>
+                      {viewWithdrawal.address && (
+                        <Tooltip title={copySuccess || "Copy Address"}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleCopyToClipboard(viewWithdrawal.address, 'Address')}
+                            sx={{ p: 0.5 }}
+                          >
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        wordBreak: 'break-all',
+                        bgcolor: theme.palette.action.hover,
+                        p: 1,
+                        borderRadius: 1,
+                        fontFamily: 'monospace',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      {viewWithdrawal.address || 'N/A'}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Network:</strong> {viewWithdrawal.network || 'TRC20'}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              {/* Transaction Information */}
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 2, bgcolor: theme.palette.background.default }}>
+                  <Typography variant="subtitle1" gutterBottom color="primary" fontWeight="bold">
+                    Transaction Information
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2">
+                        <strong>Transaction Hash:</strong>
+                      </Typography>
+                      {(viewWithdrawal.txid || viewWithdrawal.transaction_hash) && (
+                        <Tooltip title={copySuccess || "Copy Transaction Hash"}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleCopyToClipboard(viewWithdrawal.txid || viewWithdrawal.transaction_hash, 'Transaction Hash')}
+                            sx={{ p: 0.5 }}
+                          >
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                    {(viewWithdrawal.txid || viewWithdrawal.transaction_hash) ? (
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          wordBreak: 'break-all',
+                          bgcolor: theme.palette.action.hover,
+                          p: 1,
+                          borderRadius: 1,
+                          fontFamily: 'monospace',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        {viewWithdrawal.txid || viewWithdrawal.transaction_hash}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No transaction hash available
+                      </Typography>
+                    )}
+                    <Typography variant="body2">
+                      <strong>Created:</strong> {formatDate(viewWithdrawal.created_at)}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Updated:</strong> {formatDate(viewWithdrawal.updated_at)}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              {/* Admin Notes/Reason */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 2, bgcolor: theme.palette.background.default }}>
+                  <Typography variant="subtitle1" gutterBottom color="primary" fontWeight="bold">
+                    Admin Notes / Reason
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      bgcolor: theme.palette.action.hover,
+                      p: 2,
+                      borderRadius: 1,
+                      minHeight: '60px',
+                      whiteSpace: 'pre-wrap'
+                    }}
+                  >
+                    {viewWithdrawal.remark || viewWithdrawal.extra?.rejectionReason || viewWithdrawal.reason || viewWithdrawal.admin_notes || (
+                      viewWithdrawal.status === 1 || viewWithdrawal.status === '1' ? 'Approved and processed successfully' :
+                      viewWithdrawal.status === 2 || viewWithdrawal.status === '2' ? 'Rejected by admin' :
+                      'Pending admin approval'
+                    )}
+                  </Typography>
+                </Paper>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
+          <Button onClick={handleCloseViewModal} variant="outlined">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Copy Success Snackbar */}
+      <Snackbar
+        open={!!copySuccess}
+        autoHideDuration={2000}
+        onClose={() => setCopySuccess('')}
+        message={copySuccess}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 };

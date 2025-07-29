@@ -89,9 +89,12 @@ const TradingLayout: React.FC<TradingLayoutProps> = ({
         boxSizing: 'border-box',
         mx: 'auto',
         overflow: 'hidden', // Prevent content overflow on small screens
-        boxShadow: {
+        boxShadow: theme.palette.mode === 'dark' ? {
           xs: '0 2px 10px rgba(0, 0, 0, 0.15)',
           sm: '0 4px 20px rgba(0, 0, 0, 0.2)'
+        } : {
+          xs: '0 2px 10px rgba(0, 0, 0, 0.08)',
+          sm: '0 4px 20px rgba(0, 0, 0, 0.1)'
         }
       }}
     >
@@ -186,7 +189,9 @@ const TradingLayout: React.FC<TradingLayoutProps> = ({
               fontWeight: 600,
               padding: { xs: '6px 12px', sm: '8px 15px' },
               borderRadius: 1,
-              background: 'rgba(0, 0, 0, 0.2)',
+              background: theme.palette.mode === 'dark'
+                ? 'rgba(0, 0, 0, 0.2)'
+                : 'rgba(255, 255, 255, 0.8)',
               transition: 'all 0.2s ease',
               textAlign: 'center',
               minWidth: { xs: '100px', sm: 'auto' }

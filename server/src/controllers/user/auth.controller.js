@@ -855,33 +855,43 @@ module.exports = {
 
             // Check if it's a sponsor ID
             if (req.body.refer_id.startsWith('NB') || req.body.refer_id.startsWith('SI')) {
-                const sponsorUser = await userDbHandler.getOneByQuery({ sponsorID: req.body.refer_id }, { _id: 1 })
+                const sponsorUser = await userDbHandler.getOneByQuery({ sponsorID: req.body.refer_id }, { _id: 1, name: 1, username: 1, sponsorID: 1 })
                 if (sponsorUser) {
                     responseData.msg = "Sponsor ID Verified Successfully!"
                     responseData.data = {
-                        _id: sponsorUser._id.toString()
+                        _id: sponsorUser._id.toString(),
+                        name: sponsorUser.name,
+                        username: sponsorUser.username,
+                        sponsorID: sponsorUser.sponsorID
                     }
                     return responseHelper.success(res, responseData);
                 }
             }
 
             // If not a sponsor ID or sponsor ID not found, check trace_id
-            const user = await userDbHandler.getOneByQuery({ trace_id: req.body.refer_id }, { _id: 1 })
+            const user = await userDbHandler.getOneByQuery({ sponsorID: req.body.refer_id }, { _id: 1, name: 1, username: 1, sponsorID: 1 })
+            console.log(user)
             if (!user) {
                 // If not found by trace_id, check username
-                const usernameUser = await userDbHandler.getOneByQuery({ username: req.body.refer_id }, { _id: 1 })
+                const usernameUser = await userDbHandler.getOneByQuery({ username: req.body.refer_id }, { _id: 1, name: 1, username: 1, sponsorID: 1 })
                 if (!usernameUser) throw "Invalid User !!!"
 
                 responseData.msg = "Username Verified Successfully!"
                 responseData.data = {
-                    _id: usernameUser._id.toString()
+                    _id: usernameUser._id.toString(),
+                    name: usernameUser.name,
+                    username: usernameUser.username,
+                    sponsorID: usernameUser.sponsorID
                 }
                 return responseHelper.success(res, responseData);
             }
 
             responseData.msg = "Refer ID Verified Successfully!"
             responseData.data = {
-                _id: user._id.toString()
+                _id: user._id.toString(),
+                name: user.name,
+                username: user.username,
+                sponsorID: user.sponsorID
             }
             return responseHelper.success(res, responseData);
 
@@ -1246,7 +1256,7 @@ module.exports = {
 
                 // If not a sponsor ID or sponsor ID not found, check username
                 if (!refer_id) {
-                    let referUser = await userDbHandler.getOneByQuery({ username: trace_id }, { _id: 1 });
+                    let referUser = await userDbHandler.getOneByQuery({ sponsorID: trace_id }, { _id: 1 });
                     if (referUser) {
                         refer_id = referUser._id;
                     }

@@ -558,11 +558,15 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
         borderRadius: '20px',
         border: 'none',
         padding: { xs: '20px', md: '25px' },
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.25)',
+        boxShadow: theme.palette.mode === 'dark'
+          ? '0 10px 30px rgba(0, 0, 0, 0.25)'
+          : '0 10px 30px rgba(0, 0, 0, 0.1)',
         width: '100%',
         maxWidth: '100%',
         boxSizing: 'border-box',
-        background: 'linear-gradient(135deg, rgba(30, 30, 40, 0.95) 0%, rgba(15, 15, 25, 0.97) 100%)',
+        background: theme.palette.mode === 'dark'
+          ? 'linear-gradient(135deg, rgba(30, 30, 40, 0.95) 0%, rgba(15, 15, 25, 0.97) 100%)'
+          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.97) 100%)',
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -591,7 +595,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               zIndex: 10,
-              background: 'rgba(0, 0, 0, 0.8)',
+              background: theme.palette.mode === 'dark'
+              ? 'rgba(0, 0, 0, 0.8)'
+              : 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(4px)',
               borderRadius: '20px',
             }}
@@ -631,7 +637,7 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
               <Typography
                 variant="h5"
                 sx={{
-                  color: 'white',
+                  color: theme.palette.mode === 'dark' ? 'white' : theme.palette.text.primary,
                   fontWeight: 'bold',
                   background: 'linear-gradient(90deg, #0ecb81, #0bb974, #0ecb81)',
                   backgroundSize: '200% 100%',
@@ -693,7 +699,7 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
           <Typography
             variant="h6"
             sx={{
-              color: tradingActive ? 'secondary.main' : 'text.secondary',
+              color: tradingActive ? 'secondary.main' : theme.palette.text.secondary,
               fontWeight: 600,
               fontSize: { xs: '1.1rem', sm: '1.25rem' },
               letterSpacing: '0.5px'
@@ -712,7 +718,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
             <IconButton
               onClick={() => setShowSettings(!showSettings)}
               sx={{
-                color: 'rgba(255, 255, 255, 0.7)',
+                color: theme.palette.mode === 'dark'
+                  ? 'rgba(255, 255, 255, 0.7)'
+                  : 'rgba(0, 0, 0, 0.7)',
                 '&:hover': {
                   color: 'secondary.main',
                   backgroundColor: 'rgba(14, 203, 129, 0.1)'
@@ -767,10 +775,18 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
           mt: 2,
           p: 2,
           borderRadius: '12px',
-          background: 'rgba(30, 30, 40, 0.3)',
-          border: '1px solid rgba(255, 255, 255, 0.05)'
+          background: theme.palette.mode === 'dark'
+            ? 'rgba(30, 30, 40, 0.3)'
+            : 'rgba(248, 250, 252, 0.8)',
+          border: theme.palette.mode === 'dark'
+            ? '1px solid rgba(255, 255, 255, 0.05)'
+            : '1px solid rgba(0, 0, 0, 0.1)'
         }}>
-          <Typography variant="h6" sx={{ color: 'white', mb: 2, fontSize: '1rem' }}>
+          <Typography variant="h6" sx={{
+            color: theme.palette.mode === 'dark' ? 'white' : theme.palette.text.primary,
+            mb: 2,
+            fontSize: '1rem'
+          }}>
             Auto-Activation Settings
           </Typography>
 
@@ -791,10 +807,17 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
             }
             label={
               <Box>
-                <Typography variant="body2" sx={{ color: 'white', fontWeight: 500 }}>
+                <Typography variant="body2" sx={{
+                  color: theme.palette.mode === 'dark' ? 'white' : theme.palette.text.primary,
+                  fontWeight: 500
+                }}>
                   Auto-activate trading for invested users
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                <Typography variant="caption" sx={{
+                  color: theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.6)'
+                    : 'rgba(0, 0, 0, 0.6)'
+                }}>
                   When enabled, trading will be automatically activated if you have an active investment
                 </Typography>
               </Box>
@@ -816,10 +839,14 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
           <Paper
             elevation={0}
             sx={{
-              background: 'rgba(30, 30, 40, 0.5)',
+              background: theme.palette.mode === 'dark'
+                ? 'rgba(30, 30, 40, 0.5)'
+                : 'rgba(255, 255, 255, 0.8)',
               padding: '20px',
               borderRadius: '16px',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
+              border: theme.palette.mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.05)'
+                : '1px solid rgba(0, 0, 0, 0.1)',
               width: '100%',
               height: '100%',
               transition: 'transform 0.3s ease, box-shadow 0.3s ease',
@@ -834,7 +861,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
                 <Typography
                   variant="subtitle1"
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.7)',
+                    color: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.7)'
+                      : 'rgba(0, 0, 0, 0.7)',
                     fontWeight: 500,
                     letterSpacing: '0.5px',
                     fontSize: '0.9rem'
@@ -847,7 +876,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
                     width: 36,
                     height: 36,
                     borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)',
+                    background: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.05)'
+                      : 'rgba(0, 0, 0, 0.05)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -874,7 +905,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
                 sx={{
                   mt: 'auto',
                   pt: 2,
-                  borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                  borderTop: theme.palette.mode === 'dark'
+                    ? '1px solid rgba(255, 255, 255, 0.05)'
+                    : '1px solid rgba(0, 0, 0, 0.1)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1
@@ -888,7 +921,11 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
                     bgcolor: 'white',
                   }}
                 />
-                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                <Typography variant="caption" sx={{
+                  color: theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.5)'
+                    : 'rgba(0, 0, 0, 0.5)'
+                }}>
                   Your base investment amount
                 </Typography>
               </Box>
@@ -993,7 +1030,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
                     variant="caption"
                     sx={{
                       fontFamily: "'Roboto Mono', monospace",
-                      color: 'rgba(255, 255, 255, 0.7)',
+                      color: theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.7)'
+                        : 'rgba(0, 0, 0, 0.7)',
                       fontSize: '0.75rem'
                     }}
                   >
@@ -1048,7 +1087,11 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
                       bgcolor: 'secondary.main',
                     }}
                   />
-                  <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                  <Typography variant="caption" sx={{
+                    color: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.5)'
+                      : 'rgba(0, 0, 0, 0.5)'
+                  }}>
                     {/* Max: {dailyProfitAmount.toFixed(2)} USDT */}
                   </Typography>
                 </Box>
@@ -1078,7 +1121,9 @@ const TradingActivation: React.FC<TradingActivationProps> = ({
                         variant="caption"
                         sx={{
                           fontFamily: "'Roboto Mono', monospace",
-                          color: 'rgba(255, 255, 255, 0.7)',
+                          color: theme.palette.mode === 'dark'
+                            ? 'rgba(255, 255, 255, 0.7)'
+                            : 'rgba(0, 0, 0, 0.7)',
                           fontSize: '0.75rem',
                         }}
                       >

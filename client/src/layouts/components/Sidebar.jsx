@@ -632,6 +632,18 @@ const Sidebar = ({ open, onClose }) => {
             </ListItemButton>
             <ListItemButton
               component={Link}
+              to="/withdrawal-history"
+              selected={isActive('/withdrawal-history')}
+              onClick={handleItemClick}
+              sx={{ pl: 4 }}
+            >
+              <ListItemIcon>
+                <HistoryIcon color={isActive('/withdrawal-history') ? 'primary' : 'inherit'} fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Withdrawal History" />
+            </ListItemButton>
+            <ListItemButton
+              component={Link}
               to="/transaction-history"
               selected={isActive('/transaction-history')}
               onClick={handleItemClick}

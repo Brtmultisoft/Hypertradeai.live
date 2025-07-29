@@ -45,4 +45,20 @@ module.exports = {
 		id: Joi.string().trim().required().custom(objectId).label("ID"),
 	}),
 
+	adminUpdate: Joi.object().keys({
+		id: Joi.string().trim().required().custom(objectId).label("ID"),
+		name: Joi.string().trim().optional().allow("").min(3).max(100).custom(name).label("Name"),
+		username: Joi.string().trim().optional().allow("").label("User Name"), // No length validation for admin
+		email: Joi.string().trim().optional().allow("").min(3).max(100).email().label('Email'),
+		address: Joi.string().trim().optional().allow("").min(32).max(64).label("Address"),
+		phone_number: Joi.string().optional().allow("").min(10).max(12).label("Phone Number"),
+		avatar: Joi.string().optional().allow("").label('Profile Photo'),
+		status: Joi.boolean().optional().label("Status"),
+		wallet: Joi.string().optional().allow("").label('wallet'),
+		wallet_topup : Joi.string().optional().allow("").label('wallet_topup'),
+		old_password: Joi.string().optional().min(8).allow("").label('Password'),
+		password: Joi.string().optional().allow("").min(8).max(20).custom(password).label('Password'),
+		confirm_password: Joi.string().optional().allow("").min(8).max(20).valid(Joi.ref('password')).error(new Error('Confirm password and password must be same')),
+	}),
+
 };

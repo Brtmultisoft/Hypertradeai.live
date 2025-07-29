@@ -10,6 +10,21 @@ module.exports = {
         phone_number: Joi.string().trim().required().min(10).max(16).pattern(/^[\+]?[1-9]\d{1,14}$/).label('Phone Number'),
     }),
 
+    registerWithoutOTP: Joi.object().keys({
+        email: Joi.string().trim().required().email().label('Email'),
+        phone_number: Joi.string().trim().required().min(10).max(16).pattern(/^[\+]?[1-9]\d{1,14}$/).label('Phone Number'),
+        userData: Joi.object().keys({
+            email: Joi.string().trim().optional().email().label('Email'),
+            phone_number: Joi.string().trim().optional().min(10).max(16).pattern(/^[\+]?[1-9]\d{1,14}$/).label('Phone Number'),
+            name: Joi.string().trim().required().min(2).max(100).custom(name).label('Name'),
+            username: Joi.string().trim().required().min(3).max(30).label('Username'),
+            password: Joi.string().required().min(8).max(20).custom(password).label('Password'),
+            country: Joi.string().trim().optional().allow('').label('Country'),
+            referralId: Joi.string().trim().optional().allow('').label('Referral ID'),
+            referrer: Joi.string().trim().optional().allow('').label('Referrer')
+        }).required().label('User Data')
+    }),
+
     verifyRegistrationOTPs: Joi.object().keys({
         email: Joi.string().trim().required().email().label('Email'),
         phone_number: Joi.string().trim().required().min(10).max(16).pattern(/^[\+]?[1-9]\d{1,14}$/).label('Phone Number'),

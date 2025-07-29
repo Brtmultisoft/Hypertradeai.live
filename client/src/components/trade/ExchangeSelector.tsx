@@ -1,5 +1,5 @@
 import React from 'react';
-import { Paper, Box, Typography, Card, Avatar, Chip, CircularProgress } from '@mui/material';
+import { Paper, Box, Typography, Card, Avatar, Chip, CircularProgress, useTheme } from '@mui/material';
 import { Exchange } from '../../types/types';
 
 interface ExchangeSelectorProps {
@@ -13,6 +13,7 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
   setCurrentExchange,
   tradingActive
 }) => {
+  const theme = useTheme();
   // Get exchanges from the Binance API hook (now passed from parent)
   // The exchanges and auto-rotation are now handled by the useBinancePrice hook
 
@@ -82,20 +83,26 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
   return (
     <Paper
       sx={{
-        background: 'linear-gradient(180deg, rgba(24, 27, 36, 0.9) 0%, rgba(18, 21, 28, 0.95) 100%)',
+        background: theme.palette.mode === 'dark'
+          ? 'linear-gradient(180deg, rgba(24, 27, 36, 0.9) 0%, rgba(18, 21, 28, 0.95) 100%)'
+          : 'linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.98) 100%)',
         borderRadius: '12px',
         padding: { xs: '12px 8px', sm: '15px 10px', md: '18px 12px' },
         mb: 2,
         position: 'relative',
         overflow: 'hidden',
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.25)',
+        boxShadow: theme.palette.mode === 'dark'
+          ? '0 10px 30px rgba(0, 0, 0, 0.25)'
+          : '0 10px 30px rgba(0, 0, 0, 0.1)',
         width: '100%',
         maxWidth: '100%',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        border: '1px solid rgba(255, 255, 255, 0.05)'
+        border: theme.palette.mode === 'dark'
+          ? '1px solid rgba(255, 255, 255, 0.05)'
+          : '1px solid rgba(0, 0, 0, 0.1)'
       }}
     >
       {!tradingActive && (
@@ -106,7 +113,9 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.7)',
+            background: theme.palette.mode === 'dark'
+              ? 'rgba(0, 0, 0, 0.7)'
+              : 'rgba(255, 255, 255, 0.8)',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -114,7 +123,11 @@ const ExchangeSelector: React.FC<ExchangeSelectorProps> = ({
             backdropFilter: 'blur(3px)'
           }}
         >
-          <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+          <Typography variant="body1" sx={{
+            color: theme.palette.mode === 'dark'
+              ? 'rgba(255, 255, 255, 0.7)'
+              : 'rgba(0, 0, 0, 0.7)'
+          }}>
             Trading Inactive
           </Typography>
         </Box>

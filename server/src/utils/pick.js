@@ -74,6 +74,10 @@ const statusSearch = (object, fields) => {
       if(object[key] == 'true' || object[key] == true || object[key] == 'false' || object[key] == false){
         obj[key] = object[key] == 'true' || object[key] == true || object[key] == 1 ? true : false;
       }
+      // Handle numeric status values (like 0, 1, 2 for withdrawal status)
+      else if(!isNaN(object[key]) && object[key] !== '' && object[key] !== null && object[key] !== undefined) {
+        obj[key] = parseInt(object[key]);
+      }
       // Handle string status values like 'active', 'completed', etc.
       else if(typeof object[key] === 'string' && object[key].trim() !== '') {
         obj[key] = object[key];

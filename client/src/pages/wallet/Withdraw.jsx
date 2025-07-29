@@ -1189,7 +1189,7 @@ const Withdraw = () => {
               variant="outlined"
               color="primary"
               size="small"
-              onClick={() => navigate('/transaction-history')}
+              onClick={() => navigate('/withdrawal-history')}
               sx={{
                 textTransform: 'none',
                 borderRadius: 2,

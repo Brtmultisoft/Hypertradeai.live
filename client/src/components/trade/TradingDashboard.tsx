@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import CustomGrid from '../common/CustomGrid';
 import { TradingPair } from '../../types/types';
 import { tradingPairs } from '../../data/tradingPairs';
@@ -16,11 +16,13 @@ import { useTradingData } from '../../hooks/useTradingData';
 import UserService from '../../services/user.service';
 
 const TradingDashboard: React.FC = () => {
+  const theme = useTheme();
+
 // const {
 //     userData,
 //     activatingProfit,
 //     handleActivateDailyProfit,
-  
+
 //     tradeData,
 //     loading: dataLoading
 //   } = useTradingData();

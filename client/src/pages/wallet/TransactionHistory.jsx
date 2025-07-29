@@ -159,7 +159,7 @@ const TransactionHistory = () => {
     }
   };
 
-  // Get status label
+  // Get status label - Fixed mapping to match admin side
   const getStatusLabel = (status) => {
     // Convert to number if it's a string
     const statusCode = typeof status === 'string' ? parseInt(status) : status;
@@ -167,16 +167,16 @@ const TransactionHistory = () => {
     switch (statusCode) {
       case 0:
         return 'Pending';
-      case 2:
-        return 'Approved';
       case 1:
+        return 'Approved';
+      case 2:
         return 'Rejected';
       default:
         return 'Unknown';
     }
   };
 
-  // Get status color
+  // Get status color - Fixed mapping to match admin side
   const getStatusColor = (status) => {
     // Convert to number if it's a string
     const statusCode = typeof status === 'string' ? parseInt(status) : status;
@@ -184,9 +184,9 @@ const TransactionHistory = () => {
     switch (statusCode) {
       case 0:
         return 'warning';
-      case 2:
-        return 'success';
       case 1:
+        return 'success';
+      case 2:
         return 'error';
       default:
         return 'default';
@@ -369,8 +369,8 @@ const TransactionHistory = () => {
                 >
                   <MenuItem value="all">All Status</MenuItem>
                   <MenuItem value="0">Pending</MenuItem>
-                  <MenuItem value="2">Approved</MenuItem>
-                  <MenuItem value="2">Rejected</MenuItem>
+                  <MenuItem value="1">Approved/Completed</MenuItem>
+                  <MenuItem value="2">Rejected/Failed</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -465,12 +465,13 @@ const TransactionHistory = () => {
                     <TableCell>Net Amount</TableCell>
                     <TableCell>Transaction ID</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell>Reason/Notes</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {transactionData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center">
+                      <TableCell colSpan={8} align="center">
                         <Typography variant="body2" sx={{ py: 2 }}>
                           No transaction records found
                         </Typography>
@@ -511,6 +512,30 @@ const TransactionHistory = () => {
                             size="small"
                             color={getStatusColor(transaction.status)}
                           />
+                        </TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              maxWidth: 200,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={transaction.reason || transaction.admin_notes || 'No reason provided'}
+                          >
+                            {transaction.type === 'withdrawal' ? (
+                              transaction.reason || transaction.admin_notes || (
+                                transaction.status === 1 ? 'Approved and processed' :
+                                transaction.status === 2 ? 'Rejected by admin' :
+                                'Pending approval'
+                              )
+                            ) : (
+                              transaction.status === 1 ? 'Deposit confirmed' :
+                              transaction.status === 0 ? 'Pending confirmation' :
+                              'Deposit failed'
+                            )}
+                          </Typography>
                         </TableCell>
                       </TableRow>
                     ))

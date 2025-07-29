@@ -1755,6 +1755,12 @@ const _processDailyTradingProfit = async (triggeredBy = 'automatic') => {
             continue;
           }
 
+          // Check if user has daily profit activated (skip if user has released investment)
+          if (user.dailyProfitActivated === false) {
+            console.log(`[DAILY_PROFIT] User ${user._id} has dailyProfitActivated=false (investment released). Skipping investment ${investment._id}...`);
+            continue;
+          }
+
           console.log(`[DAILY_PROFIT] Processing ROI for user ${user._id} (${user.email || user.username}) - Investment: ${investment._id}`);
 
           // Get the investment plan to use its percentage value

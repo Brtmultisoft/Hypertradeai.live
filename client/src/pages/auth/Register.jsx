@@ -34,6 +34,7 @@ import {
   Badge as BadgeIcon,
   CheckCircle as CheckCircleIcon,
   ContentCopy as ContentCopyIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import useAuth from '../../hooks/useAuth';
 import useForm from '../../hooks/useForm';
@@ -83,19 +84,15 @@ const Register = () => {
   const [referralChecking, setReferralChecking] = useState(false);
   const referralDebounceRef = useRef();
 
-  // Get referral code from URL if present and default referrer from env
+  // Get referral code from URL if present
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     if (ref) {
       setReferralCode(ref);
       validateReferralId(ref);
-    } else {
-      // Set default referrer from env
-      const defaultRef = import.meta.env.VITE_DEFAULT_REFERRER || 'admin';
-      setReferralCode(defaultRef);
-      validateReferralId(defaultRef);
     }
+    // Server will handle default admin if referral code is empty
   }, []);
 
   // Validate referral ID
@@ -610,16 +607,19 @@ const Register = () => {
     });
   };
 
-  // Custom handleChange function to validate confirmPassword when password changes
+  // Custom handleChange function to handle referral code and other form fields
   const customHandleChange = (e) => {
     const { name, value } = e.target;
 
-    // If referralCode is being changed, clear referralError immediately
+    // If referralCode is being changed, update referralCode state and clear error
     if (name === 'referralCode') {
+      setReferralCode(value);
       setReferralError('');
+      setReferralInfo(null);
+      return; // Don't call handleChange for referralCode as it's not part of form values
     }
 
-    // Call the original handleChange function
+    // Call the original handleChange function for other form fields
     handleChange(e);
   };
 
@@ -663,18 +663,11 @@ const Register = () => {
           return;
         }
 
-        // If referral code is empty, validate it with default value
-        if (!referralCode) {
-          const defaultRef = import.meta.env.VITE_DEFAULT_REFERRER || 'admin';
-          await validateReferralId(defaultRef);
-          setReferralCode(defaultRef);
-
-          // Check again after validation
-          if (referralError) {
-            setShowSuccessAlert(true);
-            setSuccessMessage('Invalid referral ID. Please use a valid referral ID.');
-            return;
-          }
+        // If referral code is provided, it must be valid
+        if (referralCode && referralError) {
+          setShowSuccessAlert(true);
+          setSuccessMessage('Invalid referral ID. Please use a valid referral ID or leave it empty.');
+          return;
         }
 
         // Check if both OTPs are disabled
@@ -694,7 +687,7 @@ const Register = () => {
           email: email, // Add email back to userData
           phone_number: phone, // Add phone_number for consistency
           password: userData.password, // User must provide password
-          referralId: referralCode || undefined, // Backend expects referralId, undefined if empty
+          referralId: referralCode || '', // Backend will handle default admin if empty
         };
 
         console.log('Final user data being sent:', finalUserData);
@@ -1006,7 +999,7 @@ const Register = () => {
           />
 
           <TextField
-            label="Referral ID"
+            label="Referral ID (Optional)"
             name="referralCode"
             value={referralCode}
             onChange={customHandleChange}
@@ -1015,22 +1008,42 @@ const Register = () => {
             helperText={
               referralError
                 ? referralError
-                : referralInfo && (referralInfo.name || referralInfo.username)
-                  ? `Referrer: ${referralInfo.name || referralInfo.username}`
+                : referralInfo && (referralInfo.name || referralInfo.username || referralInfo.sponsorID)
+                  ? `✓ Referrer: ${referralInfo.name || referralInfo.username || referralInfo.sponsorID}`
                   : referralChecking
                     ? 'Checking referral ID...'
-                    : 'Enter a valid referral ID'
+                    : 'Enter a valid referral ID or leave empty'
             }
             InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PersonIcon />
+                </InputAdornment>
+              ),
               endAdornment: referralChecking ? (
                 <InputAdornment position="end">
                   <CircularProgress size={18} />
+                </InputAdornment>
+              ) : referralCode ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="clear referral code"
+                    onClick={() => {
+                      setReferralCode('');
+                      setReferralError('');
+                      setReferralInfo(null);
+                    }}
+                    edge="end"
+                    size="small"
+                  >
+                    <ClearIcon />
+                  </IconButton>
                 </InputAdornment>
               ) : null,
             }}
             fullWidth
             margin="normal"
-            required
+            placeholder="Enter referral ID or leave empty"
           />
 
           {/* Navigation Buttons */}
