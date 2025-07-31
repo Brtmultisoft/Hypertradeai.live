@@ -128,6 +128,28 @@ console.log("userdata",userData);
             }
         );
 
+        // IMPORTANT: Deactivate all active investments when stake is released
+        // This prevents users from receiving level ROI after releasing their stake
+        const { investmentDbHandler } = require('../../services/db');
+        try {
+            const deactivateResult = await investmentDbHandler.updateByQuery(
+                {
+                    user_id: user_id,
+                    status: { $in: ['active', 1] }
+                },
+                {
+                    status: 'completed',  // Change status from active to completed
+                    'extra.completion_date': new Date(),
+                    'extra.completion_reason': 'Stake released to wallet',
+                    'extra.stake_released': true
+                }
+            );
+            console.log(`Deactivated ${deactivateResult.modifiedCount || 0} active investments for user ${user_id}`);
+        } catch (investmentError) {
+            console.error('Error deactivating investments:', investmentError);
+            // Don't fail the operation if investment deactivation fails
+        }
+
         console.log('User wallet update result:', updateResult);
 
         // Update all active investments to 'completed' status
@@ -558,6 +580,32 @@ module.exports = {
 
                 console.log('User wallet update result:', updateResult);
 
+                // IMPORTANT: Handle investment deactivation based on release type
+                try {
+                    if (stakingReleaseOption === 'wallet') {
+                        // Full release to wallet - deactivate ALL investments
+                        const deactivateResult = await investmentDbHandler.updateByQuery(
+                            {
+                                user_id: user_id,
+                                status: { $in: ['active', 1] }
+                            },
+                            {
+                                status: 'completed',
+                                'extra.completion_date': new Date(),
+                                'extra.completion_reason': 'Full stake released to wallet',
+                                'extra.stake_released': true
+                            }
+                        );
+                        console.log(`Deactivated ${deactivateResult.modifiedCount || 0} active investments for full release`);
+                    } else if (stakingReleaseOption === 'partial') {
+                        // Partial release - reduce investment amounts by 50% (already handled below)
+                        console.log('Partial release - investment amounts will be reduced by 50%');
+                    }
+                } catch (investmentError) {
+                    console.error('Error handling investment deactivation:', investmentError);
+                    // Don't fail the operation if investment handling fails
+                }
+
                 // Handle investments based on release type
                 try {
                     if (stakingReleaseOption === 'partial') {
@@ -746,6 +794,26 @@ module.exports = {
                         dailyProfitActivated: false, // Deactivate daily profit
                         lastDailyProfitActivation: null // Clear last activation date
                     };
+
+                    // IMPORTANT: For full release with withdrawal, deactivate all investments
+                    try {
+                        const deactivateResult = await investmentDbHandler.updateByQuery(
+                            {
+                                user_id: user_id,
+                                status: { $in: ['active', 1] }
+                            },
+                            {
+                                status: 'completed',
+                                'extra.completion_date': new Date(),
+                                'extra.completion_reason': 'Full stake released with withdrawal',
+                                'extra.stake_released': true
+                            }
+                        );
+                        console.log(`Deactivated ${deactivateResult.modifiedCount || 0} active investments for full release with withdrawal`);
+                    } catch (investmentError) {
+                        console.error('Error deactivating investments for full release:', investmentError);
+                        // Don't fail the operation if investment deactivation fails
+                    }
 
                     // Add a note about full staking release in the withdrawal record
                     withdrawalData.extra.stakingFullyReleased = true;

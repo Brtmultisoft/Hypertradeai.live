@@ -44,24 +44,29 @@ const hasUserInvested = async (userId) => {
       console.log('- Total investment:', user.total_investment);
     }
 
-    if (user && user.total_investment > 0) {
-      console.log('User has total_investment > 0, returning true');
+    // UPDATED LOGIC: Both conditions must be true for user to be considered invested
+    // 1. User must have total_investment > 0
+    // 2. User must have active investments
+    // This prevents users who released their stake from receiving level ROI
+
+    if (!user || user.total_investment <= 0) {
+      console.log('User has no total_investment or total_investment <= 0');
       console.log('==================== END CHECKING IF USER HAS INVESTED ====================');
-      return true;
+      return false;
     }
 
-    console.log('Total investment is 0 or null, checking for active investments');
-    // As a fallback, check if the user has any active investments
+    console.log('User has total_investment > 0, now checking for active investments');
+    // Check if the user has any active investments
     // Check for both string 'active' and numeric status 1 (which is also active)
     const investments = await investmentDbHandler.getByQuery({
       user_id: userId,
       status: { $in: ['active', 1] }
     });
 
-    console.log('Investments found:', investments ? investments.length : 0);
+    console.log('Active investments found:', investments ? investments.length : 0);
 
     if (investments && investments.length > 0) {
-      console.log('Investment details:');
+      console.log('Active investment details:');
       investments.forEach((inv, index) => {
         console.log(`Investment ${index + 1}:`);
         console.log(`- ID: ${inv._id}`);
@@ -72,8 +77,13 @@ const hasUserInvested = async (userId) => {
       });
     }
 
-    const result = investments && investments.length > 0;
-    console.log('Final result:', result ? 'User has invested' : 'User has not invested');
+    // UPDATED: User is considered invested only if BOTH conditions are met:
+    // 1. total_investment > 0 (already checked above)
+    // 2. Has active investments
+    const hasActiveInvestments = investments && investments.length > 0;
+    const result = hasActiveInvestments;
+
+    console.log('Final result:', result ? 'User has invested (both total_investment > 0 and active investments exist)' : 'User has not invested (either no total_investment or no active investments)');
     console.log('==================== END CHECKING IF USER HAS INVESTED ====================');
     return result;
   } catch (error) {

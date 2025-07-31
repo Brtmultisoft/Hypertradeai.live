@@ -74,6 +74,14 @@ const investmentSchema = new Schema({
         type: Date,
         default: Date.now
     },
+    completion_date: {
+        type: Date,
+        default: null
+    },
+    completion_reason: {
+        type: String,
+        default: null
+    },
     extra: {
         type: Object,
         default: {}
